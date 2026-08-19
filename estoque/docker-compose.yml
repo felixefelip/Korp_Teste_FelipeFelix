@@ -1,0 +1,39 @@
+services:
+  go-app:
+    container_name: go-app
+    image: estoque
+    build: .
+    init: true
+    ports:
+      - "8000:8000"
+    environment:
+      GO_ENV: ${GO_ENV:-development}
+      DB_HOST: go_db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 1234
+    volumes:
+      - .:/go/src/app
+      - gomodcache:/go/pkg/mod
+    depends_on:
+      go_db:
+        condition: service_healthy
+    command: sleep infinity
+  go_db:
+    container_name: go_db
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_USER: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: pg_isready -h 127.0.0.1 -U postgres
+      interval: 5s
+      retries: 12
+
+volumes:
+  pgdata: {}
+  gomodcache: {}
