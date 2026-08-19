@@ -1,0 +1,128 @@
+.pagina__cabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.pagina__titulo {
+  font-size: 1.5rem;
+  color: var(--brand-900);
+}
+
+.pagina__subtitulo {
+  margin: 0.25rem 0 0;
+  color: var(--text-500);
+  font-size: 0.8125rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.card__filtro {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.campo {
+  width: 100%;
+  max-width: 360px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: var(--text-900);
+  background: var(--surface);
+}
+
+.campo:focus {
+  outline: none;
+  border-color: var(--brand-300);
+  box-shadow: 0 0 0 3px rgba(74, 127, 189, 0.18);
+}
+
+.tabela-wrapper {
+  overflow-x: auto;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.tabela thead th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-700);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tabela tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-700);
+}
+
+.tabela tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tabela tbody tr:hover td {
+  background: var(--surface-alt);
+}
+
+.tabela__codigo {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-900);
+  font-weight: 600;
+}
+
+.tabela__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabela__vazio {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-500);
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.tag--ativo {
+  background: rgba(30, 135, 75, 0.12);
+  color: var(--success-500);
+}
+
+.tag--inativo {
+  background: rgba(107, 122, 141, 0.15);
+  color: var(--text-500);
+}
+
+@media (max-width: 640px) {
+  .pagina__cabecalho {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

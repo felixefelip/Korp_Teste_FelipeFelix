@@ -1,0 +1,103 @@
+<section class="pagina">
+  <header class="pagina__cabecalho">
+    <div>
+      <h1 class="pagina__titulo">Cadastrar produto</h1>
+      <p class="pagina__subtitulo">Estoque &rsaquo; Produtos &rsaquo; Novo</p>
+    </div>
+  </header>
+
+  <form class="card" [formGroup]="formulario" (ngSubmit)="salvar()" novalidate>
+    <div class="form__grade">
+      <div class="campo-grupo campo-grupo--codigo">
+        <label class="campo-rotulo" for="codigo">Código</label>
+        <input
+          id="codigo"
+          type="text"
+          class="campo"
+          formControlName="codigo"
+          autocomplete="off"
+          [class.campo--erro]="erro('codigo')"
+        />
+        @if (erro('codigo'); as mensagem) {
+          <p class="campo-erro">{{ mensagem }}</p>
+        }
+      </div>
+
+      <div class="campo-grupo campo-grupo--descricao">
+        <label class="campo-rotulo" for="descricao">Descrição</label>
+        <input
+          id="descricao"
+          type="text"
+          class="campo"
+          formControlName="descricao"
+          [class.campo--erro]="erro('descricao')"
+        />
+        @if (erro('descricao'); as mensagem) {
+          <p class="campo-erro">{{ mensagem }}</p>
+        }
+      </div>
+
+      <div class="campo-grupo">
+        <label class="campo-rotulo" for="unidade">Unidade</label>
+        <select
+          id="unidade"
+          class="campo"
+          formControlName="unidade"
+          [class.campo--erro]="erro('unidade')"
+        >
+          @for (unidade of unidades; track unidade) {
+            <option [value]="unidade">{{ unidade }}</option>
+          }
+        </select>
+        @if (erro('unidade'); as mensagem) {
+          <p class="campo-erro">{{ mensagem }}</p>
+        }
+      </div>
+
+      <div class="campo-grupo">
+        <label class="campo-rotulo" for="precoUnitario">Preço unitário (R$)</label>
+        <input
+          id="precoUnitario"
+          type="number"
+          class="campo"
+          formControlName="precoUnitario"
+          step="0.01"
+          min="0"
+          placeholder="0,00"
+          [class.campo--erro]="erro('precoUnitario')"
+        />
+        @if (erro('precoUnitario'); as mensagem) {
+          <p class="campo-erro">{{ mensagem }}</p>
+        }
+      </div>
+
+      <div class="campo-grupo">
+        <label class="campo-rotulo" for="estoque">Estoque inicial</label>
+        <input
+          id="estoque"
+          type="number"
+          class="campo"
+          formControlName="estoque"
+          step="1"
+          min="0"
+          [class.campo--erro]="erro('estoque')"
+        />
+        @if (erro('estoque'); as mensagem) {
+          <p class="campo-erro">{{ mensagem }}</p>
+        }
+      </div>
+
+      <div class="campo-grupo campo-grupo--checkbox">
+        <label class="campo-check">
+          <input type="checkbox" formControlName="ativo" />
+          <span>Produto ativo</span>
+        </label>
+      </div>
+    </div>
+
+    <footer class="form__acoes">
+      <a class="btn btn--ghost" routerLink="/estoque/produtos">Cancelar</a>
+      <button type="submit" class="btn btn--primary">Salvar produto</button>
+    </footer>
+  </form>
+</section>

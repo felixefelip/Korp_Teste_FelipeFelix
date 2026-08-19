@@ -1,0 +1,98 @@
+/* Estilos globais e design tokens do ERP */
+
+:root {
+  --brand-900: #0b2545;
+  --brand-700: #13315c;
+  --brand-500: #1d4e89;
+  --brand-300: #4a7fbd;
+
+  --accent-500: #0f9d8f;
+  --accent-600: #0b8175;
+
+  --surface: #ffffff;
+  --surface-alt: #f4f6f9;
+  --border: #dfe4ec;
+
+  --text-900: #16202c;
+  --text-700: #3d4b5c;
+  --text-500: #6b7a8d;
+
+  --danger-500: #c0392b;
+  --success-500: #1e874b;
+  --warning-500: #b7791f;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --shadow-sm: 0 1px 2px rgba(16, 32, 44, 0.06);
+  --shadow-md: 0 4px 12px rgba(16, 32, 44, 0.08);
+
+  --font-sans: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, Helvetica,
+    Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--surface-alt);
+  color: var(--text-900);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Botões reutilizáveis */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 1rem;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--brand-300);
+  outline-offset: 2px;
+}
+
+.btn--primary {
+  background: var(--brand-500);
+  color: #fff;
+}
+
+.btn--primary:hover {
+  background: var(--brand-700);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-700);
+}
+
+.btn--ghost:hover {
+  background: var(--surface-alt);
+}

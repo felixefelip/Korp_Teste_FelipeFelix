@@ -1,0 +1,20 @@
+<header class="navbar">
+  <div class="navbar__inner">
+    <a class="navbar__brand" routerLink="/">
+      <span class="navbar__brand-mark">K</span>
+      <span class="navbar__brand-text">Korp ERP</span>
+    </a>
+
+    <nav class="navbar__menu" aria-label="Menu principal">
+      @for (menu of menus; track menu.rota) {
+        <a
+          class="navbar__link"
+          [routerLink]="menu.rota"
+          routerLinkActive="navbar__link--active"
+        >
+          {{ menu.label }}
+        </a>
+      }
+    </nav>
+  </div>
+</header>

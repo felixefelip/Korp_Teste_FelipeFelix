@@ -1,0 +1,147 @@
+.pagina__cabecalho {
+  margin-bottom: 1.5rem;
+}
+
+.pagina__titulo {
+  font-size: 1.5rem;
+  color: var(--brand-900);
+}
+
+.pagina__subtitulo {
+  margin: 0.25rem 0 0;
+  color: var(--text-500);
+  font-size: 0.8125rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.form__grade {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+  padding: 1.5rem;
+}
+
+.campo-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.campo-grupo--codigo {
+  grid-column: span 1;
+}
+
+.campo-grupo--descricao {
+  grid-column: span 3;
+}
+
+.campo-grupo--checkbox {
+  grid-column: 1 / -1;
+  justify-content: center;
+}
+
+.campo-rotulo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-700);
+}
+
+.campo {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: var(--text-900);
+  background: var(--surface);
+}
+
+.campo:focus {
+  outline: none;
+  border-color: var(--brand-300);
+  box-shadow: 0 0 0 3px rgba(74, 127, 189, 0.18);
+}
+
+.campo--erro {
+  border-color: var(--danger-500);
+}
+
+.campo--erro:focus {
+  box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.16);
+}
+
+.campo-erro {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--danger-500);
+}
+
+.campo-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-700);
+  cursor: pointer;
+}
+
+.campo-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand-500);
+  cursor: pointer;
+}
+
+.form__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface-alt);
+}
+
+.form__acoes .btn {
+  text-decoration: none;
+}
+
+@media (max-width: 860px) {
+  .form__grade {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .campo-grupo--descricao {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .form__grade {
+    grid-template-columns: 1fr;
+    padding: 1.25rem;
+  }
+
+  .campo-grupo--descricao,
+  .campo-grupo--codigo {
+    grid-column: 1 / -1;
+  }
+
+  .form__acoes {
+    padding: 1rem 1.25rem;
+  }
+
+  .form__acoes .btn {
+    flex: 1;
+    justify-content: center;
+  }
+}

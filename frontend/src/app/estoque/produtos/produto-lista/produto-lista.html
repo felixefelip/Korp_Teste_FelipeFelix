@@ -1,0 +1,71 @@
+<section class="pagina">
+  <header class="pagina__cabecalho">
+    <div>
+      <h1 class="pagina__titulo">Produtos</h1>
+      <p class="pagina__subtitulo">
+        {{ produtos().length }} produto(s) encontrado(s)
+      </p>
+    </div>
+
+    <a class="btn btn--primary" routerLink="/estoque/produtos/novo">
+      <span aria-hidden="true">+</span>
+      Cadastrar produto
+    </a>
+  </header>
+
+  <div class="card">
+    <div class="card__filtro">
+      <input
+        type="search"
+        class="campo"
+        placeholder="Buscar por código ou descrição"
+        aria-label="Buscar produtos"
+        [value]="filtro()"
+        (input)="aoFiltrar($event)"
+      />
+    </div>
+
+    <div class="tabela-wrapper">
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th scope="col">Código</th>
+            <th scope="col">Descrição</th>
+            <th scope="col">Unidade</th>
+            <th scope="col" class="tabela__num">Preço unitário</th>
+            <th scope="col" class="tabela__num">Estoque</th>
+            <th scope="col">Situação</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (produto of produtos(); track produto.id) {
+            <tr>
+              <td class="tabela__codigo">{{ produto.codigo }}</td>
+              <td>{{ produto.descricao }}</td>
+              <td>{{ produto.unidade }}</td>
+              <td class="tabela__num">
+                {{ produto.precoUnitario | currency: 'BRL' : 'symbol' : '1.2-2' }}
+              </td>
+              <td class="tabela__num">{{ produto.estoque }}</td>
+              <td>
+                <span
+                  class="tag"
+                  [class.tag--ativo]="produto.ativo"
+                  [class.tag--inativo]="!produto.ativo"
+                >
+                  {{ produto.ativo ? 'Ativo' : 'Inativo' }}
+                </span>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="tabela__vazio">
+                Nenhum produto encontrado.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
