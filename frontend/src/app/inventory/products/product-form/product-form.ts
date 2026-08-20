@@ -6,7 +6,7 @@ import { Router, RouterLink } from '@angular/router';
 import { applyMessageErrorsToForm, isClientError } from '../../../shared/forms/http-errors';
 import {
   ValidationMessage,
-  fieldErrorMessage
+  fieldErrorFor
 } from '../../../shared/forms/validation-messages';
 import { CustomValidators } from '../../../shared/forms/validators';
 import { ProductService } from '../product.service';
@@ -57,6 +57,12 @@ export class ProductForm {
     ])
   });
 
+  protected readonly fieldError = fieldErrorFor(
+    this.form,
+    this.submitted,
+    MESSAGE_OVERRIDES
+  );
+
   constructor() {
     this.productService.list().subscribe({
       next: () => {
@@ -68,16 +74,6 @@ export class ProductForm {
       },
       error: () => {}
     });
-  }
-
-  protected fieldError(field: string): string | null {
-    const control = this.form.get(field);
-
-    if (!control || !(control.touched || this.submitted())) {
-      return null;
-    }
-
-    return fieldErrorMessage(control, MESSAGE_OVERRIDES);
   }
 
   protected save(): void {

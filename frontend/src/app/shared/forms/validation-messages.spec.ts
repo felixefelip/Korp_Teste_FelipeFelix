@@ -1,6 +1,7 @@
-import { FormControl, Validators } from '@angular/forms';
+import { signal } from '@angular/core';
+import { FormControl, FormGroup, Validators } from '@angular/forms';
 
-import { fieldErrorMessage } from './validation-messages';
+import { fieldErrorFor, fieldErrorMessage } from './validation-messages';
 
 describe('fieldErrorMessage', () => {
   const invalidControl = (
@@ -73,5 +74,58 @@ describe('fieldErrorMessage', () => {
     control.setErrors({ required: true, server: 'O código já existe.' });
 
     expect(fieldErrorMessage(control)).toBe('O código já existe.');
+  });
+});
+
+describe('fieldErrorFor', () => {
+  const newForm = () =>
+    new FormGroup({
+      name: new FormControl('', Validators.required)
+    });
+
+  it('stays quiet while the field is untouched and nothing was submitted', () => {
+    const fieldError = fieldErrorFor(newForm(), signal(false));
+
+    expect(fieldError('name')).toBeNull();
+  });
+
+  it('speaks once the field is touched', () => {
+    const form = newForm();
+    const fieldError = fieldErrorFor(form, signal(false));
+
+    form.controls.name.markAsTouched();
+
+    expect(fieldError('name')).toBe('Campo obrigatório.');
+  });
+
+  it('speaks for every field once the form was submitted', () => {
+    const fieldError = fieldErrorFor(newForm(), signal(true));
+
+    expect(fieldError('name')).toBe('Campo obrigatório.');
+  });
+
+  it('follows the signal as it changes', () => {
+    const submitted = signal(false);
+    const fieldError = fieldErrorFor(newForm(), submitted);
+
+    expect(fieldError('name')).toBeNull();
+
+    submitted.set(true);
+
+    expect(fieldError('name')).toBe('Campo obrigatório.');
+  });
+
+  it('returns null for a field the form does not have', () => {
+    const fieldError = fieldErrorFor(newForm(), signal(true));
+
+    expect(fieldError('nonexistent')).toBeNull();
+  });
+
+  it('passes the overrides through', () => {
+    const fieldError = fieldErrorFor(newForm(), signal(true), {
+      required: () => 'Preencha aqui.'
+    });
+
+    expect(fieldError('name')).toBe('Preencha aqui.');
   });
 });
