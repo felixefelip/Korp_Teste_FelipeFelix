@@ -172,3 +172,63 @@ func TestGetProductByIDComIDNaoNumericoRetorna400(t *testing.T) {
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &corpo))
 	assert.NotEmpty(t, corpo["message"])
 }
+
+func TestCreateProductRetornaCodigoEUnidade(t *testing.T) {
+	server := newServer(t)
+
+	response := post(t, server, "/products",
+		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99,"stock":12}`)
+
+	require.Equal(t, http.StatusCreated, response.Code)
+
+	var criado model.Product
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &criado))
+
+	assert.Equal(t, "PRD-0001", criado.Code)
+	assert.Equal(t, "UN", criado.Unit)
+}
+
+func TestCreateProductPersisteCodigoEUnidade(t *testing.T) {
+	server := newServer(t)
+
+	require.Equal(t, http.StatusCreated, post(t, server, "/products",
+		`{"code":"PRD-0001","name":"Camiseta","unit":"CX","price":30.99}`).Code)
+
+	var salvos []model.Product
+	require.NoError(t, testConnection.Find(&salvos).Error)
+
+	require.Len(t, salvos, 1)
+	assert.Equal(t, "PRD-0001", salvos[0].Code)
+	assert.Equal(t, "CX", salvos[0].Unit)
+}
+
+func TestGetProductsRetornaCodigoEUnidade(t *testing.T) {
+	server := newServer(t)
+
+	require.Equal(t, http.StatusCreated, post(t, server, "/products",
+		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99}`).Code)
+
+	response := get(t, server, "/products")
+	require.Equal(t, http.StatusOK, response.Code)
+
+	var produtos []model.Product
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &produtos))
+
+	require.Len(t, produtos, 1)
+	assert.Equal(t, "PRD-0001", produtos[0].Code)
+	assert.Equal(t, "UN", produtos[0].Unit)
+}
+
+func TestCreateProductAceitaCodigoDuplicado(t *testing.T) {
+	server := newServer(t)
+
+	primeiro := post(t, server, "/products", `{"code":"PRD-0001","name":"Camiseta","unit":"UN"}`)
+	segundo := post(t, server, "/products", `{"code":"PRD-0001","name":"Calca Jeans","unit":"UN"}`)
+
+	assert.Equal(t, http.StatusCreated, primeiro.Code)
+	assert.Equal(t, http.StatusCreated, segundo.Code, "codigo duplicado e permitido")
+
+	var salvos []model.Product
+	require.NoError(t, testConnection.Find(&salvos).Error)
+	assert.Len(t, salvos, 2)
+}

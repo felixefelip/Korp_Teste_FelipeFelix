@@ -102,3 +102,48 @@ func TestGetProductByIDQuandoNaoExisteRetornaErrRecordNotFound(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
+
+func TestCreateProductGravaCodigoEUnidade(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateProduct(model.Product{
+		Code: "PRD-0001", Name: "Camiseta", Unit: "UN", Price: 30.99, Stock: 12,
+	})
+	require.NoError(t, err)
+
+	var saved model.Product
+	require.NoError(t, testConnection.First(&saved, id).Error)
+
+	assert.Equal(t, "PRD-0001", saved.Code)
+	assert.Equal(t, "UN", saved.Unit)
+}
+
+// Regra de negocio: dois produtos podem compartilhar o mesmo codigo.
+func TestCreateProductPermiteCodigoDuplicado(t *testing.T) {
+	repository := newRepository(t)
+
+	primeiro, err := repository.CreateProduct(model.Product{Code: "PRD-0001", Name: "Camiseta", Unit: "UN"})
+	require.NoError(t, err)
+
+	segundo, err := repository.CreateProduct(model.Product{Code: "PRD-0001", Name: "Calca Jeans", Unit: "UN"})
+	require.NoError(t, err, "codigo duplicado deve ser aceito")
+
+	assert.NotEqual(t, primeiro, segundo, "cada produto tem seu proprio id")
+
+	products, err := repository.GetProducts()
+	require.NoError(t, err)
+	assert.Len(t, products, 2)
+}
+
+func TestCreateProductSemCodigoEUnidadeGravaVazio(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateProduct(model.Product{Name: "Camiseta", Price: 30.99})
+	require.NoError(t, err)
+
+	var saved model.Product
+	require.NoError(t, testConnection.First(&saved, id).Error)
+
+	assert.Empty(t, saved.Code)
+	assert.Empty(t, saved.Unit)
+}
