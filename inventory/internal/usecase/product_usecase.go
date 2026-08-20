@@ -1,8 +1,8 @@
 package usecase
 
 import (
-	"estoque/internal/model"
-	"estoque/internal/repository"
+	"inventory/internal/model"
+	"inventory/internal/repository"
 )
 
 type ProductUsecase struct {

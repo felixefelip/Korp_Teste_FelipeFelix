@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"estoque/internal/model"
+	"inventory/internal/model"
 
 	"gorm.io/gorm"
 )

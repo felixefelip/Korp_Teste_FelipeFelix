@@ -27,7 +27,7 @@ func DatabaseName() string {
 
 func dsn(dbname string) string {
 	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		env("DB_HOST", "go_db"),
+		env("DB_HOST", "inventory_db"),
 		env("DB_PORT", "5432"),
 		env("DB_USER", "postgres"),
 		env("DB_PASSWORD", "1234"),

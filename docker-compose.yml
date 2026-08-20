@@ -1,25 +1,25 @@
 services:
-  estoque:
-    build: ./estoque
-    image: korp/estoque:dev
+  inventory:
+    build: ./inventory
+    image: korp/inventory:dev
     init: true
     ports:
       - "8000:8000"
     environment:
       GO_ENV: ${GO_ENV:-development}
-      DB_HOST: estoque_db
+      DB_HOST: inventory_db
       DB_PORT: 5432
       DB_USER: postgres
       DB_PASSWORD: 1234
     volumes:
-      - ./estoque:/go/src/app
+      - ./inventory:/go/src/app
       - gomodcache:/go/pkg/mod
     depends_on:
-      estoque_db:
+      inventory_db:
         condition: service_healthy
     command: sleep infinity
 
-  estoque_db:
+  inventory_db:
     image: postgres:18
     environment:
       POSTGRES_PASSWORD: 1234
@@ -39,14 +39,14 @@ services:
       target: dev
     image: korp/frontend:dev
     environment:
-      API_URL: http://estoque:8000
+      API_URL: http://inventory:8000
     ports:
       - "4200:4200"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     depends_on:
-      - estoque
+      - inventory
 
 volumes:
   pgdata: {}

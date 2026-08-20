@@ -7,7 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	"estoque/internal/model"
+	"inventory/internal/model"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

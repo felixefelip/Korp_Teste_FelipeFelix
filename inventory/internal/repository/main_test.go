@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"estoque/internal/testdb"
+	"inventory/internal/testdb"
 
 	"gorm.io/gorm"
 )

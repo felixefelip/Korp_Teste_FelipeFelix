@@ -3,9 +3,9 @@ package router
 import (
 	"net/http"
 
-	"estoque/internal/controller"
-	"estoque/internal/repository"
-	"estoque/internal/usecase"
+	"inventory/internal/controller"
+	"inventory/internal/repository"
+	"inventory/internal/usecase"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"estoque/internal/usecase"
+	"inventory/internal/usecase"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

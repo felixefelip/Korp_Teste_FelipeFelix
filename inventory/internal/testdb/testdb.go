@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"estoque/internal/db"
-	"estoque/internal/model"
+	"inventory/internal/db"
+	"inventory/internal/model"
 
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"estoque/internal/db"
-	"estoque/internal/model"
-	"estoque/internal/router"
+	"inventory/internal/db"
+	"inventory/internal/model"
+	"inventory/internal/router"
 )
 
 func main() {

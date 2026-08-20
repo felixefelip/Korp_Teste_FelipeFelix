@@ -3,7 +3,7 @@ package controller
 import (
 	"strings"
 
-	"estoque/internal/model"
+	"inventory/internal/model"
 )
 
 type createProductRequest struct {

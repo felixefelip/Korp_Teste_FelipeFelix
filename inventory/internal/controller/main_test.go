@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"estoque/internal/db"
-	"estoque/internal/router"
-	"estoque/internal/testdb"
+	"inventory/internal/db"
+	"inventory/internal/router"
+	"inventory/internal/testdb"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"

@@ -3,7 +3,7 @@ server {
   root /usr/share/nginx/html;
   index index.html;
 
-  # Sem o fallback, recarregar /estoque/produtos daria 404: o nginx
+  # Sem o fallback, recarregar /inventory/products daria 404: o nginx
   # procuraria um diretorio com esse nome. Toda SPA com rotas precisa disso.
   location / {
     try_files $uri $uri/ /index.html;
@@ -16,7 +16,7 @@ server {
   }
 
   # O destino da API vem do ambiente, resolvido na subida do container:
-  # a mesma imagem serve o compose local (http://estoque:8000) e um deploy
+  # a mesma imagem serve o compose local (http://inventory:8000) e um deploy
   # onde o frontend mora separado do backend (https://api.exemplo.com).
   #
   # O hostname vai numa variavel do nginx de proposito: com nome literal, ele
