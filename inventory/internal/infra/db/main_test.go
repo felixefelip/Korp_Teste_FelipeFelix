@@ -25,7 +25,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func newRepository(t *testing.T) db.ProductRepository {
+func newRepository(t *testing.T) *db.ProductRepository {
 	t.Helper()
 
 	testdb.Reset(t, testConnection)
