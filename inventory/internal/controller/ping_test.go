@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPing cobre a rota de healthcheck, que antes vivia inline no main.go e
-// por isso nao era alcancavel por teste.
+// TestPing covers the healthcheck route, which used to live inline in main.go
+// and for that reason was not reachable by a test.
 func TestPing(t *testing.T) {
 	server := newServer(t)
 

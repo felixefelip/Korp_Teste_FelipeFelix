@@ -1,5 +1,5 @@
-// Package testdb concentra o setup do banco compartilhado pelos testes de
-// integracao dos varios pacotes.
+// Package testdb holds the setup of the database shared by the integration
+// tests of the several packages.
 package testdb
 
 import (
@@ -14,40 +14,40 @@ import (
 	"gorm.io/gorm"
 )
 
-// Setup garante que o banco de teste existe e esta migrado, devolvendo a conexao.
-// Deve ser chamado a partir do TestMain de cada pacote.
+// Setup makes sure the test database exists and is migrated, returning the
+// connection. It must be called from the TestMain of each package.
 func Setup() (*gorm.DB, error) {
 	if os.Getenv("GO_ENV") == "" {
 		os.Setenv("GO_ENV", "test")
 	}
 
-	// Trava de seguranca: os testes truncam tabelas, entao so podem rodar
-	// contra o banco de teste.
+	// Safety latch: the tests truncate tables, so they may only run against
+	// the test database.
 	if db.Env() != "test" {
-		return nil, fmt.Errorf("recusando rodar com GO_ENV=%q; use GO_ENV=test", db.Env())
+		return nil, fmt.Errorf("refusing to run with GO_ENV=%q; use GO_ENV=test", db.Env())
 	}
 
 	if err := db.EnsureDatabase(); err != nil {
-		return nil, fmt.Errorf("criando o banco: %w", err)
+		return nil, fmt.Errorf("creating the database: %w", err)
 	}
 
 	connection, err := db.ConnectDB()
 	if err != nil {
-		return nil, fmt.Errorf("conectando no banco: %w", err)
+		return nil, fmt.Errorf("connecting to the database: %w", err)
 	}
 
 	if err := connection.AutoMigrate(&model.Product{}); err != nil {
-		return nil, fmt.Errorf("migrando o banco: %w", err)
+		return nil, fmt.Errorf("migrating the database: %w", err)
 	}
 
 	return connection, nil
 }
 
-// Reset devolve o banco ao estado vazio, para que um teste nao enxergue o
-// estado deixado por outro.
+// Reset returns the database to the empty state, so that one test does not see
+// the state left behind by another.
 func Reset(t testing.TB, connection *gorm.DB) {
 	t.Helper()
 
 	err := connection.Exec("TRUNCATE TABLE product RESTART IDENTITY CASCADE").Error
-	require.NoError(t, err, "limpando a tabela product")
+	require.NoError(t, err, "cleaning the product table")
 }

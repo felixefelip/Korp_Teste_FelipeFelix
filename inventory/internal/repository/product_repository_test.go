@@ -15,7 +15,7 @@ func TestCreateProduct(t *testing.T) {
 
 	id, err := repository.CreateProduct(model.Product{Name: "Camiseta", Price: 30.99, Stock: 12})
 	require.NoError(t, err)
-	assert.NotZero(t, id, "o banco deveria ter gerado um id")
+	assert.NotZero(t, id, "the database should have generated an id")
 
 	var saved model.Product
 	require.NoError(t, testConnection.First(&saved, id).Error)
@@ -25,7 +25,7 @@ func TestCreateProduct(t *testing.T) {
 	assert.Equal(t, 12, saved.Stock)
 }
 
-func TestCreateProductSemStockGravaZero(t *testing.T) {
+func TestCreateProductWithoutStockStoresZero(t *testing.T) {
 	repository := newRepository(t)
 
 	id, err := repository.CreateProduct(model.Product{Name: "Camiseta", Price: 30.99})
@@ -34,10 +34,10 @@ func TestCreateProductSemStockGravaZero(t *testing.T) {
 	var saved model.Product
 	require.NoError(t, testConnection.First(&saved, id).Error)
 
-	assert.Zero(t, saved.Stock, "sem stock informado o produto deve ficar zerado")
+	assert.Zero(t, saved.Stock, "with no stock informed the product must stay zeroed")
 }
 
-func TestGetProductsQuandoVazio(t *testing.T) {
+func TestGetProductsWhenEmpty(t *testing.T) {
 	repository := newRepository(t)
 
 	products, err := repository.GetProducts()
@@ -46,40 +46,40 @@ func TestGetProductsQuandoVazio(t *testing.T) {
 	assert.Empty(t, products)
 }
 
-func TestGetProductsRetornaOsProdutosCriados(t *testing.T) {
+func TestGetProductsReturnsTheCreatedProducts(t *testing.T) {
 	repository := newRepository(t)
 
-	criados := []model.Product{
+	created := []model.Product{
 		{Name: "Camiseta", Price: 30.99, Stock: 12},
 		{Name: "Calca Jeans", Price: 89.99, Stock: 3},
 	}
 
-	for _, product := range criados {
+	for _, product := range created {
 		_, err := repository.CreateProduct(product)
 		require.NoError(t, err)
 	}
 
 	products, err := repository.GetProducts()
 	require.NoError(t, err)
-	require.Len(t, products, len(criados))
+	require.Len(t, products, len(created))
 
-	for i, esperado := range criados {
-		assert.Equal(t, esperado.Name, products[i].Name)
-		assert.Equal(t, esperado.Price, products[i].Price)
-		assert.Equal(t, esperado.Stock, products[i].Stock)
+	for i, expected := range created {
+		assert.Equal(t, expected.Name, products[i].Name)
+		assert.Equal(t, expected.Price, products[i].Price)
+		assert.Equal(t, expected.Stock, products[i].Stock)
 	}
 }
 
-func TestIsolamentoEntreTestes(t *testing.T) {
+func TestIsolationBetweenTests(t *testing.T) {
 	repository := newRepository(t)
 
 	products, err := repository.GetProducts()
 
 	require.NoError(t, err)
-	assert.Empty(t, products, "estado vazou de outro teste")
+	assert.Empty(t, products, "state leaked from another test")
 }
 
-func TestGetProductByIDRetornaOProduto(t *testing.T) {
+func TestGetProductByIDReturnsTheProduct(t *testing.T) {
 	repository := newRepository(t)
 
 	id, err := repository.CreateProduct(model.Product{Name: "Camiseta", Price: 30.99, Stock: 12})
@@ -94,7 +94,7 @@ func TestGetProductByIDRetornaOProduto(t *testing.T) {
 	assert.Equal(t, 12, product.Stock)
 }
 
-func TestGetProductByIDQuandoNaoExisteRetornaErrRecordNotFound(t *testing.T) {
+func TestGetProductByIDWhenMissingReturnsErrRecordNotFound(t *testing.T) {
 	repository := newRepository(t)
 
 	_, err := repository.GetProductByID(404)
@@ -103,7 +103,7 @@ func TestGetProductByIDQuandoNaoExisteRetornaErrRecordNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
-func TestCreateProductGravaCodigoEUnidade(t *testing.T) {
+func TestCreateProductStoresCodeAndUnit(t *testing.T) {
 	repository := newRepository(t)
 
 	id, err := repository.CreateProduct(model.Product{
@@ -118,24 +118,24 @@ func TestCreateProductGravaCodigoEUnidade(t *testing.T) {
 	assert.Equal(t, "UN", saved.Unit)
 }
 
-// Regra de negocio: dois produtos podem compartilhar o mesmo codigo.
-func TestCreateProductPermiteCodigoDuplicado(t *testing.T) {
+// Business rule: two products may share the same code.
+func TestCreateProductAllowsDuplicateCode(t *testing.T) {
 	repository := newRepository(t)
 
-	primeiro, err := repository.CreateProduct(model.Product{Code: "PRD-0001", Name: "Camiseta", Unit: "UN"})
+	first, err := repository.CreateProduct(model.Product{Code: "PRD-0001", Name: "Camiseta", Unit: "UN"})
 	require.NoError(t, err)
 
-	segundo, err := repository.CreateProduct(model.Product{Code: "PRD-0001", Name: "Calca Jeans", Unit: "UN"})
-	require.NoError(t, err, "codigo duplicado deve ser aceito")
+	second, err := repository.CreateProduct(model.Product{Code: "PRD-0001", Name: "Calca Jeans", Unit: "UN"})
+	require.NoError(t, err, "a duplicate code must be accepted")
 
-	assert.NotEqual(t, primeiro, segundo, "cada produto tem seu proprio id")
+	assert.NotEqual(t, first, second, "each product has its own id")
 
 	products, err := repository.GetProducts()
 	require.NoError(t, err)
 	assert.Len(t, products, 2)
 }
 
-func TestCreateProductSemCodigoEUnidadeGravaVazio(t *testing.T) {
+func TestCreateProductWithoutCodeAndUnitStoresEmpty(t *testing.T) {
 	repository := newRepository(t)
 
 	id, err := repository.CreateProduct(model.Product{Name: "Camiseta", Price: 30.99})

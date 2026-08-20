@@ -13,7 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type produtoResposta struct {
+// productResponse mirrors the public contract of the API, not the model. The
+// tests decode into it on purpose: if a new column enters the table without
+// entering the response, these tests keep talking only about what the API
+// promises.
+type productResponse struct {
 	ID    int     `json:"id"`
 	Code  string  `json:"code"`
 	Name  string  `json:"name"`
@@ -22,123 +26,125 @@ type produtoResposta struct {
 	Stock int     `json:"stock"`
 }
 
-const produtoValido = `{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99,"stock":12}`
+const validProduct = `{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99,"stock":12}`
 
-func decodeProduto(t *testing.T, body []byte) produtoResposta {
+func decodeProduct(t *testing.T, body []byte) productResponse {
 	t.Helper()
 
-	var produto produtoResposta
-	require.NoError(t, json.Unmarshal(body, &produto))
+	var product productResponse
+	require.NoError(t, json.Unmarshal(body, &product))
 
-	return produto
+	return product
 }
 
-func decodeErros(t *testing.T, body []byte) map[string]string {
+func decodeErrors(t *testing.T, body []byte) map[string]string {
 	t.Helper()
 
-	var corpo struct {
+	var payload struct {
 		Errors map[string]string `json:"errors"`
 	}
-	require.NoError(t, json.Unmarshal(body, &corpo))
+	require.NoError(t, json.Unmarshal(body, &payload))
 
-	return corpo.Errors
+	return payload.Errors
 }
 
-func TestCreateProductRetorna201ComOProdutoCriado(t *testing.T) {
+func TestCreateProductReturns201WithTheCreatedProduct(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products", produtoValido)
+	response := post(t, server, "/products", validProduct)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 
-	criado := decodeProduto(t, response.Body.Bytes())
+	created := decodeProduct(t, response.Body.Bytes())
 
-	assert.NotZero(t, criado.ID, "a resposta deveria trazer o id gerado")
-	assert.Equal(t, "Camiseta", criado.Name)
-	assert.Equal(t, 30.99, criado.Price)
-	assert.Equal(t, 12, criado.Stock)
+	assert.NotZero(t, created.ID, "the response should carry the generated id")
+	assert.Equal(t, "Camiseta", created.Name)
+	assert.Equal(t, 30.99, created.Price)
+	assert.Equal(t, 12, created.Stock)
 }
 
-func TestCreateProductSemStockRetornaZero(t *testing.T) {
+func TestCreateProductWithoutStockReturnsZero(t *testing.T) {
 	server := newServer(t)
 
 	response := post(t, server, "/products", `{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99}`)
 
 	require.Equal(t, http.StatusCreated, response.Code)
-	assert.Zero(t, decodeProduto(t, response.Body.Bytes()).Stock)
+	assert.Zero(t, decodeProduct(t, response.Body.Bytes()).Stock)
 }
 
-func TestCreateProductPersisteNoBanco(t *testing.T) {
+func TestCreateProductPersistsToTheDatabase(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products", produtoValido)
+	response := post(t, server, "/products", validProduct)
 	require.Equal(t, http.StatusCreated, response.Code)
 
-	var salvos []model.Product
-	require.NoError(t, testConnection.Find(&salvos).Error)
+	var saved []model.Product
+	require.NoError(t, testConnection.Find(&saved).Error)
 
-	require.Len(t, salvos, 1)
-	assert.Equal(t, "Camiseta", salvos[0].Name)
-	assert.Equal(t, 30.99, salvos[0].Price)
-	assert.Equal(t, 12, salvos[0].Stock)
+	require.Len(t, saved, 1)
+	assert.Equal(t, "Camiseta", saved[0].Name)
+	assert.Equal(t, 30.99, saved[0].Price)
+	assert.Equal(t, 12, saved[0].Stock)
 }
 
-func TestCreateProductComJSONInvalidoRetorna400(t *testing.T) {
+func TestCreateProductWithInvalidJSONReturns400(t *testing.T) {
 	server := newServer(t)
 
 	response := post(t, server, "/products", `{"name":`)
 
 	assert.Equal(t, http.StatusBadRequest, response.Code)
 
-	var corpo map[string]string
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &corpo))
-	assert.NotEmpty(t, corpo["message"], "JSON quebrado nao tem campo culpado, entao vira mensagem")
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"], "broken JSON has no field to blame, so it becomes a message")
 
-	var salvos []model.Product
-	require.NoError(t, testConnection.Find(&salvos).Error)
-	assert.Empty(t, salvos, "nada deveria ter sido gravado")
+	var saved []model.Product
+	require.NoError(t, testConnection.Find(&saved).Error)
+	assert.Empty(t, saved, "nothing should have been stored")
 }
 
-func TestCreateProductComPrecoDeTipoErradoRetorna400(t *testing.T) {
+func TestCreateProductWithWrongPriceTypeReturns400(t *testing.T) {
 	server := newServer(t)
 
 	response := post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":"muito caro"}`)
 
 	assert.Equal(t, http.StatusBadRequest, response.Code)
-	assert.Equal(t, "tipo invalido", decodeErros(t, response.Body.Bytes())["price"])
+	assert.Equal(t, "tipo invalido", decodeErrors(t, response.Body.Bytes())["price"])
 }
 
-func TestCreateProductComStockDeTipoErradoRetorna400(t *testing.T) {
+func TestCreateProductWithWrongStockTypeReturns400(t *testing.T) {
 	server := newServer(t)
 
 	response := post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99,"stock":"muitos"}`)
 
 	assert.Equal(t, http.StatusBadRequest, response.Code)
-	assert.Equal(t, "tipo invalido", decodeErros(t, response.Body.Bytes())["stock"])
+	assert.Equal(t, "tipo invalido", decodeErrors(t, response.Body.Bytes())["stock"])
 }
 
-func TestCreateProductSemOsCamposObrigatoriosRetorna400(t *testing.T) {
+func TestCreateProductWithoutTheRequiredFieldsReturns400(t *testing.T) {
 	server := newServer(t)
 
 	response := post(t, server, "/products", `{}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
-	erros := decodeErros(t, response.Body.Bytes())
-	assert.Equal(t, "obrigatorio", erros["code"])
-	assert.Equal(t, "obrigatorio", erros["name"])
-	assert.Equal(t, "obrigatorio", erros["unit"])
-	assert.Equal(t, "obrigatorio", erros["price"])
-	assert.NotContains(t, erros, "stock", "estoque ausente e valido e vira zero")
+	fieldErrors := decodeErrors(t, response.Body.Bytes())
+	assert.Equal(t, "obrigatorio", fieldErrors["code"])
+	assert.Equal(t, "obrigatorio", fieldErrors["name"])
+	assert.Equal(t, "obrigatorio", fieldErrors["unit"])
+	assert.Equal(t, "obrigatorio", fieldErrors["price"])
+	assert.NotContains(t, fieldErrors, "stock", "a missing stock is valid and becomes zero")
 
-	var salvos []model.Product
-	require.NoError(t, testConnection.Find(&salvos).Error)
-	assert.Empty(t, salvos, "requisicao invalida nao pode gravar nada")
+	var saved []model.Product
+	require.NoError(t, testConnection.Find(&saved).Error)
+	assert.Empty(t, saved, "an invalid request must not store anything")
 }
 
-func TestCreateProductComPrecoEEstoqueZeroRetorna201(t *testing.T) {
+// Zero price and stock are legitimate: the frontend form starts with stock 0.
+// This is the validator trap, which treats a zero value as absent.
+func TestCreateProductWithZeroPriceAndStockReturns201(t *testing.T) {
 	server := newServer(t)
 
 	response := post(t, server, "/products",
@@ -146,68 +152,70 @@ func TestCreateProductComPrecoEEstoqueZeroRetorna201(t *testing.T) {
 
 	require.Equal(t, http.StatusCreated, response.Code)
 
-	criado := decodeProduto(t, response.Body.Bytes())
-	assert.Zero(t, criado.Price)
-	assert.Zero(t, criado.Stock)
+	created := decodeProduct(t, response.Body.Bytes())
+	assert.Zero(t, created.Price)
+	assert.Zero(t, created.Stock)
 }
 
-func TestCreateProductComPrecoNegativoRetorna400(t *testing.T) {
+func TestCreateProductWithNegativePriceReturns400(t *testing.T) {
 	server := newServer(t)
 
 	response := post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":-10}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
-	assert.NotEmpty(t, decodeErros(t, response.Body.Bytes())["price"])
+	assert.NotEmpty(t, decodeErrors(t, response.Body.Bytes())["price"])
 }
 
-func TestCreateProductComEstoqueNegativoRetorna400(t *testing.T) {
+func TestCreateProductWithNegativeStockReturns400(t *testing.T) {
 	server := newServer(t)
 
 	response := post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99,"stock":-5}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
-	assert.NotEmpty(t, decodeErros(t, response.Body.Bytes())["stock"])
+	assert.NotEmpty(t, decodeErrors(t, response.Body.Bytes())["stock"])
 }
 
-func TestCreateProductComUnidadeForaDaListaRetorna400(t *testing.T) {
+func TestCreateProductWithUnitOutsideTheListReturns400(t *testing.T) {
 	server := newServer(t)
 
 	response := post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"BANANA","price":30.99}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
-	assert.NotEmpty(t, decodeErros(t, response.Body.Bytes())["unit"])
+	assert.NotEmpty(t, decodeErrors(t, response.Body.Bytes())["unit"])
 }
 
-func TestCreateProductComTextoAcimaDoLimiteRetorna400(t *testing.T) {
+func TestCreateProductWithTextOverTheLimitReturns400(t *testing.T) {
 	server := newServer(t)
 
-	codigoLongo := ""
+	longCode := ""
 	for range 31 {
-		codigoLongo += "X"
+		longCode += "X"
 	}
 
 	response := post(t, server, "/products",
-		fmt.Sprintf(`{"code":%q,"name":"Camiseta","unit":"UN","price":30.99}`, codigoLongo))
+		fmt.Sprintf(`{"code":%q,"name":"Camiseta","unit":"UN","price":30.99}`, longCode))
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
-	assert.NotEmpty(t, decodeErros(t, response.Body.Bytes())["code"],
-		"o limite do varchar(30) precisa virar 400, nao erro do banco")
+	assert.NotEmpty(t, decodeErrors(t, response.Body.Bytes())["code"],
+		"the varchar(30) limit must become a 400, not a database error")
 }
 
-func TestCreateProductIgnoraOIDEnviadoPeloCliente(t *testing.T) {
+// The id belongs to the server: the DTO has no such field, so whatever the
+// client sends is ignored instead of becoming the record id.
+func TestCreateProductIgnoresTheIDSentByTheClient(t *testing.T) {
 	server := newServer(t)
 
 	response := post(t, server, "/products",
 		`{"id":999,"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99}`)
 
 	require.Equal(t, http.StatusCreated, response.Code)
-	assert.NotEqual(t, 999, decodeProduto(t, response.Body.Bytes()).ID)
+	assert.NotEqual(t, 999, decodeProduct(t, response.Body.Bytes()).ID)
 }
 
-func TestCreateProductNormalizaCodigoEDescricao(t *testing.T) {
+func TestCreateProductNormalizesCodeAndName(t *testing.T) {
 	server := newServer(t)
 
 	response := post(t, server, "/products",
@@ -215,38 +223,40 @@ func TestCreateProductNormalizaCodigoEDescricao(t *testing.T) {
 
 	require.Equal(t, http.StatusCreated, response.Code)
 
-	criado := decodeProduto(t, response.Body.Bytes())
-	assert.Equal(t, "PRD-0001", criado.Code)
-	assert.Equal(t, "Camiseta", criado.Name)
+	created := decodeProduct(t, response.Body.Bytes())
+	assert.Equal(t, "PRD-0001", created.Code)
+	assert.Equal(t, "Camiseta", created.Name)
 
-	var salvos []model.Product
-	require.NoError(t, testConnection.Find(&salvos).Error)
-	require.Len(t, salvos, 1)
-	assert.Equal(t, "PRD-0001", salvos[0].Code, "o banco guarda o valor normalizado")
+	var saved []model.Product
+	require.NoError(t, testConnection.Find(&saved).Error)
+	require.Len(t, saved, 1)
+	assert.Equal(t, "PRD-0001", saved[0].Code, "the database keeps the normalized value")
 }
 
-func TestRespostaExpoeApenasOsCamposDoContrato(t *testing.T) {
+// Contract guard: the response exposes exactly these fields. A new column in
+// the model must not leak to the API without going through productResponse.
+func TestResponseExposesOnlyTheContractFields(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products", produtoValido)
+	response := post(t, server, "/products", validProduct)
 	require.Equal(t, http.StatusCreated, response.Code)
 
-	var corpo map[string]any
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &corpo))
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
 
-	campos := make([]string, 0, len(corpo))
-	for campo := range corpo {
-		campos = append(campos, campo)
+	fields := make([]string, 0, len(body))
+	for field := range body {
+		fields = append(fields, field)
 	}
-	sort.Strings(campos)
+	sort.Strings(fields)
 
-	assert.Equal(t, []string{"code", "id", "name", "price", "stock", "unit"}, campos)
+	assert.Equal(t, []string{"code", "id", "name", "price", "stock", "unit"}, fields)
 }
 
-func TestGetProductsRetorna200ComOsProdutos(t *testing.T) {
+func TestGetProductsReturns200WithTheProducts(t *testing.T) {
 	server := newServer(t)
 
-	require.Equal(t, http.StatusCreated, post(t, server, "/products", produtoValido).Code)
+	require.Equal(t, http.StatusCreated, post(t, server, "/products", validProduct).Code)
 	require.Equal(t, http.StatusCreated, post(t, server, "/products",
 		`{"code":"PRD-0002","name":"Calca Jeans","unit":"UN","price":89.99,"stock":3}`).Code)
 
@@ -254,19 +264,19 @@ func TestGetProductsRetorna200ComOsProdutos(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, response.Code)
 
-	var produtos []produtoResposta
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &produtos))
+	var products []productResponse
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &products))
 
-	require.Len(t, produtos, 2)
-	assert.Equal(t, "Camiseta", produtos[0].Name)
-	assert.Equal(t, 30.99, produtos[0].Price)
-	assert.Equal(t, 12, produtos[0].Stock)
-	assert.Equal(t, "Calca Jeans", produtos[1].Name)
-	assert.Equal(t, 89.99, produtos[1].Price)
-	assert.Equal(t, 3, produtos[1].Stock)
+	require.Len(t, products, 2)
+	assert.Equal(t, "Camiseta", products[0].Name)
+	assert.Equal(t, 30.99, products[0].Price)
+	assert.Equal(t, 12, products[0].Stock)
+	assert.Equal(t, "Calca Jeans", products[1].Name)
+	assert.Equal(t, 89.99, products[1].Price)
+	assert.Equal(t, 3, products[1].Stock)
 }
 
-func TestGetProductsQuandoNaoHaProdutos(t *testing.T) {
+func TestGetProductsWhenThereAreNoProducts(t *testing.T) {
 	server := newServer(t)
 
 	response := get(t, server, "/products")
@@ -275,116 +285,116 @@ func TestGetProductsQuandoNaoHaProdutos(t *testing.T) {
 	assert.JSONEq(t, `[]`, response.Body.String())
 }
 
-func TestGetProductsQuandoOBancoFalhaRetorna500(t *testing.T) {
-	server := newServerComBancoIndisponivel(t)
+func TestGetProductsWhenTheDatabaseFailsReturns500(t *testing.T) {
+	server := newServerWithDatabaseDown(t)
 
 	response := get(t, server, "/products")
 
 	require.Equal(t, http.StatusInternalServerError, response.Code)
 
-	var corpo any
-	assert.NoError(t, json.Unmarshal(response.Body.Bytes(), &corpo),
-		"o corpo precisa ser um JSON unico e valido, nao dois concatenados")
+	var body any
+	assert.NoError(t, json.Unmarshal(response.Body.Bytes(), &body),
+		"the body must be a single valid JSON, not two concatenated")
 }
 
-func TestGetProductByIDRetorna200ComOProduto(t *testing.T) {
+func TestGetProductByIDReturns200WithTheProduct(t *testing.T) {
 	server := newServer(t)
 
-	criado := post(t, server, "/products", produtoValido)
-	require.Equal(t, http.StatusCreated, criado.Code)
+	created := post(t, server, "/products", validProduct)
+	require.Equal(t, http.StatusCreated, created.Code)
 
-	esperado := decodeProduto(t, criado.Body.Bytes())
+	expected := decodeProduct(t, created.Body.Bytes())
 
-	response := get(t, server, fmt.Sprintf("/products/%d", esperado.ID))
+	response := get(t, server, fmt.Sprintf("/products/%d", expected.ID))
 
 	require.Equal(t, http.StatusOK, response.Code)
 
-	product := decodeProduto(t, response.Body.Bytes())
+	product := decodeProduct(t, response.Body.Bytes())
 
-	assert.Equal(t, esperado.ID, product.ID)
+	assert.Equal(t, expected.ID, product.ID)
 	assert.Equal(t, "Camiseta", product.Name)
 	assert.Equal(t, 30.99, product.Price)
 	assert.Equal(t, 12, product.Stock)
 }
 
-func TestGetProductByIDQuandoNaoExisteRetorna404(t *testing.T) {
+func TestGetProductByIDWhenItDoesNotExistReturns404(t *testing.T) {
 	server := newServer(t)
 
 	response := get(t, server, "/products/404")
 
 	require.Equal(t, http.StatusNotFound, response.Code)
 
-	var corpo map[string]string
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &corpo))
-	assert.NotEmpty(t, corpo["message"])
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"])
 }
 
-func TestGetProductByIDComIDNaoNumericoRetorna400(t *testing.T) {
+func TestGetProductByIDWithNonNumericIDReturns400(t *testing.T) {
 	server := newServer(t)
 
 	response := get(t, server, "/products/abc")
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
-	var corpo map[string]string
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &corpo))
-	assert.NotEmpty(t, corpo["message"])
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"])
 }
 
-func TestCreateProductRetornaCodigoEUnidade(t *testing.T) {
+func TestCreateProductReturnsCodeAndUnit(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products", produtoValido)
+	response := post(t, server, "/products", validProduct)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 
-	criado := decodeProduto(t, response.Body.Bytes())
-	assert.Equal(t, "PRD-0001", criado.Code)
-	assert.Equal(t, "UN", criado.Unit)
+	created := decodeProduct(t, response.Body.Bytes())
+	assert.Equal(t, "PRD-0001", created.Code)
+	assert.Equal(t, "UN", created.Unit)
 }
 
-func TestCreateProductPersisteCodigoEUnidade(t *testing.T) {
+func TestCreateProductPersistsCodeAndUnit(t *testing.T) {
 	server := newServer(t)
 
 	require.Equal(t, http.StatusCreated, post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"CX","price":30.99}`).Code)
 
-	var salvos []model.Product
-	require.NoError(t, testConnection.Find(&salvos).Error)
+	var saved []model.Product
+	require.NoError(t, testConnection.Find(&saved).Error)
 
-	require.Len(t, salvos, 1)
-	assert.Equal(t, "PRD-0001", salvos[0].Code)
-	assert.Equal(t, "CX", salvos[0].Unit)
+	require.Len(t, saved, 1)
+	assert.Equal(t, "PRD-0001", saved[0].Code)
+	assert.Equal(t, "CX", saved[0].Unit)
 }
 
-func TestGetProductsRetornaCodigoEUnidade(t *testing.T) {
+func TestGetProductsReturnsCodeAndUnit(t *testing.T) {
 	server := newServer(t)
 
-	require.Equal(t, http.StatusCreated, post(t, server, "/products", produtoValido).Code)
+	require.Equal(t, http.StatusCreated, post(t, server, "/products", validProduct).Code)
 
 	response := get(t, server, "/products")
 	require.Equal(t, http.StatusOK, response.Code)
 
-	var produtos []produtoResposta
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &produtos))
+	var products []productResponse
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &products))
 
-	require.Len(t, produtos, 1)
-	assert.Equal(t, "PRD-0001", produtos[0].Code)
-	assert.Equal(t, "UN", produtos[0].Unit)
+	require.Len(t, products, 1)
+	assert.Equal(t, "PRD-0001", products[0].Code)
+	assert.Equal(t, "UN", products[0].Unit)
 }
 
-func TestCreateProductAceitaCodigoDuplicado(t *testing.T) {
+func TestCreateProductAcceptsDuplicateCode(t *testing.T) {
 	server := newServer(t)
 
-	primeiro := post(t, server, "/products",
+	first := post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99}`)
-	segundo := post(t, server, "/products",
+	second := post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Calca Jeans","unit":"UN","price":89.99}`)
 
-	assert.Equal(t, http.StatusCreated, primeiro.Code)
-	assert.Equal(t, http.StatusCreated, segundo.Code, "codigo duplicado e permitido")
+	assert.Equal(t, http.StatusCreated, first.Code)
+	assert.Equal(t, http.StatusCreated, second.Code, "a duplicate code is allowed")
 
-	var salvos []model.Product
-	require.NoError(t, testConnection.Find(&salvos).Error)
-	assert.Len(t, salvos, 2)
+	var saved []model.Product
+	require.NoError(t, testConnection.Find(&saved).Error)
+	assert.Len(t, saved, 2)
 }

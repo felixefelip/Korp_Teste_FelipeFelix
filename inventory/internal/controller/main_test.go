@@ -17,13 +17,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// testConnection e a conexao compartilhada por todos os testes do pacote.
+// testConnection is the connection shared by every test in the package.
 var testConnection *gorm.DB
 
 func TestMain(m *testing.M) {
 	connection, err := testdb.Setup()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "setup do banco de teste:", err)
+		fmt.Fprintln(os.Stderr, "test database setup:", err)
 		os.Exit(1)
 	}
 
@@ -33,8 +33,8 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// newServer monta o servidor com as rotas reais da aplicacao (as mesmas que o
-// main.go registra, via router.Register) sobre uma tabela product vazia.
+// newServer builds the server with the real application routes (the same ones
+// main.go registers, through router.Register) over an empty product table.
 func newServer(t *testing.T) *gin.Engine {
 	t.Helper()
 
@@ -46,10 +46,10 @@ func newServer(t *testing.T) *gin.Engine {
 	return server
 }
 
-// newServerComBancoIndisponivel monta o mesmo servidor sobre uma conexao propria
-// que ja foi fechada, para exercitar o caminho de erro dos handlers. A conexao
-// compartilhada pelos demais testes nao e afetada.
-func newServerComBancoIndisponivel(t *testing.T) *gin.Engine {
+// newServerWithDatabaseDown builds the same server over a connection of its own
+// that has already been closed, to exercise the error path of the handlers. The
+// connection shared by the other tests is not affected.
+func newServerWithDatabaseDown(t *testing.T) *gin.Engine {
 	t.Helper()
 
 	connection, err := db.ConnectDB()
@@ -65,7 +65,7 @@ func newServerComBancoIndisponivel(t *testing.T) *gin.Engine {
 	return server
 }
 
-// do dispara uma requisicao contra o servidor e devolve a resposta gravada.
+// do fires a request against the server and returns the recorded response.
 func do(t *testing.T, server *gin.Engine, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 

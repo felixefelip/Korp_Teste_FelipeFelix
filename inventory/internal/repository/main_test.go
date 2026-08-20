@@ -15,7 +15,7 @@ var testConnection *gorm.DB
 func TestMain(m *testing.M) {
 	connection, err := testdb.Setup()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "setup do banco de teste:", err)
+		fmt.Fprintln(os.Stderr, "test database setup:", err)
 		os.Exit(1)
 	}
 
