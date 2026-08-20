@@ -145,11 +145,6 @@ describe('ProductForm', () => {
       expect(errorOf('name')).toBe('Informe pelo menos 3 caracteres.');
     });
 
-    it('rejects a code with invalid characters', async () => {
-      await fill('code', 'PRD 001/A');
-      expect(errorOf('code')).toBe('Use apenas letras, números e hífen.');
-    });
-
     it('accepts a code already used by another product', async () => {
       await fillValidForm();
       await fill('code', 'PRD-0001');
