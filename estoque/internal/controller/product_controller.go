@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"estoque/internal/model"
 	"estoque/internal/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -29,7 +28,7 @@ func (p *productController) GetProducts(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, products)
+	ctx.JSON(http.StatusOK, newProductResponses(products))
 }
 
 func (p *productController) GetProductByID(ctx *gin.Context) {
@@ -50,23 +49,26 @@ func (p *productController) GetProductByID(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, product)
+	ctx.JSON(http.StatusOK, newProductResponse(product))
 }
 
 func (p *productController) CreateProduct(ctx *gin.Context) {
-	var product model.Product
-	err := ctx.BindJSON(&product)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, err)
+	var request createProductRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		if fieldErrors := bindErrors(err); fieldErrors != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"errors": fieldErrors})
+			return
+		}
+
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "o corpo precisa ser um JSON valido"})
 		return
 	}
 
-	insertedProduct, err := p.productUsecase.CreateProduct(product)
+	insertedProduct, err := p.productUsecase.CreateProduct(request.toModel())
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao criar o produto"})
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, insertedProduct)
-
+	ctx.JSON(http.StatusCreated, newProductResponse(insertedProduct))
 }

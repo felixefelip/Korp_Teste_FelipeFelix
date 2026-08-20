@@ -1,6 +1,5 @@
 package model
 
-// Code nao tem indice unico de proposito: o negocio permite codigos repetidos.
 type Product struct {
 	ID    int     `json:"id"    gorm:"primaryKey"`
 	Code  string  `json:"code"  gorm:"type:varchar(30);not null"`
