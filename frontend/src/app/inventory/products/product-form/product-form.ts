@@ -3,19 +3,12 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
-import {
-  CustomFormValidation,
-  ValidationMessage
-} from '../../../shared/forms/custom-form-validation';
+import { CustomFormValidation } from '../../../shared/forms/custom-form-validation';
 import { isClientError } from '../../../shared/forms/http-errors';
 import { CustomValidators } from '../../../shared/forms/validators';
 import { ProductService } from '../product.service';
 
 export const UNITS = ['UN', 'CX', 'PC', 'KG', 'L', 'M'];
-
-const MESSAGE_OVERRIDES: Record<string, ValidationMessage> = {
-  pattern: () => 'Use apenas letras, números e hífen.'
-};
 
 const GENERIC_FAILURE = 'Não foi possível salvar o produto. Tente novamente.';
 
@@ -36,10 +29,10 @@ export class ProductForm {
   protected readonly failure = signal<string | null>(null);
 
   protected readonly form = this.fb.group({
-    code: this.fb.nonNullable.control(this.productService.nextCode(), [
-      Validators.required,
-      Validators.pattern(/^[A-Za-z0-9-]+$/)
-    ]),
+    code: this.fb.nonNullable.control(
+      this.productService.nextCode(),
+      Validators.required
+    ),
     name: this.fb.nonNullable.control('', [
       Validators.required,
       Validators.minLength(3),
@@ -59,8 +52,7 @@ export class ProductForm {
 
   protected readonly fieldError = CustomFormValidation.fieldErrorFor(
     this.form,
-    this.submitted,
-    MESSAGE_OVERRIDES
+    this.submitted
   );
 
   constructor() {
