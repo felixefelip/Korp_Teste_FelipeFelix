@@ -9,6 +9,7 @@ import (
 
 	"inventory/internal/model"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -397,4 +398,188 @@ func TestCreateProductAcceptsDuplicateCode(t *testing.T) {
 	var saved []model.Product
 	require.NoError(t, testConnection.Find(&saved).Error)
 	assert.Len(t, saved, 2)
+}
+
+const updatedProduct = `{"code":"PRD-0002","name":"Camiseta polo","unit":"CX","price":59.9,"stock":3}`
+
+func createProduct(t *testing.T, server *gin.Engine, body string) int {
+	t.Helper()
+
+	response := post(t, server, "/products", body)
+	require.Equal(t, http.StatusCreated, response.Code)
+
+	return decodeProduct(t, response.Body.Bytes()).ID
+}
+
+func TestUpdateProductReturns200WithTheUpdatedProduct(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, validProduct)
+
+	response := put(t, server, fmt.Sprintf("/products/%d", id), updatedProduct)
+
+	require.Equal(t, http.StatusOK, response.Code)
+
+	updated := decodeProduct(t, response.Body.Bytes())
+
+	assert.Equal(t, id, updated.ID, "the id must survive the update")
+	assert.Equal(t, "PRD-0002", updated.Code)
+	assert.Equal(t, "Camiseta polo", updated.Name)
+	assert.Equal(t, "CX", updated.Unit)
+	assert.Equal(t, 59.9, updated.Price)
+	assert.Equal(t, 3, updated.Stock)
+}
+
+func TestUpdateProductPersistsToTheDatabase(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, validProduct)
+
+	require.Equal(t, http.StatusOK, put(t, server, fmt.Sprintf("/products/%d", id), updatedProduct).Code)
+
+	var saved []model.Product
+	require.NoError(t, testConnection.Find(&saved).Error)
+
+	require.Len(t, saved, 1, "the update must not create a second row")
+	assert.Equal(t, "Camiseta polo", saved[0].Name)
+	assert.Equal(t, 59.9, saved[0].Price)
+	assert.Equal(t, 3, saved[0].Stock)
+}
+
+func TestUpdateProductNormalizesCodeAndName(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, validProduct)
+
+	response := put(t, server, fmt.Sprintf("/products/%d", id),
+		`{"code":"  prd-0009  ","name":"  Caneca  ","unit":"UN","price":10,"stock":1}`)
+
+	require.Equal(t, http.StatusOK, response.Code)
+
+	updated := decodeProduct(t, response.Body.Bytes())
+
+	assert.Equal(t, "PRD-0009", updated.Code)
+	assert.Equal(t, "Caneca", updated.Name)
+}
+
+func TestUpdateProductWithZeroPriceAndStockReturns200(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, validProduct)
+
+	response := put(t, server, fmt.Sprintf("/products/%d", id),
+		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":0,"stock":0}`)
+
+	require.Equal(t, http.StatusOK, response.Code)
+
+	updated := decodeProduct(t, response.Body.Bytes())
+
+	assert.Zero(t, updated.Price)
+	assert.Zero(t, updated.Stock)
+}
+
+func TestUpdateProductIgnoresTheIDSentInTheBody(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, validProduct)
+
+	response := put(t, server, fmt.Sprintf("/products/%d", id),
+		fmt.Sprintf(`{"id":%d,"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99,"stock":12}`, id+900))
+
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, id, decodeProduct(t, response.Body.Bytes()).ID, "the id comes from the URL")
+
+	var saved []model.Product
+	require.NoError(t, testConnection.Find(&saved).Error)
+	require.Len(t, saved, 1)
+}
+
+func TestUpdateProductWhenItDoesNotExistReturns404(t *testing.T) {
+	server := newServer(t)
+
+	response := put(t, server, "/products/9999", updatedProduct)
+
+	require.Equal(t, http.StatusNotFound, response.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"])
+
+	var saved []model.Product
+	require.NoError(t, testConnection.Find(&saved).Error)
+	assert.Empty(t, saved, "a missing product must not be created by the update")
+}
+
+func TestUpdateProductWithNonNumericIDReturns400(t *testing.T) {
+	server := newServer(t)
+
+	response := put(t, server, "/products/abc", updatedProduct)
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"])
+}
+
+func TestUpdateProductWithoutTheRequiredFieldsReturns400(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, validProduct)
+
+	response := put(t, server, fmt.Sprintf("/products/%d", id), `{}`)
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+
+	fieldErrors := decodeErrors(t, response.Body.Bytes())
+
+	assert.Equal(t, "Campo obrigatório.", fieldErrors["code"])
+	assert.Equal(t, "Campo obrigatório.", fieldErrors["name"])
+	assert.Equal(t, "Campo obrigatório.", fieldErrors["unit"])
+	assert.Equal(t, "Campo obrigatório.", fieldErrors["price"])
+
+	var saved model.Product
+	require.NoError(t, testConnection.First(&saved, id).Error)
+	assert.Equal(t, "Camiseta", saved.Name, "a rejected update must leave the product untouched")
+}
+
+func TestUpdateProductWithNegativePriceReturns400(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, validProduct)
+
+	response := put(t, server, fmt.Sprintf("/products/%d", id),
+		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":-1,"stock":12}`)
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	assert.Equal(t, "O valor não pode ser negativo.", decodeErrors(t, response.Body.Bytes())["price"])
+}
+
+func TestUpdateProductWithUnitOutsideTheListReturns400(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, validProduct)
+
+	response := put(t, server, fmt.Sprintf("/products/%d", id),
+		`{"code":"PRD-0001","name":"Camiseta","unit":"DZ","price":30.99,"stock":12}`)
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	assert.Equal(t, "Valor inválido.", decodeErrors(t, response.Body.Bytes())["unit"])
+}
+
+func TestUpdateProductWithInvalidJSONReturns400(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, validProduct)
+
+	response := put(t, server, fmt.Sprintf("/products/%d", id), `{"code":`)
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"])
+}
+
+func TestUpdateProductWithTheDatabaseDownReturns500(t *testing.T) {
+	server := newServerWithDatabaseDown(t)
+
+	response := put(t, server, "/products/1", updatedProduct)
+
+	require.Equal(t, http.StatusInternalServerError, response.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"])
 }

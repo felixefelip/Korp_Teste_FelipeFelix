@@ -108,7 +108,8 @@ describe('ProductList', () => {
         'Notebook Dell Inspiron 15',
         'UN',
         'R$ 4.299,90',
-        '12'
+        '12',
+        'Editar'
       ]);
     });
 
@@ -121,6 +122,18 @@ describe('ProductList', () => {
       expect(text(element().querySelector('.page__subtitle'))).toBe(
         '3 produto(s) encontrado(s)'
       );
+    });
+
+    it('offers an edit action per product pointing to its form', () => {
+      const links = rows().map((row) =>
+        row.querySelector('.table__action')?.getAttribute('href')
+      );
+
+      expect(links).toEqual([
+        '/inventory/products/1/edit',
+        '/inventory/products/2/edit',
+        '/inventory/products/3/edit'
+      ]);
     });
 
     it('offers the create action pointing to the form', () => {

@@ -91,3 +91,9 @@ func post(t *testing.T, server *gin.Engine, path, body string) *httptest.Respons
 
 	return do(t, server, http.MethodPost, path, body)
 }
+
+func put(t *testing.T, server *gin.Engine, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	return do(t, server, http.MethodPut, path, body)
+}

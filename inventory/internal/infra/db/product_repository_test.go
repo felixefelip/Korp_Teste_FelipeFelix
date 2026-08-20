@@ -147,3 +147,68 @@ func TestCreateProductWithoutCodeAndUnitStoresEmpty(t *testing.T) {
 	assert.Empty(t, saved.Code)
 	assert.Empty(t, saved.Unit)
 }
+
+func TestUpdateProductChangesEveryField(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateProduct(model.Product{
+		Code: "PRD-0001", Name: "Camiseta", Unit: "UN", Price: 30.99, Stock: 12,
+	})
+	require.NoError(t, err)
+
+	err = repository.UpdateProduct(model.Product{
+		ID: id, Code: "PRD-0002", Name: "Camiseta polo", Unit: "CX", Price: 59.9, Stock: 3,
+	})
+	require.NoError(t, err)
+
+	var saved model.Product
+	require.NoError(t, testConnection.First(&saved, id).Error)
+
+	assert.Equal(t, model.Product{
+		ID: id, Code: "PRD-0002", Name: "Camiseta polo", Unit: "CX", Price: 59.9, Stock: 3,
+	}, saved)
+}
+
+func TestUpdateProductStoresZeroedPriceAndStock(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateProduct(model.Product{Name: "Camiseta", Price: 30.99, Stock: 12})
+	require.NoError(t, err)
+
+	err = repository.UpdateProduct(model.Product{ID: id, Name: "Camiseta", Price: 0, Stock: 0})
+	require.NoError(t, err)
+
+	var saved model.Product
+	require.NoError(t, testConnection.First(&saved, id).Error)
+
+	assert.Zero(t, saved.Price, "zero is a value the user chose, not an absent field")
+	assert.Zero(t, saved.Stock)
+}
+
+func TestUpdateProductWhenMissingReturnsErrRecordNotFound(t *testing.T) {
+	repository := newRepository(t)
+
+	err := repository.UpdateProduct(model.Product{ID: 9999, Name: "Camiseta", Price: 10})
+
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+}
+
+func TestUpdateProductLeavesTheOtherProductsAlone(t *testing.T) {
+	repository := newRepository(t)
+
+	first, err := repository.CreateProduct(model.Product{Code: "PRD-0001", Name: "Camiseta", Price: 30})
+	require.NoError(t, err)
+
+	second, err := repository.CreateProduct(model.Product{Code: "PRD-0002", Name: "Caneca", Price: 20})
+	require.NoError(t, err)
+
+	require.NoError(t, repository.UpdateProduct(model.Product{
+		ID: first, Code: "PRD-0001", Name: "Camiseta polo", Price: 45,
+	}))
+
+	var untouched model.Product
+	require.NoError(t, testConnection.First(&untouched, second).Error)
+
+	assert.Equal(t, "Caneca", untouched.Name)
+	assert.Equal(t, 20.0, untouched.Price)
+}

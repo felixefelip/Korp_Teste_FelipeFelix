@@ -1,7 +1,7 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { CustomFormValidation } from '../../../shared/forms/custom-form-validation';
 import { isClientError } from '../../../shared/forms/http-errors';
@@ -11,6 +11,8 @@ import { ProductService } from '../product.service';
 export const UNITS = ['UN', 'CX', 'PC', 'KG', 'L', 'M'];
 
 const GENERIC_FAILURE = 'Não foi possível salvar o produto. Tente novamente.';
+const NOT_FOUND_FAILURE = 'Produto não encontrado.';
+const LOAD_FAILURE = 'Não foi possível carregar o produto. Tente novamente.';
 
 @Component({
   selector: 'app-product-form',
@@ -22,10 +24,16 @@ export class ProductForm {
   private readonly fb = inject(FormBuilder);
   private readonly productService = inject(ProductService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
+  private readonly productId = Number(this.route.snapshot.paramMap.get('id')) || null;
+
+  protected readonly editing = this.productId !== null;
   protected readonly units = UNITS;
   protected readonly submitted = signal(false);
   protected readonly saving = signal(false);
+  protected readonly loading = signal(this.productId !== null);
+  protected readonly loadFailed = signal(false);
   protected readonly failure = signal<string | null>(null);
 
   protected readonly form = this.fb.group({
@@ -52,7 +60,17 @@ export class ProductForm {
     this.submitted
   );
 
+  constructor() {
+    if (this.productId !== null) {
+      this.load(this.productId);
+    }
+  }
+
   protected save(): void {
+    if (this.loading() || this.loadFailed()) {
+      return;
+    }
+
     this.submitted.set(true);
     this.failure.set(null);
 
@@ -62,21 +80,47 @@ export class ProductForm {
     }
 
     const { code, name, unit, price, stock } = this.form.getRawValue();
+    const product = { code, name: name.trim(), unit, price: price!, stock: stock! };
 
     this.saving.set(true);
 
-    this.productService
-      .create({ code, name: name.trim(), unit, price: price!, stock: stock! })
-      .subscribe({
-        next: () => {
-          this.saving.set(false);
-          this.router.navigate(['/inventory/products']);
-        },
-        error: (response: HttpErrorResponse) => {
-          this.saving.set(false);
-          this.handleServerFailure(response);
-        }
-      });
+    const saved =
+      this.productId === null
+        ? this.productService.create(product)
+        : this.productService.update(this.productId, product);
+
+    saved.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.router.navigate(['/inventory/products']);
+      },
+      error: (response: HttpErrorResponse) => {
+        this.saving.set(false);
+        this.handleServerFailure(response);
+      }
+    });
+  }
+
+  private load(id: number): void {
+    this.productService.get(id).subscribe({
+      next: (product) => {
+        this.form.setValue({
+          code: product.code,
+          name: product.name,
+          unit: product.unit,
+          price: product.price,
+          stock: product.stock
+        });
+        this.loading.set(false);
+      },
+      error: (response: HttpErrorResponse) => {
+        this.loading.set(false);
+        this.loadFailed.set(true);
+        this.failure.set(
+          response.status === HttpStatusCode.NotFound ? NOT_FOUND_FAILURE : LOAD_FAILURE
+        );
+      }
+    });
   }
 
   private handleServerFailure(response: HttpErrorResponse): void {

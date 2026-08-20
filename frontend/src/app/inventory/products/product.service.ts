@@ -20,9 +20,23 @@ export class ProductService {
       .pipe(tap((products) => this._products.set(products)));
   }
 
+  get(id: number): Observable<Product> {
+    return this.http.get<Product>(`${RESOURCE}/${id}`);
+  }
+
   create(data: Omit<Product, 'id'>): Observable<Product> {
     return this.http
       .post<Product>(RESOURCE, data)
       .pipe(tap((product) => this._products.update((products) => [...products, product])));
+  }
+
+  update(id: number, data: Omit<Product, 'id'>): Observable<Product> {
+    return this.http.put<Product>(`${RESOURCE}/${id}`, data).pipe(
+      tap((updated) =>
+        this._products.update((products) =>
+          products.map((product) => (product.id === updated.id ? updated : product))
+        )
+      )
+    );
   }
 }
