@@ -27,7 +27,7 @@ func (iu *InvoiceUsecase) UpdateInvoice(invoice model.Invoice) (model.Invoice, e
 		return model.Invoice{}, err
 	}
 
-	return invoice, nil
+	return iu.repository.GetInvoiceByID(invoice.ID)
 }
 
 func (iu *InvoiceUsecase) CreateInvoice(invoice model.Invoice) (model.Invoice, error) {
@@ -36,7 +36,5 @@ func (iu *InvoiceUsecase) CreateInvoice(invoice model.Invoice) (model.Invoice, e
 		return model.Invoice{}, err
 	}
 
-	invoice.ID = invoiceId
-
-	return invoice, nil
+	return iu.repository.GetInvoiceByID(invoiceId)
 }
