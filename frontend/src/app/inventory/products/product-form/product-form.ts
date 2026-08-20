@@ -3,11 +3,11 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
-import { applyMessageErrorsToForm, isClientError } from '../../../shared/forms/http-errors';
 import {
-  ValidationMessage,
-  fieldErrorFor
-} from '../../../shared/forms/validation-messages';
+  CustomFormValidation,
+  ValidationMessage
+} from '../../../shared/forms/custom-form-validation';
+import { isClientError } from '../../../shared/forms/http-errors';
 import { CustomValidators } from '../../../shared/forms/validators';
 import { ProductService } from '../product.service';
 
@@ -57,7 +57,7 @@ export class ProductForm {
     ])
   });
 
-  protected readonly fieldError = fieldErrorFor(
+  protected readonly fieldError = CustomFormValidation.fieldErrorFor(
     this.form,
     this.submitted,
     MESSAGE_OVERRIDES
@@ -109,7 +109,9 @@ export class ProductForm {
       return;
     }
 
-    if (applyMessageErrorsToForm(this.form, response.error?.errors)) {
+    const errors = response.error?.errors;
+
+    if (CustomFormValidation.applyMessageErrorsToForm(this.form, errors)) {
       this.failure.set(null);
       return;
     }
