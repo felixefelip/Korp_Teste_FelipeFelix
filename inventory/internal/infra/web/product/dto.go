@@ -1,4 +1,4 @@
-package web
+package product
 
 import (
 	"strings"
@@ -6,7 +6,7 @@ import (
 	"inventory/internal/model"
 )
 
-type createProductRequest struct {
+type createRequest struct {
 	Code  string   `json:"code"  binding:"required,max=30"`
 	Name  string   `json:"name"  binding:"required,max=255"`
 	Unit  string   `json:"unit"  binding:"required,oneof=UN CX PC KG L M"`
@@ -14,7 +14,7 @@ type createProductRequest struct {
 	Stock int      `json:"stock" binding:"gte=0"`
 }
 
-func (r createProductRequest) toModel() model.Product {
+func (r createRequest) toModel() model.Product {
 	return model.Product{
 		Code:  strings.ToUpper(strings.TrimSpace(r.Code)),
 		Name:  strings.TrimSpace(r.Name),
@@ -24,7 +24,7 @@ func (r createProductRequest) toModel() model.Product {
 	}
 }
 
-type updateProductRequest struct {
+type updateRequest struct {
 	Code  string   `json:"code"  binding:"required,max=30"`
 	Name  string   `json:"name"  binding:"required,max=255"`
 	Unit  string   `json:"unit"  binding:"required,oneof=UN CX PC KG L M"`
@@ -32,7 +32,7 @@ type updateProductRequest struct {
 	Stock int      `json:"stock" binding:"gte=0"`
 }
 
-func (r updateProductRequest) toModel(id int) model.Product {
+func (r updateRequest) toModel(id int) model.Product {
 	return model.Product{
 		ID:    id,
 		Code:  strings.ToUpper(strings.TrimSpace(r.Code)),
@@ -43,7 +43,7 @@ func (r updateProductRequest) toModel(id int) model.Product {
 	}
 }
 
-type productResponse struct {
+type response struct {
 	ID    int     `json:"id"`
 	Code  string  `json:"code"`
 	Name  string  `json:"name"`
@@ -52,8 +52,8 @@ type productResponse struct {
 	Stock int     `json:"stock"`
 }
 
-func newProductResponse(product model.Product) productResponse {
-	return productResponse{
+func newResponse(product model.Product) response {
+	return response{
 		ID:    product.ID,
 		Code:  product.Code,
 		Name:  product.Name,
@@ -63,11 +63,11 @@ func newProductResponse(product model.Product) productResponse {
 	}
 }
 
-func newProductResponses(products []model.Product) []productResponse {
-	responses := make([]productResponse, 0, len(products))
+func newResponses(products []model.Product) []response {
+	responses := make([]response, 0, len(products))
 
 	for _, product := range products {
-		responses = append(responses, newProductResponse(product))
+		responses = append(responses, newResponse(product))
 	}
 
 	return responses

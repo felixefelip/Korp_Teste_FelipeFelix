@@ -1,37 +1,38 @@
-package web
+package invoice
 
 import (
 	"errors"
 	"net/http"
 	"strconv"
 
+	"billing/internal/infra/web/apierr"
 	"billing/internal/usecase"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-type invoiceController struct {
+type Controller struct {
 	invoiceUsecase usecase.InvoiceUsecase
 }
 
-func NewInvoiceController(usecase usecase.InvoiceUsecase) invoiceController {
-	return invoiceController{
+func NewController(usecase usecase.InvoiceUsecase) Controller {
+	return Controller{
 		invoiceUsecase: usecase,
 	}
 }
 
-func (i *invoiceController) GetInvoices(ctx *gin.Context) {
+func (i *Controller) GetInvoices(ctx *gin.Context) {
 	invoices, err := i.invoiceUsecase.GetInvoices()
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao buscar as notas fiscais"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, newInvoiceResponses(invoices))
+	ctx.JSON(http.StatusOK, newResponses(invoices))
 }
 
-func (i *invoiceController) GetInvoiceByID(ctx *gin.Context) {
+func (i *Controller) GetInvoiceByID(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "o id da nota fiscal precisa ser um numero inteiro"})
@@ -49,19 +50,19 @@ func (i *invoiceController) GetInvoiceByID(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, newInvoiceResponse(invoice))
+	ctx.JSON(http.StatusOK, newResponse(invoice))
 }
 
-func (i *invoiceController) UpdateInvoice(ctx *gin.Context) {
+func (i *Controller) UpdateInvoice(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "o id da nota fiscal precisa ser um numero inteiro"})
 		return
 	}
 
-	var request updateInvoiceRequest
+	var request updateRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		if fieldErrors := bindErrors(err); fieldErrors != nil {
+		if fieldErrors := apierr.FieldErrors(err); fieldErrors != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"errors": fieldErrors})
 			return
 		}
@@ -81,13 +82,13 @@ func (i *invoiceController) UpdateInvoice(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, newInvoiceResponse(updatedInvoice))
+	ctx.JSON(http.StatusOK, newResponse(updatedInvoice))
 }
 
-func (i *invoiceController) CreateInvoice(ctx *gin.Context) {
-	var request createInvoiceRequest
+func (i *Controller) CreateInvoice(ctx *gin.Context) {
+	var request createRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		if fieldErrors := bindErrors(err); fieldErrors != nil {
+		if fieldErrors := apierr.FieldErrors(err); fieldErrors != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"errors": fieldErrors})
 			return
 		}
@@ -102,5 +103,5 @@ func (i *invoiceController) CreateInvoice(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, newInvoiceResponse(insertedInvoice))
+	ctx.JSON(http.StatusCreated, newResponse(insertedInvoice))
 }
