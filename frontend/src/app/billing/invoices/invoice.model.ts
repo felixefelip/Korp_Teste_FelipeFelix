@@ -5,3 +5,10 @@ export interface Invoice {
   number: string;
   status: InvoiceStatus;
 }
+
+export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  OPEN: 'Aberta',
+  CLOSED: 'Fechada'
+};
+
+export const INVOICE_STATUSES = Object.keys(INVOICE_STATUS_LABELS) as InvoiceStatus[];

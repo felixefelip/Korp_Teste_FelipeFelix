@@ -1,0 +1,57 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1 class="page__title">Cadastrar nota fiscal</h1>
+      <p class="page__subtitle">Faturamento &rsaquo; Notas Fiscais &rsaquo; Nova</p>
+    </div>
+  </header>
+
+  <form class="card" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    @if (failure(); as message) {
+      <p class="form__failure" role="alert">{{ message }}</p>
+    }
+
+    <div class="form__grid">
+      <div class="field-group field-group--number">
+        <label class="field-label" for="number">Número</label>
+        <input
+          id="number"
+          type="text"
+          class="field"
+          formControlName="number"
+          autocomplete="off"
+          maxlength="30"
+          placeholder="NF-0001"
+          [class.field--error]="fieldError('number')"
+        />
+        @if (fieldError('number'); as message) {
+          <p class="field-error">{{ message }}</p>
+        }
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="status">Status</label>
+        <select
+          id="status"
+          class="field"
+          formControlName="status"
+          [class.field--error]="fieldError('status')"
+        >
+          @for (status of statuses; track status) {
+            <option [value]="status">{{ statusLabel(status) }}</option>
+          }
+        </select>
+        @if (fieldError('status'); as message) {
+          <p class="field-error">{{ message }}</p>
+        }
+      </div>
+    </div>
+
+    <footer class="form__actions">
+      <a class="btn btn--ghost" routerLink="/billing/invoices">Cancelar</a>
+      <button type="submit" class="btn btn--primary" [disabled]="saving()">
+        {{ saving() ? 'Salvando…' : 'Salvar nota fiscal' }}
+      </button>
+    </footer>
+  </form>
+</section>

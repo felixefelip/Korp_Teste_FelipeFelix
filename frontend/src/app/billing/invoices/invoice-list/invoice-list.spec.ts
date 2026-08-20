@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { Observable, of, tap, throwError } from 'rxjs';
 
 import { Invoice } from '../invoice.model';
@@ -46,7 +47,7 @@ describe('InvoiceList', () => {
 
     await TestBed.configureTestingModule({
       imports: [InvoiceList],
-      providers: [{ provide: InvoiceService, useValue: service }]
+      providers: [provideRouter([]), { provide: InvoiceService, useValue: service }]
     }).compileComponents();
 
     fixture = TestBed.createComponent(InvoiceList);
@@ -86,6 +87,13 @@ describe('InvoiceList', () => {
       expect(text(element().querySelector('.page__subtitle'))).toBe(
         '3 nota(s) fiscal(is) encontrada(s)'
       );
+    });
+
+    it('offers the create action pointing to the form', () => {
+      const action = element().querySelector('a.btn--primary');
+
+      expect(text(action)).toBe('+ Cadastrar nota fiscal');
+      expect(action?.getAttribute('href')).toBe('/billing/invoices/new');
     });
   });
 
