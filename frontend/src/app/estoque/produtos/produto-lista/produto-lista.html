@@ -37,22 +37,37 @@
           </tr>
         </thead>
         <tbody>
-          @for (produto of produtos(); track produto.id) {
+          @if (carregando()) {
             <tr>
-              <td class="tabela__codigo">{{ produto.codigo }}</td>
-              <td>{{ produto.descricao }}</td>
-              <td>{{ produto.unidade }}</td>
-              <td class="tabela__num">
-                {{ produto.precoUnitario | currency: 'BRL' : 'symbol' : '1.2-2' }}
-              </td>
-              <td class="tabela__num">{{ produto.estoque }}</td>
+              <td colspan="5" class="tabela__vazio">Carregando produtos…</td>
             </tr>
-          } @empty {
+          } @else if (erro()) {
             <tr>
-              <td colspan="5" class="tabela__vazio">
-                Nenhum produto encontrado.
+              <td colspan="5" class="tabela__vazio tabela__erro">
+                Não foi possível carregar os produtos.
+                <button type="button" class="btn btn--ghost" (click)="carregar()">
+                  Tentar novamente
+                </button>
               </td>
             </tr>
+          } @else {
+            @for (produto of produtos(); track produto.id) {
+              <tr>
+                <td class="tabela__codigo">{{ produto.code }}</td>
+                <td>{{ produto.name }}</td>
+                <td>{{ produto.unit }}</td>
+                <td class="tabela__num">
+                  {{ produto.price | currency: 'BRL' : 'symbol' : '1.2-2' }}
+                </td>
+                <td class="tabela__num">{{ produto.stock }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="tabela__vazio">
+                  Nenhum produto encontrado.
+                </td>
+              </tr>
+            }
           }
         </tbody>
       </table>

@@ -13,6 +13,8 @@ export class ProdutoLista {
   private readonly produtoService = inject(ProdutoService);
 
   protected readonly filtro = signal('');
+  protected readonly carregando = signal(true);
+  protected readonly erro = signal(false);
 
   protected readonly produtos = computed(() => {
     const termo = this.filtro().trim().toLowerCase();
@@ -24,10 +26,27 @@ export class ProdutoLista {
 
     return lista.filter(
       (produto) =>
-        produto.descricao.toLowerCase().includes(termo) ||
-        produto.codigo.toLowerCase().includes(termo)
+        produto.name.toLowerCase().includes(termo) ||
+        produto.code.toLowerCase().includes(termo)
     );
   });
+
+  constructor() {
+    this.carregar();
+  }
+
+  protected carregar(): void {
+    this.carregando.set(true);
+    this.erro.set(false);
+
+    this.produtoService.listar().subscribe({
+      next: () => this.carregando.set(false),
+      error: () => {
+        this.carregando.set(false);
+        this.erro.set(true);
+      }
+    });
+  }
 
   protected aoFiltrar(evento: Event): void {
     this.filtro.set((evento.target as HTMLInputElement).value);

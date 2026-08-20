@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import {
   AbstractControl,
@@ -8,11 +9,11 @@ import {
 } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
+import { ErrosDoServidor } from '../produto.model';
 import { ProdutoService } from '../produto.service';
 
 export const UNIDADES = ['UN', 'CX', 'PC', 'KG', 'L', 'M'];
 
-/** Aceita apenas valores inteiros (usado na quantidade em estoque). */
 function inteiro(controle: AbstractControl): ValidationErrors | null {
   const valor = controle.value;
   return valor === null || valor === '' || Number.isInteger(valor)
@@ -29,6 +30,14 @@ const MENSAGENS: Record<string, string> = {
   naoInteiro: 'Informe um número inteiro.'
 };
 
+const MENSAGENS_DO_SERVIDOR: Record<string, string> = {
+  obrigatorio: 'Campo obrigatório.',
+  'tipo invalido': 'Valor inválido.',
+  'nao pode ser menor que 0': 'O valor não pode ser negativo.'
+};
+
+const FALHA_GENERICA = 'Não foi possível salvar o produto. Tente novamente.';
+
 @Component({
   selector: 'app-produto-formulario',
   imports: [ReactiveFormsModule, RouterLink],
@@ -42,30 +51,44 @@ export class ProdutoFormulario {
 
   protected readonly unidades = UNIDADES;
   protected readonly enviado = signal(false);
+  protected readonly salvando = signal(false);
+  protected readonly falha = signal<string | null>(null);
 
   protected readonly formulario = this.fb.group({
-    codigo: this.fb.nonNullable.control(this.produtoService.proximoCodigo(), [
+    code: this.fb.nonNullable.control(this.produtoService.proximoCodigo(), [
       Validators.required,
       Validators.pattern(/^[A-Za-z0-9-]+$/)
     ]),
-    descricao: this.fb.nonNullable.control('', [
+    name: this.fb.nonNullable.control('', [
       Validators.required,
       Validators.minLength(3),
       Validators.maxLength(120)
     ]),
-    unidade: this.fb.nonNullable.control(UNIDADES[0], Validators.required),
-    precoUnitario: this.fb.control<number | null>(null, [
+    unit: this.fb.nonNullable.control(UNIDADES[0], Validators.required),
+    price: this.fb.control<number | null>(null, [
       Validators.required,
       Validators.min(0)
     ]),
-    estoque: this.fb.control<number | null>(0, [
+    stock: this.fb.control<number | null>(0, [
       Validators.required,
       Validators.min(0),
       inteiro
     ])
   });
 
-  /** Mensagem de erro do campo, ou null enquanto não houver o que mostrar. */
+  constructor() {
+    this.produtoService.listar().subscribe({
+      next: () => {
+        const controle = this.formulario.controls.code;
+
+        if (controle.pristine) {
+          controle.setValue(this.produtoService.proximoCodigo());
+        }
+      },
+      error: () => {}
+    });
+  }
+
   protected erro(campo: string): string | null {
     const controle = this.formulario.get(campo);
 
@@ -73,29 +96,68 @@ export class ProdutoFormulario {
       return null;
     }
 
-    const chave = Object.keys(controle.errors ?? {})[0];
-    return MENSAGENS[chave] ?? 'Valor inválido.';
+    const erros = controle.errors ?? {};
+
+    if (typeof erros['servidor'] === 'string') {
+      return erros['servidor'];
+    }
+
+    return MENSAGENS[Object.keys(erros)[0]] ?? 'Valor inválido.';
   }
 
   protected salvar(): void {
     this.enviado.set(true);
+    this.falha.set(null);
 
-    if (this.formulario.invalid) {
+    if (this.formulario.invalid || this.salvando()) {
       this.formulario.markAllAsTouched();
       return;
     }
 
-    const { codigo, descricao, unidade, precoUnitario, estoque } =
-      this.formulario.getRawValue();
+    const { code, name, unit, price, stock } = this.formulario.getRawValue();
 
-    this.produtoService.cadastrar({
-      codigo,
-      descricao: descricao.trim(),
-      unidade,
-      precoUnitario: precoUnitario!,
-      estoque: estoque!
-    });
+    this.salvando.set(true);
 
-    this.router.navigate(['/estoque/produtos']);
+    this.produtoService
+      .cadastrar({ code, name: name.trim(), unit, price: price!, stock: stock! })
+      .subscribe({
+        next: () => {
+          this.salvando.set(false);
+          this.router.navigate(['/estoque/produtos']);
+        },
+        error: (resposta: HttpErrorResponse) => {
+          this.salvando.set(false);
+          this.tratarFalha(resposta);
+        }
+      });
+  }
+
+  private tratarFalha(resposta: HttpErrorResponse): void {
+    const erros = resposta.error?.errors as ErrosDoServidor | undefined;
+
+    if (!erros) {
+      this.falha.set(resposta.error?.message ?? FALHA_GENERICA);
+      return;
+    }
+
+    let algumCampoConhecido = false;
+
+    for (const [campo, mensagem] of Object.entries(erros)) {
+      const controle = this.formulario.get(campo);
+
+      if (controle) {
+        controle.setErrors({ servidor: this.traduzir(mensagem) });
+        algumCampoConhecido = true;
+      }
+    }
+
+    this.falha.set(algumCampoConhecido ? null : FALHA_GENERICA);
+  }
+
+  private traduzir(mensagem: string): string {
+    return (
+      MENSAGENS_DO_SERVIDOR[mensagem] ??
+      `${mensagem.charAt(0).toUpperCase()}${mensagem.slice(1)}.`
+    );
   }
 }

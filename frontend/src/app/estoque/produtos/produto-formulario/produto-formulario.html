@@ -7,82 +7,86 @@
   </header>
 
   <form class="card" [formGroup]="formulario" (ngSubmit)="salvar()" novalidate>
+    @if (falha(); as mensagem) {
+      <p class="form__falha" role="alert">{{ mensagem }}</p>
+    }
+
     <div class="form__grade">
       <div class="campo-grupo campo-grupo--codigo">
-        <label class="campo-rotulo" for="codigo">Código</label>
+        <label class="campo-rotulo" for="code">Código</label>
         <input
-          id="codigo"
+          id="code"
           type="text"
           class="campo"
-          formControlName="codigo"
+          formControlName="code"
           autocomplete="off"
-          [class.campo--erro]="erro('codigo')"
+          [class.campo--erro]="erro('code')"
         />
-        @if (erro('codigo'); as mensagem) {
+        @if (erro('code'); as mensagem) {
           <p class="campo-erro">{{ mensagem }}</p>
         }
       </div>
 
       <div class="campo-grupo campo-grupo--descricao">
-        <label class="campo-rotulo" for="descricao">Descrição</label>
+        <label class="campo-rotulo" for="name">Descrição</label>
         <input
-          id="descricao"
+          id="name"
           type="text"
           class="campo"
-          formControlName="descricao"
-          [class.campo--erro]="erro('descricao')"
+          formControlName="name"
+          [class.campo--erro]="erro('name')"
         />
-        @if (erro('descricao'); as mensagem) {
+        @if (erro('name'); as mensagem) {
           <p class="campo-erro">{{ mensagem }}</p>
         }
       </div>
 
       <div class="campo-grupo">
-        <label class="campo-rotulo" for="unidade">Unidade</label>
+        <label class="campo-rotulo" for="unit">Unidade</label>
         <select
-          id="unidade"
+          id="unit"
           class="campo"
-          formControlName="unidade"
-          [class.campo--erro]="erro('unidade')"
+          formControlName="unit"
+          [class.campo--erro]="erro('unit')"
         >
           @for (unidade of unidades; track unidade) {
             <option [value]="unidade">{{ unidade }}</option>
           }
         </select>
-        @if (erro('unidade'); as mensagem) {
+        @if (erro('unit'); as mensagem) {
           <p class="campo-erro">{{ mensagem }}</p>
         }
       </div>
 
       <div class="campo-grupo">
-        <label class="campo-rotulo" for="precoUnitario">Preço unitário (R$)</label>
+        <label class="campo-rotulo" for="price">Preço unitário (R$)</label>
         <input
-          id="precoUnitario"
+          id="price"
           type="number"
           class="campo"
-          formControlName="precoUnitario"
+          formControlName="price"
           step="0.01"
           min="0"
           placeholder="0,00"
-          [class.campo--erro]="erro('precoUnitario')"
+          [class.campo--erro]="erro('price')"
         />
-        @if (erro('precoUnitario'); as mensagem) {
+        @if (erro('price'); as mensagem) {
           <p class="campo-erro">{{ mensagem }}</p>
         }
       </div>
 
       <div class="campo-grupo">
-        <label class="campo-rotulo" for="estoque">Estoque inicial</label>
+        <label class="campo-rotulo" for="stock">Estoque inicial</label>
         <input
-          id="estoque"
+          id="stock"
           type="number"
           class="campo"
-          formControlName="estoque"
+          formControlName="stock"
           step="1"
           min="0"
-          [class.campo--erro]="erro('estoque')"
+          [class.campo--erro]="erro('stock')"
         />
-        @if (erro('estoque'); as mensagem) {
+        @if (erro('stock'); as mensagem) {
           <p class="campo-erro">{{ mensagem }}</p>
         }
       </div>
@@ -90,7 +94,9 @@
 
     <footer class="form__acoes">
       <a class="btn btn--ghost" routerLink="/estoque/produtos">Cancelar</a>
-      <button type="submit" class="btn btn--primary">Salvar produto</button>
+      <button type="submit" class="btn btn--primary" [disabled]="salvando()">
+        {{ salvando() ? 'Salvando…' : 'Salvar produto' }}
+      </button>
     </footer>
   </form>
 </section>
