@@ -4,17 +4,11 @@ import (
 	"inventory/internal/model"
 )
 
-type ProductRepository interface {
-	GetProducts() ([]model.Product, error)
-	GetProductByID(id int) (model.Product, error)
-	CreateProduct(product model.Product) (int, error)
-}
-
 type ProductUsecase struct {
-	repository ProductRepository
+	repository model.ProductRepository
 }
 
-func NewProductUsecase(repository ProductRepository) ProductUsecase {
+func NewProductUsecase(repository model.ProductRepository) ProductUsecase {
 	return ProductUsecase{
 		repository: repository,
 	}
