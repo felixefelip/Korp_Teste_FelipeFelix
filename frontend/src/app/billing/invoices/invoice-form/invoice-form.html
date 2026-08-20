@@ -1,16 +1,11 @@
-<section class="page">
-  <header class="page__header">
-    <div>
-      <h1 class="page__title">Cadastrar nota fiscal</h1>
-      <p class="page__subtitle">Faturamento &rsaquo; Notas Fiscais &rsaquo; Nova</p>
-    </div>
-  </header>
+<form class="card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  @if (banner(); as message) {
+    <p class="form__failure" role="alert">{{ message }}</p>
+  }
 
-  <form class="card" [formGroup]="form" (ngSubmit)="save()" novalidate>
-    @if (failure(); as message) {
-      <p class="form__failure" role="alert">{{ message }}</p>
-    }
-
+  @if (loading()) {
+    <p class="form__status">Carregando nota fiscal…</p>
+  } @else {
     <div class="form__grid">
       <div class="field-group field-group--number">
         <label class="field-label" for="number">Número</label>
@@ -46,12 +41,16 @@
         }
       </div>
     </div>
+  }
 
-    <footer class="form__actions">
-      <a class="btn btn--ghost" routerLink="/billing/invoices">Cancelar</a>
-      <button type="submit" class="btn btn--primary" [disabled]="saving()">
-        {{ saving() ? 'Salvando…' : 'Salvar nota fiscal' }}
-      </button>
-    </footer>
-  </form>
-</section>
+  <footer class="form__actions">
+    <a class="btn btn--ghost" routerLink="/billing/invoices">Cancelar</a>
+    <button
+      type="submit"
+      class="btn btn--primary"
+      [disabled]="saving() || loading()"
+    >
+      {{ saving() ? 'Salvando…' : submitLabel() }}
+    </button>
+  </footer>
+</form>

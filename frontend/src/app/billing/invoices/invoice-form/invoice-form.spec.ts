@@ -1,18 +1,14 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { provideRouter } from '@angular/router';
 
 import { Invoice } from '../invoice.model';
-import { InvoiceService } from '../invoice.service';
-import { InvoiceForm } from './invoice-form';
+import { InvoiceForm, InvoicePayload } from './invoice-form';
+
+const EXISTING: Invoice = { id: 7, number: 'NF-0007', status: 'CLOSED' };
 
 describe('InvoiceForm', () => {
   let fixture: ComponentFixture<InvoiceForm>;
-  let service: {
-    create: ReturnType<typeof vi.fn>;
-  };
-  let navigate: ReturnType<typeof vi.spyOn>;
+  let saved: InvoicePayload[];
 
   const element = () => fixture.nativeElement as HTMLElement;
 
@@ -20,7 +16,12 @@ describe('InvoiceForm', () => {
     element().querySelector<T>(`#${id}`)!;
 
   const text = (el: Element | null | undefined) =>
-    (el?.textContent ?? '').replace(/[  ]/g, ' ').trim();
+    (el?.textContent ?? '').replace(/[\u00A0\u202F]/g, ' ').trim();
+
+  const setInput = async (name: string, value: unknown) => {
+    fixture.componentRef.setInput(name, value);
+    await fixture.whenStable();
+  };
 
   const fill = async (id: string, value: string) => {
     const input = field<HTMLInputElement | HTMLSelectElement>(id);
@@ -44,12 +45,10 @@ describe('InvoiceForm', () => {
   const errorOf = (id: string) =>
     text(field(id).parentElement?.querySelector('.field-error'));
 
-  const failure = () => text(element().querySelector('.form__failure'));
+  const banner = () => text(element().querySelector('.form__failure'));
 
-  const rejectWith = (body: unknown, status = 400) =>
-    service.create.mockReturnValue(
-      throwError(() => new HttpErrorResponse({ status, error: body }))
-    );
+  const submitButton = () =>
+    element().querySelector<HTMLButtonElement>('button[type="submit"]')!;
 
   const fillValidForm = async () => {
     await fill('number', 'NF-0006');
@@ -57,18 +56,14 @@ describe('InvoiceForm', () => {
   };
 
   beforeEach(async () => {
-    service = {
-      create: vi.fn((data: Omit<Invoice, 'id'>) => of({ ...data, id: 6 }))
-    };
-
     await TestBed.configureTestingModule({
       imports: [InvoiceForm],
-      providers: [provideRouter([]), { provide: InvoiceService, useValue: service }]
+      providers: [provideRouter([])]
     }).compileComponents();
 
-    navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
-
     fixture = TestBed.createComponent(InvoiceForm);
+    saved = [];
+    fixture.componentInstance.save.subscribe((invoice) => saved.push(invoice));
     await fixture.whenStable();
   });
 
@@ -98,7 +93,7 @@ describe('InvoiceForm', () => {
 
     it('shows no error before any interaction', () => {
       expect(errors()).toEqual([]);
-      expect(failure()).toBe('');
+      expect(banner()).toBe('');
     });
 
     it('offers cancel going back to the listing', () => {
@@ -112,8 +107,7 @@ describe('InvoiceForm', () => {
     it('blocks the submit and reveals the required field errors', async () => {
       await submit();
 
-      expect(service.create).not.toHaveBeenCalled();
-      expect(navigate).not.toHaveBeenCalled();
+      expect(saved).toEqual([]);
       expect(errorOf('number')).toBe('Campo obrigatório.');
       expect(errorOf('status')).toBe('');
     });
@@ -136,7 +130,7 @@ describe('InvoiceForm', () => {
       await submit();
 
       expect(errorOf('number')).toBe('');
-      expect(service.create).toHaveBeenCalled();
+      expect(saved.length).toBe(1);
     });
 
     it('accepts a number already used by another invoice', async () => {
@@ -145,9 +139,7 @@ describe('InvoiceForm', () => {
       await submit();
 
       expect(errorOf('number')).toBe('');
-      expect(service.create).toHaveBeenCalledWith(
-        expect.objectContaining({ number: 'NF-0001' })
-      );
+      expect(saved).toEqual([expect.objectContaining({ number: 'NF-0001' })]);
     });
 
     it('marks the invalid field visually', async () => {
@@ -164,159 +156,169 @@ describe('InvoiceForm', () => {
     });
   });
 
-  describe('creation', () => {
-    it('sends the filled data to the service', async () => {
+  describe('emitting what was filled', () => {
+    it('hands over the filled data', async () => {
       await fillValidForm();
       await submit();
 
-      expect(service.create).toHaveBeenCalledWith({
-        number: 'NF-0006',
-        status: 'CLOSED'
-      });
+      expect(saved).toEqual([{ number: 'NF-0006', status: 'CLOSED' }]);
     });
 
     it('trims surrounding spaces from the number', async () => {
       await fill('number', '   NF-0007   ');
       await submit();
 
-      expect(service.create).toHaveBeenCalledWith(
-        expect.objectContaining({ number: 'NF-0007' })
-      );
+      expect(saved).toEqual([expect.objectContaining({ number: 'NF-0007' })]);
     });
 
-    it('saves as open when the status is untouched', async () => {
+    it('hands over the open status when it is untouched', async () => {
       await fill('number', 'NF-0006');
       await submit();
 
-      expect(service.create).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'OPEN' })
-      );
+      expect(saved).toEqual([expect.objectContaining({ status: 'OPEN' })]);
     });
 
-    it('goes back to the listing after saving', async () => {
+    it('emits only once per submit', async () => {
       await fillValidForm();
       await submit();
 
-      expect(navigate).toHaveBeenCalledWith(['/billing/invoices']);
+      expect(saved.length).toBe(1);
     });
 
-    it('creates only once per submit', async () => {
+    it('emits nothing while a save is already running', async () => {
       await fillValidForm();
+      await setInput('saving', true);
       await submit();
 
-      expect(service.create).toHaveBeenCalledTimes(1);
+      expect(saved).toEqual([]);
     });
   });
 
-  describe('API rejection', () => {
-    it('shows on the field the error the server pointed at', async () => {
-      rejectWith({ errors: { number: 'Campo obrigatório.' } });
+  describe('the invoice being edited', () => {
+    it('fills every field with the value it was given', async () => {
+      await setInput('value', EXISTING);
 
-      await fillValidForm();
+      expect(field<HTMLInputElement>('number').value).toBe('NF-0007');
+      expect(field<HTMLSelectElement>('status').value).toBe('CLOSED');
+    });
+
+    it('shows no error over an invoice that is still untouched', async () => {
+      await setInput('value', EXISTING);
+
+      expect(errors()).toEqual([]);
+      expect(banner()).toBe('');
+    });
+
+    it('hands over the edited data', async () => {
+      await setInput('value', EXISTING);
+      await fill('number', 'NF-0042');
+      await fill('status', 'OPEN');
       await submit();
 
+      expect(saved).toEqual([{ number: 'NF-0042', status: 'OPEN' }]);
+    });
+
+    it('still blocks the submit when a field was emptied', async () => {
+      await setInput('value', EXISTING);
+      await fill('number', '');
+      await submit();
+
+      expect(saved).toEqual([]);
       expect(errorOf('number')).toBe('Campo obrigatório.');
-      expect(navigate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('labels and states given by the page', () => {
+    it('names the submit button as asked', async () => {
+      await setInput('submitLabel', 'Salvar alterações');
+
+      expect(text(submitButton())).toBe('Salvar alterações');
+    });
+
+    it('announces the save in progress', async () => {
+      await setInput('saving', true);
+
+      expect(text(submitButton())).toBe('Salvando…');
+      expect(submitButton().disabled).toBe(true);
+    });
+
+    it('waits for the invoice before showing the fields', async () => {
+      await setInput('loading', true);
+
+      expect(text(element().querySelector('.form__status'))).toBe(
+        'Carregando nota fiscal…'
+      );
+      expect(element().querySelector('#number')).toBeNull();
+      expect(submitButton().disabled).toBe(true);
+    });
+
+    it('emits nothing while the invoice is still loading', async () => {
+      await setInput('loading', true);
+      await submit();
+
+      expect(saved).toEqual([]);
+    });
+  });
+
+  describe('failure coming from the page', () => {
+    const rejectWith = (fieldErrors: unknown, message = 'Não foi possível salvar.') =>
+      setInput('failure', { fieldErrors, message });
+
+    it('shows on the field the error the server pointed at', async () => {
+      await fillValidForm();
+      await rejectWith({ number: 'Campo obrigatório.' });
+
+      expect(errorOf('number')).toBe('Campo obrigatório.');
+      expect(banner()).toBe('');
     });
 
     it('shows the server phrase exactly as it came', async () => {
-      rejectWith({ errors: { number: 'Limite de 30 caracteres excedido.' } });
-
       await fillValidForm();
-      await submit();
+      await rejectWith({ number: 'Limite de 30 caracteres excedido.' });
 
       expect(errorOf('number')).toBe('Limite de 30 caracteres excedido.');
     });
 
     it('shows a phrase the frontend has no copy for', async () => {
-      rejectWith({ errors: { status: 'Esta nota já foi transmitida.' } });
-
       await fillValidForm();
-      await submit();
+      await rejectWith({ status: 'Esta nota já foi transmitida.' });
 
       expect(errorOf('status')).toBe('Esta nota já foi transmitida.');
     });
 
     it('drops the server error as soon as the field is fixed', async () => {
-      rejectWith({ errors: { number: 'Campo obrigatório.' } });
-
       await fillValidForm();
-      await submit();
+      await rejectWith({ number: 'Campo obrigatório.' });
       expect(errorOf('number')).toBe('Campo obrigatório.');
 
       await fill('number', 'NF-0042');
       expect(errorOf('number')).toBe('');
     });
 
-    it('shows a general warning when the body points at no field', async () => {
-      rejectWith({ message: 'Não foi possível ler os dados enviados.' });
-
+    it('shows a general warning when no field was pointed at', async () => {
       await fillValidForm();
-      await submit();
+      await rejectWith(null, 'Não foi possível ler os dados enviados.');
 
-      expect(failure()).toBe('Não foi possível ler os dados enviados.');
-      expect(navigate).not.toHaveBeenCalled();
+      expect(banner()).toBe('Não foi possível ler os dados enviados.');
+      expect(errors()).toEqual([]);
     });
 
-    it('accepts field errors on a 422', async () => {
-      rejectWith({ errors: { number: 'Campo obrigatório.' } }, 422);
-
+    it('shows a general warning when the pointed field does not exist here', async () => {
       await fillValidForm();
-      await submit();
+      await rejectWith({ issuer: 'Emitente inválido.' }, 'Dados inválidos.');
 
-      expect(errorOf('number')).toBe('Campo obrigatório.');
+      expect(banner()).toBe('Dados inválidos.');
+      expect(errors()).toEqual([]);
     });
 
-    it('shows a general warning when the API is down', async () => {
-      rejectWith(null, 500);
-
+    it('drops the warning when the page starts another save', async () => {
       await fillValidForm();
-      await submit();
+      await rejectWith(null, 'Não foi possível salvar.');
+      expect(banner()).toBe('Não foi possível salvar.');
 
-      expect(failure()).toBe('Não foi possível salvar a nota fiscal. Tente novamente.');
-    });
+      await setInput('failure', null);
 
-    it('never shows the body message of a 500 to the user', async () => {
-      rejectWith({ message: 'erro ao criar a nota fiscal' }, 500);
-
-      await fillValidForm();
-      await submit();
-
-      expect(failure()).toBe('Não foi possível salvar a nota fiscal. Tente novamente.');
-      expect(navigate).not.toHaveBeenCalled();
-    });
-
-    it('does not mark fields from the body of a 500', async () => {
-      rejectWith({ errors: { number: 'Campo obrigatório.' } }, 500);
-
-      await fillValidForm();
-      await submit();
-
-      expect(errorOf('number')).toBe('');
-      expect(failure()).toBe('Não foi possível salvar a nota fiscal. Tente novamente.');
-    });
-
-    it('shows a general warning when there is no response at all', async () => {
-      rejectWith(new ProgressEvent('error'), 0);
-
-      await fillValidForm();
-      await submit();
-
-      expect(failure()).toBe('Não foi possível salvar a nota fiscal. Tente novamente.');
-    });
-
-    it('allows fixing and trying again', async () => {
-      rejectWith({ errors: { number: 'Campo obrigatório.' } });
-
-      await fillValidForm();
-      await submit();
-
-      service.create.mockReturnValue(of({ id: 6 } as Invoice));
-      await fill('number', 'NF-0042');
-      await submit();
-
-      expect(service.create).toHaveBeenCalledTimes(2);
-      expect(navigate).toHaveBeenCalledWith(['/billing/invoices']);
+      expect(banner()).toBe('');
     });
   });
 });

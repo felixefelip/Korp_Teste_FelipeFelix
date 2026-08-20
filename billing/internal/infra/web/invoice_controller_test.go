@@ -2,11 +2,13 @@ package web_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 
 	"billing/internal/model"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -120,6 +122,49 @@ func TestGetInvoicesWithTheDatabaseDownReturns500(t *testing.T) {
 	response := get(t, server, "/invoices")
 
 	require.Equal(t, http.StatusInternalServerError, response.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"])
+}
+
+func TestGetInvoiceByIDReturns200WithTheInvoice(t *testing.T) {
+	server := newServer(t)
+
+	created := post(t, server, "/invoices", validInvoice)
+	require.Equal(t, http.StatusCreated, created.Code)
+
+	expected := decodeInvoice(t, created.Body.Bytes())
+
+	response := get(t, server, fmt.Sprintf("/invoices/%d", expected.ID))
+
+	require.Equal(t, http.StatusOK, response.Code)
+
+	invoice := decodeInvoice(t, response.Body.Bytes())
+
+	assert.Equal(t, expected.ID, invoice.ID)
+	assert.Equal(t, "NF-0001", invoice.Number)
+	assert.Equal(t, "OPEN", invoice.Status)
+}
+
+func TestGetInvoiceByIDWhenItDoesNotExistReturns404(t *testing.T) {
+	server := newServer(t)
+
+	response := get(t, server, "/invoices/404")
+
+	require.Equal(t, http.StatusNotFound, response.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"])
+}
+
+func TestGetInvoiceByIDWithNonNumericIDReturns400(t *testing.T) {
+	server := newServer(t)
+
+	response := get(t, server, "/invoices/abc")
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
 
 	var body map[string]string
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
@@ -246,6 +291,163 @@ func TestCreateInvoiceWithTheDatabaseDownReturns500(t *testing.T) {
 	server := newServerWithDatabaseDown(t)
 
 	response := post(t, server, "/invoices", validInvoice)
+
+	require.Equal(t, http.StatusInternalServerError, response.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"])
+}
+
+const updatedInvoice = `{"number":"NF-0002","status":"CLOSED"}`
+
+func createInvoice(t *testing.T, server *gin.Engine, body string) int {
+	t.Helper()
+
+	response := post(t, server, "/invoices", body)
+	require.Equal(t, http.StatusCreated, response.Code)
+
+	return decodeInvoice(t, response.Body.Bytes()).ID
+}
+
+func TestUpdateInvoiceReturns200WithTheUpdatedInvoice(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	response := put(t, server, fmt.Sprintf("/invoices/%d", id), updatedInvoice)
+
+	require.Equal(t, http.StatusOK, response.Code)
+
+	updated := decodeInvoice(t, response.Body.Bytes())
+
+	assert.Equal(t, id, updated.ID, "the id must survive the update")
+	assert.Equal(t, "NF-0002", updated.Number)
+	assert.Equal(t, "CLOSED", updated.Status)
+}
+
+func TestUpdateInvoicePersistsToTheDatabase(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusOK, put(t, server, fmt.Sprintf("/invoices/%d", id), updatedInvoice).Code)
+
+	var saved []model.Invoice
+	require.NoError(t, testConnection.Find(&saved).Error)
+
+	require.Len(t, saved, 1, "the update must not create a second row")
+	assert.Equal(t, "NF-0002", saved[0].Number)
+	assert.Equal(t, "CLOSED", saved[0].Status)
+}
+
+func TestUpdateInvoiceUppercasesTheNumber(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	response := put(t, server, fmt.Sprintf("/invoices/%d", id), `{"number":"  nf-0009  ","status":"OPEN"}`)
+
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, "NF-0009", decodeInvoice(t, response.Body.Bytes()).Number)
+}
+
+func TestUpdateInvoiceIgnoresTheIDSentInTheBody(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	response := put(t, server, fmt.Sprintf("/invoices/%d", id),
+		fmt.Sprintf(`{"id":%d,"number":"NF-0002","status":"CLOSED"}`, id+900))
+
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, id, decodeInvoice(t, response.Body.Bytes()).ID, "the id comes from the URL")
+
+	var saved []model.Invoice
+	require.NoError(t, testConnection.Find(&saved).Error)
+	require.Len(t, saved, 1)
+}
+
+func TestUpdateInvoiceWhenItDoesNotExistReturns404(t *testing.T) {
+	server := newServer(t)
+
+	response := put(t, server, "/invoices/9999", updatedInvoice)
+
+	require.Equal(t, http.StatusNotFound, response.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"])
+
+	var saved []model.Invoice
+	require.NoError(t, testConnection.Find(&saved).Error)
+	assert.Empty(t, saved, "a missing invoice must not be created by the update")
+}
+
+func TestUpdateInvoiceWithNonNumericIDReturns400(t *testing.T) {
+	server := newServer(t)
+
+	response := put(t, server, "/invoices/abc", updatedInvoice)
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"])
+}
+
+func TestUpdateInvoiceWithoutTheRequiredFieldsReturns400(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	response := put(t, server, fmt.Sprintf("/invoices/%d", id), `{}`)
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+
+	fieldErrors := decodeErrors(t, response.Body.Bytes())
+
+	assert.Equal(t, "Campo obrigatório.", fieldErrors["number"])
+	assert.Equal(t, "Campo obrigatório.", fieldErrors["status"])
+
+	var saved model.Invoice
+	require.NoError(t, testConnection.First(&saved, id).Error)
+	assert.Equal(t, "NF-0001", saved.Number, "a rejected update must leave the invoice untouched")
+}
+
+func TestUpdateInvoiceWithAnUnknownStatusReturns400(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	response := put(t, server, fmt.Sprintf("/invoices/%d", id), `{"number":"NF-0001","status":"CANCELADA"}`)
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	assert.Equal(t, "Valor inválido.", decodeErrors(t, response.Body.Bytes())["status"])
+}
+
+func TestUpdateInvoiceWithALongNumberReturns400(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	response := put(t, server, fmt.Sprintf("/invoices/%d", id),
+		`{"number":"NF-000000000000000000000000000001","status":"OPEN"}`)
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	assert.Equal(t, "Limite de 30 caracteres excedido.", decodeErrors(t, response.Body.Bytes())["number"])
+}
+
+func TestUpdateInvoiceWithInvalidJSONReturns400(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	response := put(t, server, fmt.Sprintf("/invoices/%d", id), `{"number":`)
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"])
+}
+
+func TestUpdateInvoiceWithTheDatabaseDownReturns500(t *testing.T) {
+	server := newServerWithDatabaseDown(t)
+
+	response := put(t, server, "/invoices/1", updatedInvoice)
 
 	require.Equal(t, http.StatusInternalServerError, response.Code)
 

@@ -12,6 +12,12 @@ export const billingRoutes: Routes = [
     path: 'invoices/new',
     title: 'Cadastrar nota fiscal | Korp ERP',
     loadComponent: () =>
-      import('./invoices/invoice-form/invoice-form').then((m) => m.InvoiceForm)
+      import('./invoices/invoice-new/invoice-new').then((m) => m.InvoiceNew)
+  },
+  {
+    path: 'invoices/:id/edit',
+    title: 'Editar nota fiscal | Korp ERP',
+    loadComponent: () =>
+      import('./invoices/invoice-edit/invoice-edit').then((m) => m.InvoiceEdit)
   }
 ];

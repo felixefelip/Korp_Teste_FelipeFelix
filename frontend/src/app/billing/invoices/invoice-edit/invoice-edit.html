@@ -1,0 +1,17 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1 class="page__title">Editar nota fiscal</h1>
+      <p class="page__subtitle">Faturamento &rsaquo; Notas Fiscais &rsaquo; Edição</p>
+    </div>
+  </header>
+
+  <app-invoice-form
+    submitLabel="Salvar alterações"
+    [value]="invoice()"
+    [loading]="loading()"
+    [saving]="saving()"
+    [failure]="failure()"
+    (save)="update($event)"
+  />
+</section>

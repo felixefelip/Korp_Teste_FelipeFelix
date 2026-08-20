@@ -130,4 +130,102 @@ describe('InvoiceService', () => {
       expect(service.invoices()).toEqual(invoices);
     });
   });
+
+  describe('get', () => {
+    it('fetches the invoice of that id', () => {
+      let received: Invoice | undefined;
+
+      service.get(7).subscribe((invoice) => (received = invoice));
+
+      const request = http.expectOne('/api/billing/invoices/7');
+      expect(request.request.method).toBe('GET');
+
+      request.flush({ id: 7, number: 'NF-0007', status: 'CLOSED' });
+
+      expect(received).toEqual({ id: 7, number: 'NF-0007', status: 'CLOSED' });
+    });
+
+    it('propagates the failure of an invoice that does not exist', () => {
+      let status: number | undefined;
+
+      service.get(404).subscribe({ error: (response) => (status = response.status) });
+      http
+        .expectOne('/api/billing/invoices/404')
+        .flush(null, { status: 404, statusText: 'Not Found' });
+
+      expect(status).toBe(404);
+    });
+
+    it('leaves the listing untouched', () => {
+      load();
+
+      service.get(1).subscribe();
+      http.expectOne('/api/billing/invoices/1').flush(invoices[0]);
+
+      expect(service.invoices()).toEqual(invoices);
+    });
+  });
+
+  describe('update', () => {
+    it('puts the invoice and returns what the API saved', () => {
+      const updated = { ...newInvoice, id: 1 };
+      let received: Invoice | undefined;
+
+      service.update(1, newInvoice).subscribe((invoice) => (received = invoice));
+
+      const request = http.expectOne('/api/billing/invoices/1');
+      expect(request.request.method).toBe('PUT');
+      expect(request.request.body).toEqual(newInvoice);
+
+      request.flush(updated);
+
+      expect(received).toEqual(updated);
+    });
+
+    it('replaces in the listing the invoice the API returned', () => {
+      load();
+
+      service.update(1, newInvoice).subscribe();
+      http.expectOne('/api/billing/invoices/1').flush({ ...newInvoice, id: 1 });
+
+      expect(service.invoices()).toHaveLength(2);
+      expect(service.invoices()[0]).toMatchObject({ id: 1, number: 'NF-0100' });
+    });
+
+    it('leaves the other invoices alone', () => {
+      load();
+
+      service.update(1, newInvoice).subscribe();
+      http.expectOne('/api/billing/invoices/1').flush({ ...newInvoice, id: 1 });
+
+      expect(service.invoices()[1]).toEqual(invoices[1]);
+    });
+
+    it('does not mutate the previous list array', () => {
+      load();
+      const previousList = service.invoices();
+
+      service.update(1, newInvoice).subscribe();
+      http.expectOne('/api/billing/invoices/1').flush({ ...newInvoice, id: 1 });
+
+      expect(service.invoices()).not.toBe(previousList);
+      expect(previousList).toEqual(invoices);
+    });
+
+    it('changes nothing when the API rejects the invoice', () => {
+      load();
+
+      let failed = false;
+      service.update(1, newInvoice).subscribe({ error: () => (failed = true) });
+      http
+        .expectOne('/api/billing/invoices/1')
+        .flush(
+          { errors: { number: 'Campo obrigatório.' } },
+          { status: 400, statusText: 'Bad Request' }
+        );
+
+      expect(failed).toBe(true);
+      expect(service.invoices()).toEqual(invoices);
+    });
+  });
 });

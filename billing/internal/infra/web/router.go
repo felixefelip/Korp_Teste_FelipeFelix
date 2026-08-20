@@ -28,5 +28,7 @@ func Register(server *gin.Engine, connection *gorm.DB) {
 	})
 
 	server.GET("/invoices", invoiceController.GetInvoices)
+	server.GET("/invoices/:id", invoiceController.GetInvoiceByID)
 	server.POST("/invoices", invoiceController.CreateInvoice)
+	server.PUT("/invoices/:id", invoiceController.UpdateInvoice)
 }

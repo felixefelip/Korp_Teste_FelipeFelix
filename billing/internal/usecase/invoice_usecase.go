@@ -18,6 +18,18 @@ func (iu *InvoiceUsecase) GetInvoices() ([]model.Invoice, error) {
 	return iu.repository.GetInvoices()
 }
 
+func (iu *InvoiceUsecase) GetInvoiceByID(id int) (model.Invoice, error) {
+	return iu.repository.GetInvoiceByID(id)
+}
+
+func (iu *InvoiceUsecase) UpdateInvoice(invoice model.Invoice) (model.Invoice, error) {
+	if err := iu.repository.UpdateInvoice(invoice); err != nil {
+		return model.Invoice{}, err
+	}
+
+	return invoice, nil
+}
+
 func (iu *InvoiceUsecase) CreateInvoice(invoice model.Invoice) (model.Invoice, error) {
 	invoiceId, err := iu.repository.CreateInvoice(invoice)
 	if err != nil {
