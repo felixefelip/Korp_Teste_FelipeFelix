@@ -1,9 +1,12 @@
 import { signal } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 
-import { fieldErrorFor, fieldErrorMessage } from './validation-messages';
+import { CustomFormValidation } from './custom-form-validation';
 
-describe('fieldErrorMessage', () => {
+const { applyMessageErrorsToForm, fieldErrorFor, fieldErrorMessage } =
+  CustomFormValidation;
+
+describe('CustomFormValidation.fieldErrorMessage', () => {
   const invalidControl = (
     value: unknown,
     validators: Parameters<FormControl['addValidators']>[0]
@@ -77,7 +80,7 @@ describe('fieldErrorMessage', () => {
   });
 });
 
-describe('fieldErrorFor', () => {
+describe('CustomFormValidation.fieldErrorFor', () => {
   const newForm = () =>
     new FormGroup({
       name: new FormControl('', Validators.required)
@@ -127,5 +130,49 @@ describe('fieldErrorFor', () => {
     });
 
     expect(fieldError('name')).toBe('Preencha aqui.');
+  });
+});
+
+describe('CustomFormValidation.applyMessageErrorsToForm', () => {
+  const newForm = () =>
+    new FormGroup({
+      code: new FormControl(''),
+      price: new FormControl(0)
+    });
+
+  it('marks the control the server pointed at', () => {
+    const form = newForm();
+
+    expect(applyMessageErrorsToForm(form, { code: 'Campo obrigatório.' })).toBe(true);
+    expect(form.controls.code.errors).toEqual({ server: 'Campo obrigatório.' });
+  });
+
+  it('marks every known field at once', () => {
+    const form = newForm();
+
+    applyMessageErrorsToForm(form, { code: 'Campo obrigatório.', price: 'Valor inválido.' });
+
+    expect(form.controls.code.errors).toEqual({ server: 'Campo obrigatório.' });
+    expect(form.controls.price.errors).toEqual({ server: 'Valor inválido.' });
+  });
+
+  it('reports false when no field matches a control', () => {
+    const form = newForm();
+
+    expect(applyMessageErrorsToForm(form, { unknownField: 'Campo obrigatório.' })).toBe(false);
+    expect(form.valid).toBe(true);
+  });
+
+  it('ignores a message that is not a string', () => {
+    const form = newForm();
+
+    expect(applyMessageErrorsToForm(form, { code: { nested: true } })).toBe(false);
+    expect(form.controls.code.errors).toBeNull();
+  });
+
+  it('reports false when the body is not an object', () => {
+    expect(applyMessageErrorsToForm(newForm(), undefined)).toBe(false);
+    expect(applyMessageErrorsToForm(newForm(), null)).toBe(false);
+    expect(applyMessageErrorsToForm(newForm(), '<html>502</html>')).toBe(false);
   });
 });
