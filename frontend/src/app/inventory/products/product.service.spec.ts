@@ -163,7 +163,7 @@ describe('ProductService', () => {
       http
         .expectOne('/api/products')
         .flush(
-          { errors: { code: 'obrigatorio' } },
+          { errors: { code: 'Campo obrigatório.' } },
           { status: 400, statusText: 'Bad Request' }
         );
 

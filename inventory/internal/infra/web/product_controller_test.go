@@ -110,7 +110,7 @@ func TestCreateProductWithWrongPriceTypeReturns400(t *testing.T) {
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":"muito caro"}`)
 
 	assert.Equal(t, http.StatusBadRequest, response.Code)
-	assert.Equal(t, "tipo invalido", decodeErrors(t, response.Body.Bytes())["price"])
+	assert.Equal(t, "Valor inválido.", decodeErrors(t, response.Body.Bytes())["price"])
 }
 
 func TestCreateProductWithWrongStockTypeReturns400(t *testing.T) {
@@ -120,7 +120,7 @@ func TestCreateProductWithWrongStockTypeReturns400(t *testing.T) {
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99,"stock":"muitos"}`)
 
 	assert.Equal(t, http.StatusBadRequest, response.Code)
-	assert.Equal(t, "tipo invalido", decodeErrors(t, response.Body.Bytes())["stock"])
+	assert.Equal(t, "Valor inválido.", decodeErrors(t, response.Body.Bytes())["stock"])
 }
 
 func TestCreateProductWithoutTheRequiredFieldsReturns400(t *testing.T) {
@@ -131,10 +131,10 @@ func TestCreateProductWithoutTheRequiredFieldsReturns400(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
 	fieldErrors := decodeErrors(t, response.Body.Bytes())
-	assert.Equal(t, "obrigatorio", fieldErrors["code"])
-	assert.Equal(t, "obrigatorio", fieldErrors["name"])
-	assert.Equal(t, "obrigatorio", fieldErrors["unit"])
-	assert.Equal(t, "obrigatorio", fieldErrors["price"])
+	assert.Equal(t, "Campo obrigatório.", fieldErrors["code"])
+	assert.Equal(t, "Campo obrigatório.", fieldErrors["name"])
+	assert.Equal(t, "Campo obrigatório.", fieldErrors["unit"])
+	assert.Equal(t, "Campo obrigatório.", fieldErrors["price"])
 	assert.NotContains(t, fieldErrors, "stock", "a missing stock is valid and becomes zero")
 
 	var saved []model.Product

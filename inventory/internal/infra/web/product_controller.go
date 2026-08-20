@@ -60,7 +60,7 @@ func (p *productController) CreateProduct(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusBadRequest, gin.H{"message": "o corpo precisa ser um JSON valido"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Não foi possível ler os dados enviados."})
 		return
 	}
 
