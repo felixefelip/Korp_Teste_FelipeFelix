@@ -29,10 +29,7 @@ export class ProductForm {
   protected readonly failure = signal<string | null>(null);
 
   protected readonly form = this.fb.group({
-    code: this.fb.nonNullable.control(
-      this.productService.nextCode(),
-      Validators.required
-    ),
+    code: this.fb.nonNullable.control('', Validators.required),
     name: this.fb.nonNullable.control('', [
       Validators.required,
       Validators.minLength(3),
@@ -54,19 +51,6 @@ export class ProductForm {
     this.form,
     this.submitted
   );
-
-  constructor() {
-    this.productService.list().subscribe({
-      next: () => {
-        const control = this.form.controls.code;
-
-        if (control.pristine) {
-          control.setValue(this.productService.nextCode());
-        }
-      },
-      error: () => {}
-    });
-  }
 
   protected save(): void {
     this.submitted.set(true);

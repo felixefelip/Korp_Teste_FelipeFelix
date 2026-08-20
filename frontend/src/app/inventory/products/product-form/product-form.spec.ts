@@ -10,8 +10,6 @@ import { ProductForm } from './product-form';
 describe('ProductForm', () => {
   let fixture: ComponentFixture<ProductForm>;
   let service: {
-    nextCode: ReturnType<typeof vi.fn>;
-    list: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
   };
   let navigate: ReturnType<typeof vi.spyOn>;
@@ -54,6 +52,7 @@ describe('ProductForm', () => {
     );
 
   const fillValidForm = async () => {
+    await fill('code', 'PRD-0006');
     await fill('name', 'Cadeira de escritório');
     await fill('unit', 'CX');
     await fill('price', '750.5');
@@ -61,14 +60,13 @@ describe('ProductForm', () => {
   };
 
   const fillMinimum = async () => {
+    await fill('code', 'PRD-0006');
     await fill('name', 'Cadeira de escritório');
     await fill('price', '750.5');
   };
 
   beforeEach(async () => {
     service = {
-      nextCode: vi.fn().mockReturnValue('PRD-0006'),
-      list: vi.fn(() => of([] as Product[])),
       create: vi.fn((data: Omit<Product, 'id'>) => of({ ...data, id: 6 }))
     };
 
@@ -88,13 +86,8 @@ describe('ProductForm', () => {
   });
 
   describe('initial state', () => {
-    it('suggests the next available code', () => {
-      expect(service.nextCode).toHaveBeenCalled();
-      expect(field<HTMLInputElement>('code').value).toBe('PRD-0006');
-    });
-
-    it('loads the listing so it can suggest the code', () => {
-      expect(service.list).toHaveBeenCalled();
+    it('starts with an empty code', () => {
+      expect(field<HTMLInputElement>('code').value).toBe('');
     });
 
     it('starts with the initial stock zeroed', () => {
@@ -130,6 +123,7 @@ describe('ProductForm', () => {
 
       expect(service.create).not.toHaveBeenCalled();
       expect(navigate).not.toHaveBeenCalled();
+      expect(errorOf('code')).toBe('Campo obrigatório.');
       expect(errorOf('name')).toBe('Campo obrigatório.');
       expect(errorOf('price')).toBe('Campo obrigatório.');
       expect(errorOf('stock')).toBe('');
