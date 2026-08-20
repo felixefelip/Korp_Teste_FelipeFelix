@@ -1,6 +1,6 @@
-// Package testdb holds the setup of the database shared by the integration
+// Package dbtest holds the setup of the database shared by the integration
 // tests of the several packages.
-package testdb
+package dbtest
 
 import (
 	"fmt"
@@ -14,15 +14,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// Setup makes sure the test database exists and is migrated, returning the
-// connection. It must be called from the TestMain of each package.
 func Setup() (*gorm.DB, error) {
 	if os.Getenv("GO_ENV") == "" {
 		os.Setenv("GO_ENV", "test")
 	}
 
-	// Safety latch: the tests truncate tables, so they may only run against
-	// the test database.
 	if db.Env() != "test" {
 		return nil, fmt.Errorf("refusing to run with GO_ENV=%q; use GO_ENV=test", db.Env())
 	}
@@ -43,8 +39,6 @@ func Setup() (*gorm.DB, error) {
 	return connection, nil
 }
 
-// Reset returns the database to the empty state, so that one test does not see
-// the state left behind by another.
 func Reset(t testing.TB, connection *gorm.DB) {
 	t.Helper()
 
