@@ -1,26 +1,25 @@
 services:
-  go-app:
-    container_name: go-app
-    image: estoque
-    build: .
+  estoque:
+    build: ./estoque
+    image: korp/estoque:dev
     init: true
     ports:
       - "8000:8000"
     environment:
       GO_ENV: ${GO_ENV:-development}
-      DB_HOST: go_db
+      DB_HOST: estoque_db
       DB_PORT: 5432
       DB_USER: postgres
       DB_PASSWORD: 1234
     volumes:
-      - .:/go/src/app
+      - ./estoque:/go/src/app
       - gomodcache:/go/pkg/mod
     depends_on:
-      go_db:
+      estoque_db:
         condition: service_healthy
     command: sleep infinity
-  go_db:
-    container_name: go_db
+
+  estoque_db:
     image: postgres:18
     environment:
       POSTGRES_PASSWORD: 1234
@@ -33,6 +32,21 @@ services:
       test: pg_isready -h 127.0.0.1 -U postgres
       interval: 5s
       retries: 12
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    image: korp/frontend:dev
+    environment:
+      API_URL: http://estoque:8000
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - estoque
 
 volumes:
   pgdata: {}
