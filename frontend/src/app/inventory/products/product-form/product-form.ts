@@ -3,6 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
+import { FlashService } from '../../../shared/flash/flash.service';
 import { CustomFormValidation } from '../../../shared/forms/custom-form-validation';
 import { isClientError } from '../../../shared/forms/http-errors';
 import { CustomValidators } from '../../../shared/forms/validators';
@@ -25,6 +26,7 @@ export class ProductForm {
   private readonly productService = inject(ProductService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly flash = inject(FlashService);
 
   private readonly productId = Number(this.route.snapshot.paramMap.get('id')) || null;
 
@@ -33,7 +35,6 @@ export class ProductForm {
   protected readonly submitted = signal(false);
   protected readonly saving = signal(false);
   protected readonly loading = signal(this.productId !== null);
-  protected readonly loadFailed = signal(false);
   protected readonly failure = signal<string | null>(null);
 
   protected readonly form = this.fb.group({
@@ -67,7 +68,7 @@ export class ProductForm {
   }
 
   protected save(): void {
-    if (this.loading() || this.loadFailed()) {
+    if (this.loading()) {
       return;
     }
 
@@ -114,11 +115,10 @@ export class ProductForm {
         this.loading.set(false);
       },
       error: (response: HttpErrorResponse) => {
-        this.loading.set(false);
-        this.loadFailed.set(true);
-        this.failure.set(
+        this.flash.error(
           response.status === HttpStatusCode.NotFound ? NOT_FOUND_FAILURE : LOAD_FAILURE
         );
+        this.router.navigate(['/inventory/products']);
       }
     });
   }

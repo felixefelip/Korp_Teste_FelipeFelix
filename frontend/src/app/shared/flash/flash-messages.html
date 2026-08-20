@@ -1,0 +1,21 @@
+@if (messages().length) {
+  <div class="flash" aria-live="polite">
+    @for (message of messages(); track message.id) {
+      <div
+        class="flash__item"
+        [class.flash__item--error]="message.type === 'error'"
+        [class.flash__item--success]="message.type === 'success'"
+      >
+        <p class="flash__text">{{ message.text }}</p>
+        <button
+          type="button"
+          class="flash__close"
+          aria-label="Fechar aviso"
+          (click)="dismiss(message.id)"
+        >
+          &times;
+        </button>
+      </div>
+    }
+  </div>
+}

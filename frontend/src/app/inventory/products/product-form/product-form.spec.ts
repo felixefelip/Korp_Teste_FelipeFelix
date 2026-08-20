@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
 
+import { FlashService } from '../../../shared/flash/flash.service';
 import { Product } from '../product.model';
 import { ProductService } from '../product.service';
 import { ProductForm } from './product-form';
@@ -24,6 +25,7 @@ describe('ProductForm', () => {
     update: ReturnType<typeof vi.fn>;
   };
   let navigate: ReturnType<typeof vi.spyOn>;
+  let flash: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
 
   const element = () => fixture.nativeElement as HTMLElement;
 
@@ -83,9 +85,15 @@ describe('ProductForm', () => {
       update: vi.fn((id: number, data: Omit<Product, 'id'>) => of({ ...data, id }))
     };
 
+    flash = { error: vi.fn(), success: vi.fn() };
+
     await TestBed.configureTestingModule({
       imports: [ProductForm],
-      providers: [provideRouter([]), { provide: ProductService, useValue: service }]
+      providers: [
+        provideRouter([]),
+        { provide: ProductService, useValue: service },
+        { provide: FlashService, useValue: flash }
+      ]
     }).compileComponents();
 
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
@@ -378,11 +386,14 @@ describe('ProductForm', () => {
         )
       };
 
+      flash = { error: vi.fn(), success: vi.fn() };
+
       await TestBed.configureTestingModule({
         imports: [ProductForm],
         providers: [
           provideRouter([]),
           { provide: ProductService, useValue: service },
+          { provide: FlashService, useValue: flash },
           {
             provide: ActivatedRoute,
             useValue: { snapshot: { paramMap: convertToParamMap({ id }) } }
@@ -426,6 +437,7 @@ describe('ProductForm', () => {
       it('shows no error over a product that is still untouched', () => {
         expect(errors()).toEqual([]);
         expect(failure()).toBe('');
+        expect(flash.error).not.toHaveBeenCalled();
       });
 
       it('waits for the product before showing the fields', async () => {
@@ -535,39 +547,54 @@ describe('ProductForm', () => {
       const failLoadWith = (status: number) =>
         mountEditing(() => throwError(() => new HttpErrorResponse({ status })));
 
-      it('says the product does not exist on a 404', async () => {
+      it('goes back to the listing when the product does not exist', async () => {
         await failLoadWith(404);
 
-        expect(failure()).toBe('Produto não encontrado.');
-        expect(element().querySelector('#code')).toBeNull();
+        expect(navigate).toHaveBeenCalledWith(['/inventory/products']);
       });
 
-      it('warns generically when the API is down', async () => {
+      it('goes back to the listing when the API is down', async () => {
         await failLoadWith(500);
 
-        expect(failure()).toBe(
+        expect(navigate).toHaveBeenCalledWith(['/inventory/products']);
+      });
+
+      it('says on the way out that the product does not exist', async () => {
+        await failLoadWith(404);
+
+        expect(flash.error).toHaveBeenCalledWith('Produto não encontrado.');
+      });
+
+      it('blames the API when the failure was not a 404', async () => {
+        await failLoadWith(500);
+
+        expect(flash.error).toHaveBeenCalledWith(
           'Não foi possível carregar o produto. Tente novamente.'
         );
       });
 
-      it('refuses to save what it could not load', async () => {
+      it('warns once per failed load', async () => {
         await failLoadWith(404);
 
-        expect(submitButton().disabled).toBe(true);
+        expect(flash.error).toHaveBeenCalledTimes(1);
+      });
+
+      it('never shows the empty form while it leaves the screen', async () => {
+        await failLoadWith(404);
+
+        expect(element().querySelector('#code')).toBeNull();
+        expect(text(element().querySelector('.form__status'))).toBe(
+          'Carregando produto…'
+        );
+      });
+
+      it('saves nothing on the way out', async () => {
+        await failLoadWith(404);
 
         await submit();
 
         expect(service.update).not.toHaveBeenCalled();
-        expect(navigate).not.toHaveBeenCalled();
-        expect(failure()).toBe('Produto não encontrado.');
-      });
-
-      it('still offers the way back to the listing', async () => {
-        await failLoadWith(404);
-
-        expect(element().querySelector('a.btn--ghost')?.getAttribute('href')).toBe(
-          '/inventory/products'
-        );
+        expect(service.create).not.toHaveBeenCalled();
       });
     });
   });

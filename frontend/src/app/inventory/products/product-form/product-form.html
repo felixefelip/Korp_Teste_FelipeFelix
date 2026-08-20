@@ -17,7 +17,7 @@
 
     @if (loading()) {
       <p class="form__status">Carregando produto…</p>
-    } @else if (!loadFailed()) {
+    } @else {
       <div class="form__grid">
         <div class="field-group field-group--code">
           <label class="field-label" for="code">Código</label>
@@ -107,7 +107,7 @@
       <button
         type="submit"
         class="btn btn--primary"
-        [disabled]="saving() || loading() || loadFailed()"
+        [disabled]="saving() || loading()"
       >
         {{ saving() ? 'Salvando…' : editing ? 'Salvar alterações' : 'Salvar produto' }}
       </button>
