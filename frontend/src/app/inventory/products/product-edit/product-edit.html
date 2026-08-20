@@ -1,0 +1,17 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1 class="page__title">Editar produto</h1>
+      <p class="page__subtitle">Estoque &rsaquo; Produtos &rsaquo; Edição</p>
+    </div>
+  </header>
+
+  <app-product-form
+    submitLabel="Salvar alterações"
+    [value]="product()"
+    [loading]="loading()"
+    [saving]="saving()"
+    [failure]="failure()"
+    (save)="update($event)"
+  />
+</section>
