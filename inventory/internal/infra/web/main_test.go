@@ -10,7 +10,7 @@ import (
 
 	"inventory/internal/infra/db"
 	"inventory/internal/infra/web"
-	"inventory/internal/testdb"
+	"inventory/internal/test/dbtest"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -21,7 +21,7 @@ import (
 var testConnection *gorm.DB
 
 func TestMain(m *testing.M) {
-	connection, err := testdb.Setup()
+	connection, err := dbtest.Setup()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "test database setup:", err)
 		os.Exit(1)
@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 func newServer(t *testing.T) *gin.Engine {
 	t.Helper()
 
-	testdb.Reset(t, testConnection)
+	dbtest.Reset(t, testConnection)
 
 	server := gin.New()
 	web.Register(server, testConnection)

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"inventory/internal/infra/db"
-	"inventory/internal/testdb"
+	"inventory/internal/test/dbtest"
 
 	"gorm.io/gorm"
 )
@@ -14,7 +14,7 @@ import (
 var testConnection *gorm.DB
 
 func TestMain(m *testing.M) {
-	connection, err := testdb.Setup()
+	connection, err := dbtest.Setup()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "test database setup:", err)
 		os.Exit(1)
@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 func newRepository(t *testing.T) *db.ProductRepository {
 	t.Helper()
 
-	testdb.Reset(t, testConnection)
+	dbtest.Reset(t, testConnection)
 
 	return db.NewProductRepository(testConnection)
 }
