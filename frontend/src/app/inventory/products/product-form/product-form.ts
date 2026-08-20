@@ -8,7 +8,7 @@ import {
   ValidationMessage,
   fieldErrorMessage
 } from '../../../shared/forms/validation-messages';
-import { integer } from '../../../shared/forms/validators';
+import { CustomValidators } from '../../../shared/forms/validators';
 import { ProductService } from '../product.service';
 
 export const UNITS = ['UN', 'CX', 'PC', 'KG', 'L', 'M'];
@@ -53,7 +53,7 @@ export class ProductForm {
     stock: this.fb.control<number | null>(0, [
       Validators.required,
       Validators.min(0),
-      integer
+      CustomValidators.integer
     ])
   });
 
