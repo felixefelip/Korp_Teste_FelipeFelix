@@ -1,16 +1,27 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { Observable, Subject, of, throwError } from 'rxjs';
 
 import { Product } from '../product.model';
 import { ProductService } from '../product.service';
 import { ProductForm } from './product-form';
 
+const EXISTING: Product = {
+  id: 7,
+  code: 'PRD-0007',
+  name: 'Cadeira de escritório',
+  unit: 'CX',
+  price: 750.5,
+  stock: 8
+};
+
 describe('ProductForm', () => {
   let fixture: ComponentFixture<ProductForm>;
   let service: {
     create: ReturnType<typeof vi.fn>;
+    get: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
   };
   let navigate: ReturnType<typeof vi.spyOn>;
 
@@ -67,7 +78,9 @@ describe('ProductForm', () => {
 
   beforeEach(async () => {
     service = {
-      create: vi.fn((data: Omit<Product, 'id'>) => of({ ...data, id: 6 }))
+      create: vi.fn((data: Omit<Product, 'id'>) => of({ ...data, id: 6 })),
+      get: vi.fn(() => of(EXISTING)),
+      update: vi.fn((id: number, data: Omit<Product, 'id'>) => of({ ...data, id }))
     };
 
     await TestBed.configureTestingModule({
@@ -347,6 +360,215 @@ describe('ProductForm', () => {
 
       expect(service.create).toHaveBeenCalledTimes(2);
       expect(navigate).toHaveBeenCalledWith(['/inventory/products']);
+    });
+  });
+
+  describe('edit mode', () => {
+    const mountEditing = async (
+      load: () => Observable<Product> = () => of(EXISTING),
+      id = '7'
+    ) => {
+      TestBed.resetTestingModule();
+
+      service = {
+        create: vi.fn(),
+        get: vi.fn(load),
+        update: vi.fn((productId: number, data: Omit<Product, 'id'>) =>
+          of({ ...data, id: productId })
+        )
+      };
+
+      await TestBed.configureTestingModule({
+        imports: [ProductForm],
+        providers: [
+          provideRouter([]),
+          { provide: ProductService, useValue: service },
+          {
+            provide: ActivatedRoute,
+            useValue: { snapshot: { paramMap: convertToParamMap({ id }) } }
+          }
+        ]
+      }).compileComponents();
+
+      navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
+      fixture = TestBed.createComponent(ProductForm);
+      await fixture.whenStable();
+    };
+
+    const title = () => text(element().querySelector('.page__title'));
+
+    const submitButton = () =>
+      element().querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
+    beforeEach(async () => {
+      await mountEditing();
+    });
+
+    describe('loading the product', () => {
+      it('asks the API for the product in the route', () => {
+        expect(service.get).toHaveBeenCalledWith(7);
+      });
+
+      it('fills every field with what came back', () => {
+        expect(field<HTMLInputElement>('code').value).toBe('PRD-0007');
+        expect(field<HTMLInputElement>('name').value).toBe('Cadeira de escritório');
+        expect(field<HTMLSelectElement>('unit').value).toBe('CX');
+        expect(field<HTMLInputElement>('price').value).toBe('750.5');
+        expect(field<HTMLInputElement>('stock').value).toBe('8');
+      });
+
+      it('announces that it is editing, not creating', () => {
+        expect(title()).toBe('Editar produto');
+        expect(text(submitButton())).toBe('Salvar alterações');
+      });
+
+      it('shows no error over a product that is still untouched', () => {
+        expect(errors()).toEqual([]);
+        expect(failure()).toBe('');
+      });
+
+      it('waits for the product before showing the fields', async () => {
+        await mountEditing(() => new Subject<Product>());
+
+        expect(text(element().querySelector('.form__status'))).toBe(
+          'Carregando produto…'
+        );
+        expect(element().querySelector('#code')).toBeNull();
+        expect(submitButton().disabled).toBe(true);
+      });
+    });
+
+    describe('saving the changes', () => {
+      it('sends the edited data to the update of that id', async () => {
+        await fill('name', 'Cadeira gamer');
+        await fill('price', '899.9');
+        await submit();
+
+        expect(service.update).toHaveBeenCalledWith(7, {
+          code: 'PRD-0007',
+          name: 'Cadeira gamer',
+          unit: 'CX',
+          price: 899.9,
+          stock: 8
+        });
+      });
+
+      it('never creates a second product', async () => {
+        await submit();
+
+        expect(service.create).not.toHaveBeenCalled();
+        expect(service.update).toHaveBeenCalledTimes(1);
+      });
+
+      it('trims surrounding spaces from the name', async () => {
+        await fill('name', '   Mesa de reunião   ');
+        await submit();
+
+        expect(service.update).toHaveBeenCalledWith(
+          7,
+          expect.objectContaining({ name: 'Mesa de reunião' })
+        );
+      });
+
+      it('saves a price and a stock zeroed by the user', async () => {
+        await fill('price', '0');
+        await fill('stock', '0');
+        await submit();
+
+        expect(service.update).toHaveBeenCalledWith(
+          7,
+          expect.objectContaining({ price: 0, stock: 0 })
+        );
+      });
+
+      it('goes back to the listing after saving', async () => {
+        await submit();
+
+        expect(navigate).toHaveBeenCalledWith(['/inventory/products']);
+      });
+
+      it('still blocks the submit when a field was emptied', async () => {
+        await fill('name', '');
+        await submit();
+
+        expect(service.update).not.toHaveBeenCalled();
+        expect(errorOf('name')).toBe('Campo obrigatório.');
+      });
+
+      it('shows on the field the error the server pointed at', async () => {
+        service.update.mockReturnValue(
+          throwError(
+            () =>
+              new HttpErrorResponse({
+                status: 400,
+                error: { errors: { code: 'Campo obrigatório.' } }
+              })
+          )
+        );
+
+        await submit();
+
+        expect(errorOf('code')).toBe('Campo obrigatório.');
+        expect(navigate).not.toHaveBeenCalled();
+      });
+
+      it('warns without leaking the message of a 500', async () => {
+        service.update.mockReturnValue(
+          throwError(
+            () =>
+              new HttpErrorResponse({
+                status: 500,
+                error: { message: 'erro ao atualizar o produto' }
+              })
+          )
+        );
+
+        await submit();
+
+        expect(failure()).toBe('Não foi possível salvar o produto. Tente novamente.');
+        expect(navigate).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('product that cannot be loaded', () => {
+      const failLoadWith = (status: number) =>
+        mountEditing(() => throwError(() => new HttpErrorResponse({ status })));
+
+      it('says the product does not exist on a 404', async () => {
+        await failLoadWith(404);
+
+        expect(failure()).toBe('Produto não encontrado.');
+        expect(element().querySelector('#code')).toBeNull();
+      });
+
+      it('warns generically when the API is down', async () => {
+        await failLoadWith(500);
+
+        expect(failure()).toBe(
+          'Não foi possível carregar o produto. Tente novamente.'
+        );
+      });
+
+      it('refuses to save what it could not load', async () => {
+        await failLoadWith(404);
+
+        expect(submitButton().disabled).toBe(true);
+
+        await submit();
+
+        expect(service.update).not.toHaveBeenCalled();
+        expect(navigate).not.toHaveBeenCalled();
+        expect(failure()).toBe('Produto não encontrado.');
+      });
+
+      it('still offers the way back to the listing', async () => {
+        await failLoadWith(404);
+
+        expect(element().querySelector('a.btn--ghost')?.getAttribute('href')).toBe(
+          '/inventory/products'
+        );
+      });
     });
   });
 });

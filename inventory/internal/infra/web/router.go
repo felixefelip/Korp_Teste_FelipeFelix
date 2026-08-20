@@ -30,4 +30,5 @@ func Register(server *gin.Engine, connection *gorm.DB) {
 	server.GET("/products", productController.GetProducts)
 	server.GET("/products/:id", productController.GetProductByID)
 	server.POST("/products", productController.CreateProduct)
+	server.PUT("/products/:id", productController.UpdateProduct)
 }

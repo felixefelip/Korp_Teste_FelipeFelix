@@ -1,8 +1,12 @@
 <section class="page">
   <header class="page__header">
     <div>
-      <h1 class="page__title">Cadastrar produto</h1>
-      <p class="page__subtitle">Estoque &rsaquo; Produtos &rsaquo; Novo</p>
+      <h1 class="page__title">
+        {{ editing ? 'Editar produto' : 'Cadastrar produto' }}
+      </h1>
+      <p class="page__subtitle">
+        Estoque &rsaquo; Produtos &rsaquo; {{ editing ? 'Edição' : 'Novo' }}
+      </p>
     </div>
   </header>
 
@@ -11,91 +15,101 @@
       <p class="form__failure" role="alert">{{ message }}</p>
     }
 
-    <div class="form__grid">
-      <div class="field-group field-group--code">
-        <label class="field-label" for="code">Código</label>
-        <input
-          id="code"
-          type="text"
-          class="field"
-          formControlName="code"
-          autocomplete="off"
-          [class.field--error]="fieldError('code')"
-        />
-        @if (fieldError('code'); as message) {
-          <p class="field-error">{{ message }}</p>
-        }
-      </div>
-
-      <div class="field-group field-group--name">
-        <label class="field-label" for="name">Descrição</label>
-        <input
-          id="name"
-          type="text"
-          class="field"
-          formControlName="name"
-          [class.field--error]="fieldError('name')"
-        />
-        @if (fieldError('name'); as message) {
-          <p class="field-error">{{ message }}</p>
-        }
-      </div>
-
-      <div class="field-group">
-        <label class="field-label" for="unit">Unidade</label>
-        <select
-          id="unit"
-          class="field"
-          formControlName="unit"
-          [class.field--error]="fieldError('unit')"
-        >
-          @for (unit of units; track unit) {
-            <option [value]="unit">{{ unit }}</option>
+    @if (loading()) {
+      <p class="form__status">Carregando produto…</p>
+    } @else if (!loadFailed()) {
+      <div class="form__grid">
+        <div class="field-group field-group--code">
+          <label class="field-label" for="code">Código</label>
+          <input
+            id="code"
+            type="text"
+            class="field"
+            formControlName="code"
+            autocomplete="off"
+            [class.field--error]="fieldError('code')"
+          />
+          @if (fieldError('code'); as message) {
+            <p class="field-error">{{ message }}</p>
           }
-        </select>
-        @if (fieldError('unit'); as message) {
-          <p class="field-error">{{ message }}</p>
-        }
-      </div>
+        </div>
 
-      <div class="field-group">
-        <label class="field-label" for="price">Preço unitário (R$)</label>
-        <input
-          id="price"
-          type="number"
-          class="field"
-          formControlName="price"
-          step="0.01"
-          min="0"
-          placeholder="0,00"
-          [class.field--error]="fieldError('price')"
-        />
-        @if (fieldError('price'); as message) {
-          <p class="field-error">{{ message }}</p>
-        }
-      </div>
+        <div class="field-group field-group--name">
+          <label class="field-label" for="name">Descrição</label>
+          <input
+            id="name"
+            type="text"
+            class="field"
+            formControlName="name"
+            [class.field--error]="fieldError('name')"
+          />
+          @if (fieldError('name'); as message) {
+            <p class="field-error">{{ message }}</p>
+          }
+        </div>
 
-      <div class="field-group">
-        <label class="field-label" for="stock">Estoque inicial</label>
-        <input
-          id="stock"
-          type="number"
-          class="field"
-          formControlName="stock"
-          step="1"
-          min="0"
-          [class.field--error]="fieldError('stock')"
-        />
-        @if (fieldError('stock'); as message) {
-          <p class="field-error">{{ message }}</p>
-        }
+        <div class="field-group">
+          <label class="field-label" for="unit">Unidade</label>
+          <select
+            id="unit"
+            class="field"
+            formControlName="unit"
+            [class.field--error]="fieldError('unit')"
+          >
+            @for (unit of units; track unit) {
+              <option [value]="unit">{{ unit }}</option>
+            }
+          </select>
+          @if (fieldError('unit'); as message) {
+            <p class="field-error">{{ message }}</p>
+          }
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="price">Preço unitário (R$)</label>
+          <input
+            id="price"
+            type="number"
+            class="field"
+            formControlName="price"
+            step="0.01"
+            min="0"
+            placeholder="0,00"
+            [class.field--error]="fieldError('price')"
+          />
+          @if (fieldError('price'); as message) {
+            <p class="field-error">{{ message }}</p>
+          }
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="stock">
+            {{ editing ? 'Estoque' : 'Estoque inicial' }}
+          </label>
+          <input
+            id="stock"
+            type="number"
+            class="field"
+            formControlName="stock"
+            step="1"
+            min="0"
+            [class.field--error]="fieldError('stock')"
+          />
+          @if (fieldError('stock'); as message) {
+            <p class="field-error">{{ message }}</p>
+          }
+        </div>
       </div>
-    </div>
+    }
 
     <footer class="form__actions">
       <a class="btn btn--ghost" routerLink="/inventory/products">Cancelar</a>
-      <button type="submit" class="btn btn--primary" [disabled]="saving()">
-        {{ saving() ? 'Salvando…' : 'Salvar produto' }}
+      <button
+        type="submit"
+        class="btn btn--primary"
+        [disabled]="saving() || loading() || loadFailed()"
+      >
+        {{ saving() ? 'Salvando…' : editing ? 'Salvar alterações' : 'Salvar produto' }}
       </button>
     </footer>
   </form>

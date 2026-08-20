@@ -46,3 +46,19 @@ func (pr *ProductRepository) CreateProduct(product model.Product) (int, error) {
 
 	return product.ID, nil
 }
+
+func (pr *ProductRepository) UpdateProduct(product model.Product) error {
+	result := pr.connection.
+		Model(&model.Product{ID: product.ID}).
+		Select("code", "name", "unit", "price", "stock").
+		Updates(product)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
+}

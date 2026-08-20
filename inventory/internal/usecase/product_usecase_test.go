@@ -39,6 +39,12 @@ func (f *fakeRepository) CreateProduct(product model.Product) (int, error) {
 	return f.newID, f.err
 }
 
+func (f *fakeRepository) UpdateProduct(product model.Product) error {
+	f.calls++
+	f.receivedProduct = product
+	return f.err
+}
+
 var errRepository = errors.New("database down")
 
 func newUsecase(repository model.ProductRepository) usecase.ProductUsecase {
@@ -114,4 +120,27 @@ func TestCreateProductWhenTheRepositoryFailsReturnsTheZeroValue(t *testing.T) {
 
 	assert.ErrorIs(t, err, errRepository)
 	assert.Equal(t, model.Product{}, created, "nothing partially filled leaks out on failure")
+}
+
+func TestUpdateProductReturnsTheProductItSaved(t *testing.T) {
+	repository := &fakeRepository{}
+	productUsecase := newUsecase(repository)
+
+	product := model.Product{ID: 7, Code: "PRD-0007", Name: "Camiseta", Price: 30.99, Stock: 4}
+	updated, err := productUsecase.UpdateProduct(product)
+
+	require.NoError(t, err)
+	assert.Equal(t, product, updated)
+	assert.Equal(t, product, repository.receivedProduct)
+	assert.Equal(t, 1, repository.calls)
+}
+
+func TestUpdateProductPropagatesTheRepositoryError(t *testing.T) {
+	repository := &fakeRepository{err: errRepository}
+	productUsecase := newUsecase(repository)
+
+	updated, err := productUsecase.UpdateProduct(model.Product{ID: 7, Name: "Camiseta"})
+
+	require.ErrorIs(t, err, errRepository)
+	assert.Zero(t, updated, "on failure nothing partially filled should leak out")
 }
