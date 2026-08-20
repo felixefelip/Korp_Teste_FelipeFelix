@@ -41,7 +41,7 @@ describe('ProductService', () => {
 
   const load = (list: Product[] = products) => {
     service.list().subscribe();
-    http.expectOne('/api/products').flush(list);
+    http.expectOne('/api/inventory/products').flush(list);
   };
 
   beforeEach(() => {
@@ -63,7 +63,7 @@ describe('ProductService', () => {
     it('fetches the listing from the API endpoint', () => {
       service.list().subscribe();
 
-      const request = http.expectOne('/api/products');
+      const request = http.expectOne('/api/inventory/products');
       expect(request.request.method).toBe('GET');
 
       request.flush(products);
@@ -86,7 +86,7 @@ describe('ProductService', () => {
 
       let failed = false;
       service.list().subscribe({ error: () => (failed = true) });
-      http.expectOne('/api/products').flush(null, { status: 500, statusText: 'Error' });
+      http.expectOne('/api/inventory/products').flush(null, { status: 500, statusText: 'Error' });
 
       expect(failed).toBe(true);
       expect(service.products()).toEqual(products);
@@ -100,7 +100,7 @@ describe('ProductService', () => {
 
       service.create(newProduct).subscribe((product) => (received = product));
 
-      const request = http.expectOne('/api/products');
+      const request = http.expectOne('/api/inventory/products');
       expect(request.request.method).toBe('POST');
       expect(request.request.body).toEqual(newProduct);
 
@@ -113,7 +113,7 @@ describe('ProductService', () => {
       load();
 
       service.create(newProduct).subscribe();
-      http.expectOne('/api/products').flush({ ...newProduct, id: 7, code: 'PRD-0100' });
+      http.expectOne('/api/inventory/products').flush({ ...newProduct, id: 7, code: 'PRD-0100' });
 
       expect(service.products()).toHaveLength(3);
       expect(service.products().at(-1)).toMatchObject({ id: 7, code: 'PRD-0100' });
@@ -124,7 +124,7 @@ describe('ProductService', () => {
       const previousList = service.products();
 
       service.create(newProduct).subscribe();
-      http.expectOne('/api/products').flush({ ...newProduct, id: 7 });
+      http.expectOne('/api/inventory/products').flush({ ...newProduct, id: 7 });
 
       expect(service.products()).not.toBe(previousList);
       expect(previousList).toHaveLength(2);
@@ -136,7 +136,7 @@ describe('ProductService', () => {
       let failed = false;
       service.create(newProduct).subscribe({ error: () => (failed = true) });
       http
-        .expectOne('/api/products')
+        .expectOne('/api/inventory/products')
         .flush(
           { errors: { code: 'Campo obrigatório.' } },
           { status: 400, statusText: 'Bad Request' }

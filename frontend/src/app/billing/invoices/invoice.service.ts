@@ -1,0 +1,22 @@
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject, signal } from '@angular/core';
+import { Observable, tap } from 'rxjs';
+
+import { Invoice } from './invoice.model';
+
+const RESOURCE = '/api/billing/invoices';
+
+@Injectable({ providedIn: 'root' })
+export class InvoiceService {
+  private readonly http = inject(HttpClient);
+
+  private readonly _invoices = signal<Invoice[]>([]);
+
+  readonly invoices = this._invoices.asReadonly();
+
+  list(): Observable<Invoice[]> {
+    return this.http
+      .get<Invoice[]>(RESOURCE)
+      .pipe(tap((invoices) => this._invoices.set(invoices)));
+  }
+}

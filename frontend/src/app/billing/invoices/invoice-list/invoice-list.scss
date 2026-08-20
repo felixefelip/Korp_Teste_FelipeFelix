@@ -1,4 +1,8 @@
 .page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
@@ -7,16 +11,121 @@
   color: var(--brand-900);
 }
 
+.page__subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--text-500);
+  font-size: 0.8125rem;
+}
+
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
-.card__message {
-  margin: 0;
-  padding: 2.5rem 1rem;
+.card__filter {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.field {
+  width: 100%;
+  max-width: 360px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: var(--text-900);
+  background: var(--surface);
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--brand-300);
+  box-shadow: 0 0 0 3px rgba(74, 127, 189, 0.18);
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.table thead th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-700);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.table tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-700);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover td {
+  background: var(--surface-alt);
+}
+
+.table__code {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-900);
+  font-weight: 600;
+}
+
+.table__empty {
   text-align: center;
+  padding: 2.5rem 1rem;
   color: var(--text-500);
+}
+
+.table__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.badge--open {
+  background: rgba(183, 121, 31, 0.12);
+  color: var(--warning-500);
+}
+
+.badge--closed {
+  background: rgba(30, 135, 75, 0.12);
+  color: var(--success-500);
+}
+
+@media (max-width: 640px) {
+  .page__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

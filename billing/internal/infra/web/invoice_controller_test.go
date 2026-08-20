@@ -28,6 +28,21 @@ func decodeInvoice(t *testing.T, body []byte) invoiceResponse {
 	return invoice
 }
 
+func decodeInvoices(t *testing.T, body []byte) []invoiceResponse {
+	t.Helper()
+
+	var invoices []invoiceResponse
+	require.NoError(t, json.Unmarshal(body, &invoices))
+
+	return invoices
+}
+
+func seedInvoices(t *testing.T, invoices ...model.Invoice) {
+	t.Helper()
+
+	require.NoError(t, testConnection.Create(&invoices).Error)
+}
+
 func decodeErrors(t *testing.T, body []byte) map[string]string {
 	t.Helper()
 
@@ -37,6 +52,78 @@ func decodeErrors(t *testing.T, body []byte) map[string]string {
 	require.NoError(t, json.Unmarshal(body, &payload))
 
 	return payload.Errors
+}
+
+func TestGetInvoicesReturns200WithEverythingStored(t *testing.T) {
+	server := newServer(t)
+	seedInvoices(t,
+		model.Invoice{Number: "NF-0001", Status: "OPEN"},
+		model.Invoice{Number: "NF-0002", Status: "CLOSED"},
+	)
+
+	response := get(t, server, "/invoices")
+
+	require.Equal(t, http.StatusOK, response.Code)
+
+	invoices := decodeInvoices(t, response.Body.Bytes())
+
+	require.Len(t, invoices, 2)
+	assert.ElementsMatch(t,
+		[]string{"NF-0001", "NF-0002"},
+		[]string{invoices[0].Number, invoices[1].Number},
+	)
+}
+
+func TestGetInvoicesCarriesTheFieldsOfEachInvoice(t *testing.T) {
+	server := newServer(t)
+	seedInvoices(t, model.Invoice{Number: "NF-0001", Status: "CLOSED"})
+
+	response := get(t, server, "/invoices")
+
+	require.Equal(t, http.StatusOK, response.Code)
+
+	invoices := decodeInvoices(t, response.Body.Bytes())
+
+	require.Len(t, invoices, 1)
+	assert.NotZero(t, invoices[0].ID)
+	assert.Equal(t, "NF-0001", invoices[0].Number)
+	assert.Equal(t, "CLOSED", invoices[0].Status)
+}
+
+func TestGetInvoicesWithNothingStoredReturnsAnEmptyArray(t *testing.T) {
+	server := newServer(t)
+
+	response := get(t, server, "/invoices")
+
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.JSONEq(t, `[]`, response.Body.String(), "an empty listing must not become null")
+}
+
+func TestGetInvoicesListsWhatWasJustCreated(t *testing.T) {
+	server := newServer(t)
+
+	require.Equal(t, http.StatusCreated, post(t, server, "/invoices", validInvoice).Code)
+
+	response := get(t, server, "/invoices")
+
+	require.Equal(t, http.StatusOK, response.Code)
+
+	invoices := decodeInvoices(t, response.Body.Bytes())
+
+	require.Len(t, invoices, 1)
+	assert.Equal(t, "NF-0001", invoices[0].Number)
+}
+
+func TestGetInvoicesWithTheDatabaseDownReturns500(t *testing.T) {
+	server := newServerWithDatabaseDown(t)
+
+	response := get(t, server, "/invoices")
+
+	require.Equal(t, http.StatusInternalServerError, response.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["message"])
 }
 
 func TestCreateInvoiceReturns201WithTheCreatedInvoice(t *testing.T) {
@@ -170,7 +257,7 @@ func TestCreateInvoiceWithTheDatabaseDownReturns500(t *testing.T) {
 func TestUnknownRouteReturns404(t *testing.T) {
 	server := newServer(t)
 
-	response := get(t, server, "/invoices")
+	response := get(t, server, "/notas-fiscais")
 
 	assert.Equal(t, http.StatusNotFound, response.Code)
 }

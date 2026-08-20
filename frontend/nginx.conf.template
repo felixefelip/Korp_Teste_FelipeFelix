@@ -15,17 +15,25 @@ server {
     try_files $uri =404;
   }
 
-  # O destino da API vem do ambiente, resolvido na subida do container:
-  # a mesma imagem serve o compose local (http://inventory:8000) e um deploy
-  # onde o frontend mora separado do backend (https://api.exemplo.com).
+  # O destino de cada microservico vem do ambiente, resolvido na subida do
+  # container: a mesma imagem serve o compose local (http://inventory:8000) e um
+  # deploy onde o frontend mora separado do backend (https://api.exemplo.com).
   #
   # O hostname vai numa variavel do nginx de proposito: com nome literal, ele
   # resolve o DNS na inicializacao e se recusa a subir enquanto a API estiver
   # fora do ar. Com variavel, resolve a cada request.
-  location /api/ {
+  location /api/inventory/ {
     resolver ${DNS_RESOLVER} valid=10s ipv6=off;
-    set $upstream ${API_UPSTREAM};
-    rewrite ^/api/(.*)$ /$1 break;
+    set $upstream ${INVENTORY_API_UPSTREAM};
+    rewrite ^/api/inventory/(.*)$ /$1 break;
+    proxy_pass $upstream;
+    proxy_set_header Host $host;
+  }
+
+  location /api/billing/ {
+    resolver ${DNS_RESOLVER} valid=10s ipv6=off;
+    set $upstream ${BILLING_API_UPSTREAM};
+    rewrite ^/api/billing/(.*)$ /$1 break;
     proxy_pass $upstream;
     proxy_set_header Host $host;
   }

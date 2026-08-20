@@ -14,6 +14,10 @@ func NewInvoiceUsecase(repository model.InvoiceRepository) InvoiceUsecase {
 	}
 }
 
+func (iu *InvoiceUsecase) GetInvoices() ([]model.Invoice, error) {
+	return iu.repository.GetInvoices()
+}
+
 func (iu *InvoiceUsecase) CreateInvoice(invoice model.Invoice) (model.Invoice, error) {
 	invoiceId, err := iu.repository.CreateInvoice(invoice)
 	if err != nil {
