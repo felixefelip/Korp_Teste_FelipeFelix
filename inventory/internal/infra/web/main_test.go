@@ -1,4 +1,4 @@
-package controller_test
+package web_test
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"inventory/internal/db"
-	"inventory/internal/router"
+	"inventory/internal/infra/db"
+	"inventory/internal/infra/web"
 	"inventory/internal/testdb"
 
 	"github.com/gin-gonic/gin"
@@ -34,14 +34,14 @@ func TestMain(m *testing.M) {
 }
 
 // newServer builds the server with the real application routes (the same ones
-// main.go registers, through router.Register) over an empty product table.
+// main.go registers, through web.Register) over an empty product table.
 func newServer(t *testing.T) *gin.Engine {
 	t.Helper()
 
 	testdb.Reset(t, testConnection)
 
 	server := gin.New()
-	router.Register(server, testConnection)
+	web.Register(server, testConnection)
 
 	return server
 }
@@ -60,7 +60,7 @@ func newServerWithDatabaseDown(t *testing.T) *gin.Engine {
 	require.NoError(t, sqlDB.Close())
 
 	server := gin.New()
-	router.Register(server, connection)
+	web.Register(server, connection)
 
 	return server
 }

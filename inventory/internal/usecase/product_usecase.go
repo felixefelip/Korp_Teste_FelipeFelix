@@ -1,15 +1,15 @@
 package usecase
 
 import (
+	"inventory/internal/infra/db"
 	"inventory/internal/model"
-	"inventory/internal/repository"
 )
 
 type ProductUsecase struct {
-	repository repository.ProductRepository
+	repository db.ProductRepository
 }
 
-func NewProductUsecase(repository repository.ProductRepository) ProductUsecase {
+func NewProductUsecase(repository db.ProductRepository) ProductUsecase {
 	return ProductUsecase{
 		repository: repository,
 	}
