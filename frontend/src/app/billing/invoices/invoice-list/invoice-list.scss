@@ -1,8 +1,8 @@
-.pagina__cabecalho {
+.page__header {
   margin-bottom: 1.5rem;
 }
 
-.pagina__titulo {
+.page__title {
   font-size: 1.5rem;
   color: var(--brand-900);
 }
@@ -14,7 +14,7 @@
   box-shadow: var(--shadow-sm);
 }
 
-.card__mensagem {
+.card__message {
   margin: 0;
   padding: 2.5rem 1rem;
   text-align: center;

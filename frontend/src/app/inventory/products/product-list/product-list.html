@@ -1,0 +1,76 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1 class="page__title">Produtos</h1>
+      <p class="page__subtitle">
+        {{ products().length }} produto(s) encontrado(s)
+      </p>
+    </div>
+
+    <a class="btn btn--primary" routerLink="/inventory/products/new">
+      <span aria-hidden="true">+</span>
+      Cadastrar produto
+    </a>
+  </header>
+
+  <div class="card">
+    <div class="card__filter">
+      <input
+        type="search"
+        class="field"
+        placeholder="Buscar por código ou descrição"
+        aria-label="Buscar produtos"
+        [value]="filter()"
+        (input)="onFilter($event)"
+      />
+    </div>
+
+    <div class="table-wrapper">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Código</th>
+            <th scope="col">Descrição</th>
+            <th scope="col">Unidade</th>
+            <th scope="col" class="table__num">Preço unitário</th>
+            <th scope="col" class="table__num">Estoque</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            <tr>
+              <td colspan="5" class="table__empty">Carregando produtos…</td>
+            </tr>
+          } @else if (failed()) {
+            <tr>
+              <td colspan="5" class="table__empty table__error">
+                Não foi possível carregar os produtos.
+                <button type="button" class="btn btn--ghost" (click)="load()">
+                  Tentar novamente
+                </button>
+              </td>
+            </tr>
+          } @else {
+            @for (product of products(); track product.id) {
+              <tr>
+                <td class="table__code">{{ product.code }}</td>
+                <td>{{ product.name }}</td>
+                <td>{{ product.unit }}</td>
+                <td class="table__num">
+                  {{ product.price | currency: 'BRL' : 'symbol' : '1.2-2' }}
+                </td>
+                <td class="table__num">{{ product.stock }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="table__empty">
+                  Nenhum produto encontrado.
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

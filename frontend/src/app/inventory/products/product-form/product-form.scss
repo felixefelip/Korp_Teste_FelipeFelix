@@ -1,13 +1,13 @@
-.pagina__cabecalho {
+.page__header {
   margin-bottom: 1.5rem;
 }
 
-.pagina__titulo {
+.page__title {
   font-size: 1.5rem;
   color: var(--brand-900);
 }
 
-.pagina__subtitulo {
+.page__subtitle {
   margin: 0.25rem 0 0;
   color: var(--text-500);
   font-size: 0.8125rem;
@@ -20,7 +20,7 @@
   box-shadow: var(--shadow-sm);
 }
 
-.form__falha {
+.form__failure {
   margin: 0 0 1.25rem;
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;
@@ -29,29 +29,29 @@
   font-size: 0.9rem;
 }
 
-.form__grade {
+.form__grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1.25rem;
   padding: 1.5rem;
 }
 
-.campo-grupo {
+.field-group {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
   min-width: 0;
 }
 
-.campo-grupo--codigo {
+.field-group--code {
   grid-column: span 1;
 }
 
-.campo-grupo--descricao {
+.field-group--name {
   grid-column: span 3;
 }
 
-.campo-rotulo {
+.field-label {
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -59,7 +59,7 @@
   color: var(--text-700);
 }
 
-.campo {
+.field {
   width: 100%;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border);
@@ -70,27 +70,27 @@
   background: var(--surface);
 }
 
-.campo:focus {
+.field:focus {
   outline: none;
   border-color: var(--brand-300);
   box-shadow: 0 0 0 3px rgba(74, 127, 189, 0.18);
 }
 
-.campo--erro {
+.field--error {
   border-color: var(--danger-500);
 }
 
-.campo--erro:focus {
+.field--error:focus {
   box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.16);
 }
 
-.campo-erro {
+.field-error {
   margin: 0;
   font-size: 0.75rem;
   color: var(--danger-500);
 }
 
-.form__acoes {
+.form__actions {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
@@ -99,36 +99,36 @@
   background: var(--surface-alt);
 }
 
-.form__acoes .btn {
+.form__actions .btn {
   text-decoration: none;
 }
 
 @media (max-width: 860px) {
-  .form__grade {
+  .form__grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .campo-grupo--descricao {
+  .field-group--name {
     grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 560px) {
-  .form__grade {
+  .form__grid {
     grid-template-columns: 1fr;
     padding: 1.25rem;
   }
 
-  .campo-grupo--descricao,
-  .campo-grupo--codigo {
+  .field-group--name,
+  .field-group--code {
     grid-column: 1 / -1;
   }
 
-  .form__acoes {
+  .form__actions {
     padding: 1rem 1.25rem;
   }
 
-  .form__acoes .btn {
+  .form__actions .btn {
     flex: 1;
     justify-content: center;
   }

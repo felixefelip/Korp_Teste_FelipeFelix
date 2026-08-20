@@ -1,4 +1,4 @@
-export interface Produto {
+export interface Product {
   id: number;
   code: string;
   name: string;
@@ -7,4 +7,4 @@ export interface Produto {
   stock: number;
 }
 
-export type ErrosDoServidor = Record<string, string>;
+export type ServerErrors = Record<string, string>;

@@ -1,18 +1,16 @@
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'estoque/produtos' },
+  { path: '', pathMatch: 'full', redirectTo: 'inventory/products' },
   {
-    path: 'estoque',
+    path: 'inventory',
     loadChildren: () =>
-      import('./estoque/estoque.routes').then((m) => m.estoqueRoutes)
+      import('./inventory/inventory.routes').then((m) => m.inventoryRoutes)
   },
   {
-    path: 'faturamento',
+    path: 'billing',
     loadChildren: () =>
-      import('./faturamento/faturamento.routes').then(
-        (m) => m.faturamentoRoutes
-      )
+      import('./billing/billing.routes').then((m) => m.billingRoutes)
   },
-  { path: '**', redirectTo: 'estoque/produtos' }
+  { path: '**', redirectTo: 'inventory/products' }
 ];

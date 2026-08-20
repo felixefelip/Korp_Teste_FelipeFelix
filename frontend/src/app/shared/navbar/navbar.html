@@ -6,10 +6,10 @@
     </a>
 
     <nav class="navbar__menu" aria-label="Menu principal">
-      @for (menu of menus; track menu.rota) {
+      @for (menu of menus; track menu.route) {
         <a
           class="navbar__link"
-          [routerLink]="menu.rota"
+          [routerLink]="menu.route"
           routerLinkActive="navbar__link--active"
         >
           {{ menu.label }}

@@ -9,7 +9,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 })
 export class Navbar {
   protected readonly menus = [
-    { label: 'Produtos', rota: '/estoque/produtos' },
-    { label: 'Notas Fiscais', rota: '/faturamento/notas-fiscais' }
+    { label: 'Produtos', route: '/inventory/products' },
+    { label: 'Notas Fiscais', route: '/billing/invoices' }
   ];
 }

@@ -1,4 +1,4 @@
-.pagina__cabecalho {
+.page__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -6,12 +6,12 @@
   margin-bottom: 1.5rem;
 }
 
-.pagina__titulo {
+.page__title {
   font-size: 1.5rem;
   color: var(--brand-900);
 }
 
-.pagina__subtitulo {
+.page__subtitle {
   margin: 0.25rem 0 0;
   color: var(--text-500);
   font-size: 0.8125rem;
@@ -25,12 +25,12 @@
   overflow: hidden;
 }
 
-.card__filtro {
+.card__filter {
   padding: 1rem;
   border-bottom: 1px solid var(--border);
 }
 
-.campo {
+.field {
   width: 100%;
   max-width: 360px;
   padding: 0.5rem 0.75rem;
@@ -42,24 +42,24 @@
   background: var(--surface);
 }
 
-.campo:focus {
+.field:focus {
   outline: none;
   border-color: var(--brand-300);
   box-shadow: 0 0 0 3px rgba(74, 127, 189, 0.18);
 }
 
-.tabela-wrapper {
+.table-wrapper {
   overflow-x: auto;
 }
 
-.tabela {
+.table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.875rem;
   white-space: nowrap;
 }
 
-.tabela thead th {
+.table thead th {
   text-align: left;
   padding: 0.75rem 1rem;
   background: var(--surface-alt);
@@ -71,38 +71,38 @@
   letter-spacing: 0.04em;
 }
 
-.tabela tbody td {
+.table tbody td {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border);
   color: var(--text-700);
 }
 
-.tabela tbody tr:last-child td {
+.table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.tabela tbody tr:hover td {
+.table tbody tr:hover td {
   background: var(--surface-alt);
 }
 
-.tabela__codigo {
+.table__code {
   font-variant-numeric: tabular-nums;
   color: var(--text-900);
   font-weight: 600;
 }
 
-.tabela__num {
+.table__num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-.tabela__vazio {
+.table__empty {
   text-align: center;
   padding: 2.5rem 1rem;
   color: var(--text-500);
 }
 
-.tabela__erro {
+.table__error {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -110,7 +110,7 @@
 }
 
 @media (max-width: 640px) {
-  .pagina__cabecalho {
+  .page__header {
     flex-direction: column;
     align-items: stretch;
   }
