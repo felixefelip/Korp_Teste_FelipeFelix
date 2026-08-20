@@ -33,6 +33,40 @@ services:
       interval: 5s
       retries: 12
 
+  billing:
+    build: ./billing
+    image: korp/billing:dev
+    init: true
+    ports:
+      - "8001:8001"
+    environment:
+      GO_ENV: ${GO_ENV:-development}
+      DB_HOST: billing_db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 1234
+    volumes:
+      - ./billing:/go/src/app
+      - gomodcache:/go/pkg/mod
+    depends_on:
+      billing_db:
+        condition: service_healthy
+    command: sleep infinity
+
+  billing_db:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_USER: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - billing_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: pg_isready -h 127.0.0.1 -U postgres
+      interval: 5s
+      retries: 12
+
   frontend:
     build:
       context: ./frontend
@@ -50,4 +84,5 @@ services:
 
 volumes:
   pgdata: {}
+  billing_pgdata: {}
   gomodcache: {}
