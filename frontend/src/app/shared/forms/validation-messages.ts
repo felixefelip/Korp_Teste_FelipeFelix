@@ -12,7 +12,7 @@ export const VALIDATION_MESSAGES: Record<string, ValidationMessage> = {
       : `O valor mínimo é ${error.min}.`,
   max: (error) => `O valor máximo é ${error.max}.`,
   email: () => 'Informe um e-mail válido.',
-  notAnInteger: () => 'Informe um número inteiro.'
+  integer: () => 'Informe um número inteiro.'
 };
 
 const FALLBACK = 'Valor inválido.';

@@ -1,9 +1,10 @@
 import { FormControl } from '@angular/forms';
 
-import { integer } from './validators';
+import { CustomValidators } from './validators';
 
-describe('integer', () => {
-  const validate = (value: unknown) => integer(new FormControl(value));
+describe('CustomValidators.integer', () => {
+  const validate = (value: unknown) =>
+    CustomValidators.integer(new FormControl(value));
 
   it('accepts an integer', () => {
     expect(validate(7)).toBeNull();
@@ -23,10 +24,10 @@ describe('integer', () => {
   });
 
   it('rejects a fractional number', () => {
-    expect(validate(2.5)).toEqual({ notAnInteger: true });
+    expect(validate(2.5)).toEqual({ integer: true });
   });
 
   it('rejects a value that is not a number', () => {
-    expect(validate('muitos')).toEqual({ notAnInteger: true });
+    expect(validate('muitos')).toEqual({ integer: true });
   });
 });
