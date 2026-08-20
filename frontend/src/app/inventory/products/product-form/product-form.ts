@@ -1,4 +1,4 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import {
   AbstractControl,
@@ -30,13 +30,13 @@ const MESSAGES: Record<string, string> = {
   notAnInteger: 'Informe um número inteiro.'
 };
 
-const SERVER_MESSAGES: Record<string, string> = {
-  obrigatorio: 'Campo obrigatório.',
-  'tipo invalido': 'Valor inválido.',
-  'nao pode ser menor que 0': 'O valor não pode ser negativo.'
-};
-
 const GENERIC_FAILURE = 'Não foi possível salvar o produto. Tente novamente.';
+
+function isClientError(status: number): boolean {
+  return (
+    status >= HttpStatusCode.BadRequest && status < HttpStatusCode.InternalServerError
+  );
+}
 
 @Component({
   selector: 'app-product-form',
@@ -133,31 +133,35 @@ export class ProductForm {
   }
 
   private handleServerFailure(response: HttpErrorResponse): void {
-    const errors = response.error?.errors as ServerErrors | undefined;
-
-    if (!errors) {
-      this.failure.set(response.error?.message ?? GENERIC_FAILURE);
+    if (!isClientError(response.status)) {
+      this.failure.set(GENERIC_FAILURE);
       return;
     }
 
+    const errors = response.error?.errors as ServerErrors | undefined;
+
+    if (errors && typeof errors === 'object' && this.applyFieldErrors(errors)) {
+      this.failure.set(null);
+      return;
+    }
+
+    const message = response.error?.message;
+
+    this.failure.set(typeof message === 'string' && message ? message : GENERIC_FAILURE);
+  }
+
+  private applyFieldErrors(errors: ServerErrors): boolean {
     let anyKnownField = false;
 
     for (const [field, message] of Object.entries(errors)) {
       const control = this.form.get(field);
 
-      if (control) {
-        control.setErrors({ server: this.translate(message) });
+      if (control && typeof message === 'string') {
+        control.setErrors({ server: message });
         anyKnownField = true;
       }
     }
 
-    this.failure.set(anyKnownField ? null : GENERIC_FAILURE);
-  }
-
-  private translate(message: string): string {
-    return (
-      SERVER_MESSAGES[message] ??
-      `${message.charAt(0).toUpperCase()}${message.slice(1)}.`
-    );
+    return anyKnownField;
   }
 }

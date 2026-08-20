@@ -251,7 +251,7 @@ describe('ProductForm', () => {
 
   describe('API rejection', () => {
     it('shows on the field the error the server pointed at', async () => {
-      rejectWith({ errors: { code: 'obrigatorio' } });
+      rejectWith({ errors: { code: 'Campo obrigatório.' } });
 
       await fillValidForm();
       await submit();
@@ -260,8 +260,8 @@ describe('ProductForm', () => {
       expect(navigate).not.toHaveBeenCalled();
     });
 
-    it('translates the other server messages', async () => {
-      rejectWith({ errors: { price: 'nao pode ser menor que 0' } });
+    it('shows the server phrase exactly as it came', async () => {
+      rejectWith({ errors: { price: 'O valor não pode ser negativo.' } });
 
       await fillValidForm();
       await submit();
@@ -269,17 +269,17 @@ describe('ProductForm', () => {
       expect(errorOf('price')).toBe('O valor não pode ser negativo.');
     });
 
-    it('shows an unknown server message with a capital initial', async () => {
-      rejectWith({ errors: { unit: 'precisa ser um de: UN, CX' } });
+    it('shows a phrase the frontend has no copy for', async () => {
+      rejectWith({ errors: { unit: 'Esta unidade foi descontinuada.' } });
 
       await fillValidForm();
       await submit();
 
-      expect(errorOf('unit')).toBe('Precisa ser um de: UN, CX.');
+      expect(errorOf('unit')).toBe('Esta unidade foi descontinuada.');
     });
 
     it('drops the server error as soon as the field is fixed', async () => {
-      rejectWith({ errors: { code: 'obrigatorio' } });
+      rejectWith({ errors: { code: 'Campo obrigatório.' } });
 
       await fillValidForm();
       await submit();
@@ -290,13 +290,22 @@ describe('ProductForm', () => {
     });
 
     it('shows a general warning when the body points at no field', async () => {
-      rejectWith({ message: 'o corpo precisa ser um JSON valido' });
+      rejectWith({ message: 'Não foi possível ler os dados enviados.' });
 
       await fillValidForm();
       await submit();
 
-      expect(failure()).toBe('o corpo precisa ser um JSON valido');
+      expect(failure()).toBe('Não foi possível ler os dados enviados.');
       expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('accepts field errors on a 422', async () => {
+      rejectWith({ errors: { stock: 'O valor não pode ser negativo.' } }, 422);
+
+      await fillValidForm();
+      await submit();
+
+      expect(errorOf('stock')).toBe('O valor não pode ser negativo.');
     });
 
     it('shows a general warning when the API is down', async () => {
@@ -308,8 +317,37 @@ describe('ProductForm', () => {
       expect(failure()).toBe('Não foi possível salvar o produto. Tente novamente.');
     });
 
+    it('never shows the body message of a 500 to the user', async () => {
+      rejectWith({ message: 'erro ao criar o produto' }, 500);
+
+      await fillValidForm();
+      await submit();
+
+      expect(failure()).toBe('Não foi possível salvar o produto. Tente novamente.');
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('does not mark fields from the body of a 500', async () => {
+      rejectWith({ errors: { code: 'Campo obrigatório.' } }, 500);
+
+      await fillValidForm();
+      await submit();
+
+      expect(errorOf('code')).toBe('');
+      expect(failure()).toBe('Não foi possível salvar o produto. Tente novamente.');
+    });
+
+    it('shows a general warning when there is no response at all', async () => {
+      rejectWith(new ProgressEvent('error'), 0);
+
+      await fillValidForm();
+      await submit();
+
+      expect(failure()).toBe('Não foi possível salvar o produto. Tente novamente.');
+    });
+
     it('allows fixing and trying again', async () => {
-      rejectWith({ errors: { code: 'obrigatorio' } });
+      rejectWith({ errors: { code: 'Campo obrigatório.' } });
 
       await fillValidForm();
       await submit();

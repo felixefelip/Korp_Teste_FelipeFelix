@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -40,7 +41,7 @@ func bindErrors(err error) map[string]string {
 
 	var typeError *json.UnmarshalTypeError
 	if errors.As(err, &typeError) && typeError.Field != "" {
-		return map[string]string{typeError.Field: "tipo invalido"}
+		return map[string]string{typeError.Field: "Valor inválido."}
 	}
 
 	return nil
@@ -49,14 +50,16 @@ func bindErrors(err error) map[string]string {
 func validationMessage(fieldError validator.FieldError) string {
 	switch fieldError.Tag() {
 	case "required":
-		return "obrigatorio"
+		return "Campo obrigatório."
 	case "gte":
-		return "nao pode ser menor que " + fieldError.Param()
+		if fieldError.Param() == "0" {
+			return "O valor não pode ser negativo."
+		}
+
+		return fmt.Sprintf("O valor não pode ser menor que %s.", fieldError.Param())
 	case "max":
-		return "excede " + fieldError.Param() + " caracteres"
-	case "oneof":
-		return "precisa ser um de: " + strings.ReplaceAll(fieldError.Param(), " ", ", ")
+		return fmt.Sprintf("Limite de %s caracteres excedido.", fieldError.Param())
 	default:
-		return "invalido"
+		return "Valor inválido."
 	}
 }
