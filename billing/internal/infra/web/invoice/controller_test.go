@@ -1,4 +1,4 @@
-package web_test
+package invoice_test
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"billing/internal/model"
+	"billing/internal/test/webtest"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -77,7 +78,7 @@ func TestGetInvoicesReturns200WithEverythingStored(t *testing.T) {
 		model.Invoice{Number: "NF-0002", Status: "CLOSED"},
 	)
 
-	response := get(t, server, "/invoices")
+	response := webtest.Get(t, server, "/invoices")
 
 	require.Equal(t, http.StatusOK, response.Code)
 
@@ -94,7 +95,7 @@ func TestGetInvoicesCarriesTheFieldsOfEachInvoice(t *testing.T) {
 	server := newServer(t)
 	seedInvoices(t, model.Invoice{Number: "NF-0001", Status: "CLOSED"})
 
-	response := get(t, server, "/invoices")
+	response := webtest.Get(t, server, "/invoices")
 
 	require.Equal(t, http.StatusOK, response.Code)
 
@@ -109,7 +110,7 @@ func TestGetInvoicesCarriesTheFieldsOfEachInvoice(t *testing.T) {
 func TestGetInvoicesWithNothingStoredReturnsAnEmptyArray(t *testing.T) {
 	server := newServer(t)
 
-	response := get(t, server, "/invoices")
+	response := webtest.Get(t, server, "/invoices")
 
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.JSONEq(t, `[]`, response.Body.String(), "an empty listing must not become null")
@@ -118,9 +119,9 @@ func TestGetInvoicesWithNothingStoredReturnsAnEmptyArray(t *testing.T) {
 func TestGetInvoicesListsWhatWasJustCreated(t *testing.T) {
 	server := newServer(t)
 
-	require.Equal(t, http.StatusCreated, post(t, server, "/invoices", validInvoice).Code)
+	require.Equal(t, http.StatusCreated, webtest.Post(t, server, "/invoices", validInvoice).Code)
 
-	response := get(t, server, "/invoices")
+	response := webtest.Get(t, server, "/invoices")
 
 	require.Equal(t, http.StatusOK, response.Code)
 
@@ -133,7 +134,7 @@ func TestGetInvoicesListsWhatWasJustCreated(t *testing.T) {
 func TestGetInvoicesWithTheDatabaseDownReturns500(t *testing.T) {
 	server := newServerWithDatabaseDown(t)
 
-	response := get(t, server, "/invoices")
+	response := webtest.Get(t, server, "/invoices")
 
 	require.Equal(t, http.StatusInternalServerError, response.Code)
 
@@ -145,12 +146,12 @@ func TestGetInvoicesWithTheDatabaseDownReturns500(t *testing.T) {
 func TestGetInvoiceByIDReturns200WithTheInvoice(t *testing.T) {
 	server := newServer(t)
 
-	created := post(t, server, "/invoices", validInvoice)
+	created := webtest.Post(t, server, "/invoices", validInvoice)
 	require.Equal(t, http.StatusCreated, created.Code)
 
 	expected := decodeInvoice(t, created.Body.Bytes())
 
-	response := get(t, server, fmt.Sprintf("/invoices/%d", expected.ID))
+	response := webtest.Get(t, server, fmt.Sprintf("/invoices/%d", expected.ID))
 
 	require.Equal(t, http.StatusOK, response.Code)
 
@@ -164,7 +165,7 @@ func TestGetInvoiceByIDReturns200WithTheInvoice(t *testing.T) {
 func TestGetInvoiceByIDWhenItDoesNotExistReturns404(t *testing.T) {
 	server := newServer(t)
 
-	response := get(t, server, "/invoices/404")
+	response := webtest.Get(t, server, "/invoices/404")
 
 	require.Equal(t, http.StatusNotFound, response.Code)
 
@@ -176,7 +177,7 @@ func TestGetInvoiceByIDWhenItDoesNotExistReturns404(t *testing.T) {
 func TestGetInvoiceByIDWithNonNumericIDReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := get(t, server, "/invoices/abc")
+	response := webtest.Get(t, server, "/invoices/abc")
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
@@ -188,7 +189,7 @@ func TestGetInvoiceByIDWithNonNumericIDReturns400(t *testing.T) {
 func TestCreateInvoiceReturns201WithTheCreatedInvoice(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", validInvoice)
+	response := webtest.Post(t, server, "/invoices", validInvoice)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 
@@ -202,7 +203,7 @@ func TestCreateInvoiceReturns201WithTheCreatedInvoice(t *testing.T) {
 func TestCreateInvoicePersistsToTheDatabase(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", validInvoice)
+	response := webtest.Post(t, server, "/invoices", validInvoice)
 	require.Equal(t, http.StatusCreated, response.Code)
 
 	var saved []model.Invoice
@@ -216,7 +217,7 @@ func TestCreateInvoicePersistsToTheDatabase(t *testing.T) {
 func TestCreateInvoiceAcceptsTheClosedStatus(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", `{"number":"NF-0002","status":"CLOSED"}`)
+	response := webtest.Post(t, server, "/invoices", `{"number":"NF-0002","status":"CLOSED"}`)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 	assert.Equal(t, "CLOSED", decodeInvoice(t, response.Body.Bytes()).Status)
@@ -225,7 +226,7 @@ func TestCreateInvoiceAcceptsTheClosedStatus(t *testing.T) {
 func TestCreateInvoiceUppercasesTheNumber(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", `{"number":"  nf-0003  ","status":"OPEN"}`)
+	response := webtest.Post(t, server, "/invoices", `{"number":"  nf-0003  ","status":"OPEN"}`)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 	assert.Equal(t, "NF-0003", decodeInvoice(t, response.Body.Bytes()).Number)
@@ -234,7 +235,7 @@ func TestCreateInvoiceUppercasesTheNumber(t *testing.T) {
 func TestCreateInvoiceWithoutTheRequiredFieldsReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", `{}`)
+	response := webtest.Post(t, server, "/invoices", `{}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
@@ -251,7 +252,7 @@ func TestCreateInvoiceWithoutTheRequiredFieldsReturns400(t *testing.T) {
 func TestCreateInvoiceWithAnUnknownStatusReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", `{"number":"NF-0001","status":"CANCELADA"}`)
+	response := webtest.Post(t, server, "/invoices", `{"number":"NF-0001","status":"CANCELADA"}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 	assert.Equal(t, "Valor inválido.", decodeErrors(t, response.Body.Bytes())["status"])
@@ -260,7 +261,7 @@ func TestCreateInvoiceWithAnUnknownStatusReturns400(t *testing.T) {
 func TestCreateInvoiceWithALowercaseStatusReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", `{"number":"NF-0001","status":"open"}`)
+	response := webtest.Post(t, server, "/invoices", `{"number":"NF-0001","status":"open"}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 	assert.Equal(t, "Valor inválido.", decodeErrors(t, response.Body.Bytes())["status"])
@@ -269,7 +270,7 @@ func TestCreateInvoiceWithALowercaseStatusReturns400(t *testing.T) {
 func TestCreateInvoiceWithALongNumberReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices",
+	response := webtest.Post(t, server, "/invoices",
 		`{"number":"NF-000000000000000000000000000001","status":"OPEN"}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
@@ -279,7 +280,7 @@ func TestCreateInvoiceWithALongNumberReturns400(t *testing.T) {
 func TestCreateInvoiceWithWrongNumberTypeReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", `{"number":1,"status":"OPEN"}`)
+	response := webtest.Post(t, server, "/invoices", `{"number":1,"status":"OPEN"}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 	assert.Equal(t, "Valor inválido.", decodeErrors(t, response.Body.Bytes())["number"])
@@ -288,7 +289,7 @@ func TestCreateInvoiceWithWrongNumberTypeReturns400(t *testing.T) {
 func TestCreateInvoiceWithInvalidJSONReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", `{"number":`)
+	response := webtest.Post(t, server, "/invoices", `{"number":`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
@@ -304,7 +305,7 @@ func TestCreateInvoiceWithInvalidJSONReturns400(t *testing.T) {
 func TestCreateInvoiceWithTheDatabaseDownReturns500(t *testing.T) {
 	server := newServerWithDatabaseDown(t)
 
-	response := post(t, server, "/invoices", validInvoice)
+	response := webtest.Post(t, server, "/invoices", validInvoice)
 
 	require.Equal(t, http.StatusInternalServerError, response.Code)
 
@@ -318,7 +319,7 @@ const updatedInvoice = `{"number":"NF-0002","status":"CLOSED"}`
 func createInvoice(t *testing.T, server *gin.Engine, body string) int {
 	t.Helper()
 
-	response := post(t, server, "/invoices", body)
+	response := webtest.Post(t, server, "/invoices", body)
 	require.Equal(t, http.StatusCreated, response.Code)
 
 	return decodeInvoice(t, response.Body.Bytes()).ID
@@ -328,7 +329,7 @@ func TestUpdateInvoiceReturns200WithTheUpdatedInvoice(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	response := put(t, server, fmt.Sprintf("/invoices/%d", id), updatedInvoice)
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), updatedInvoice)
 
 	require.Equal(t, http.StatusOK, response.Code)
 
@@ -343,7 +344,7 @@ func TestUpdateInvoicePersistsToTheDatabase(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	require.Equal(t, http.StatusOK, put(t, server, fmt.Sprintf("/invoices/%d", id), updatedInvoice).Code)
+	require.Equal(t, http.StatusOK, webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), updatedInvoice).Code)
 
 	var saved []model.Invoice
 	require.NoError(t, testConnection.Find(&saved).Error)
@@ -357,7 +358,7 @@ func TestUpdateInvoiceUppercasesTheNumber(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	response := put(t, server, fmt.Sprintf("/invoices/%d", id), `{"number":"  nf-0009  ","status":"OPEN"}`)
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), `{"number":"  nf-0009  ","status":"OPEN"}`)
 
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Equal(t, "NF-0009", decodeInvoice(t, response.Body.Bytes()).Number)
@@ -367,7 +368,7 @@ func TestUpdateInvoiceIgnoresTheIDSentInTheBody(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	response := put(t, server, fmt.Sprintf("/invoices/%d", id),
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
 		fmt.Sprintf(`{"id":%d,"number":"NF-0002","status":"CLOSED"}`, id+900))
 
 	require.Equal(t, http.StatusOK, response.Code)
@@ -381,7 +382,7 @@ func TestUpdateInvoiceIgnoresTheIDSentInTheBody(t *testing.T) {
 func TestUpdateInvoiceWhenItDoesNotExistReturns404(t *testing.T) {
 	server := newServer(t)
 
-	response := put(t, server, "/invoices/9999", updatedInvoice)
+	response := webtest.Put(t, server, "/invoices/9999", updatedInvoice)
 
 	require.Equal(t, http.StatusNotFound, response.Code)
 
@@ -397,7 +398,7 @@ func TestUpdateInvoiceWhenItDoesNotExistReturns404(t *testing.T) {
 func TestUpdateInvoiceWithNonNumericIDReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := put(t, server, "/invoices/abc", updatedInvoice)
+	response := webtest.Put(t, server, "/invoices/abc", updatedInvoice)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
@@ -410,7 +411,7 @@ func TestUpdateInvoiceWithoutTheRequiredFieldsReturns400(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	response := put(t, server, fmt.Sprintf("/invoices/%d", id), `{}`)
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), `{}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
@@ -428,7 +429,7 @@ func TestUpdateInvoiceWithAnUnknownStatusReturns400(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	response := put(t, server, fmt.Sprintf("/invoices/%d", id), `{"number":"NF-0001","status":"CANCELADA"}`)
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), `{"number":"NF-0001","status":"CANCELADA"}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 	assert.Equal(t, "Valor inválido.", decodeErrors(t, response.Body.Bytes())["status"])
@@ -438,7 +439,7 @@ func TestUpdateInvoiceWithALongNumberReturns400(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	response := put(t, server, fmt.Sprintf("/invoices/%d", id),
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
 		`{"number":"NF-000000000000000000000000000001","status":"OPEN"}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
@@ -449,7 +450,7 @@ func TestUpdateInvoiceWithInvalidJSONReturns400(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	response := put(t, server, fmt.Sprintf("/invoices/%d", id), `{"number":`)
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), `{"number":`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
@@ -461,7 +462,7 @@ func TestUpdateInvoiceWithInvalidJSONReturns400(t *testing.T) {
 func TestUpdateInvoiceWithTheDatabaseDownReturns500(t *testing.T) {
 	server := newServerWithDatabaseDown(t)
 
-	response := put(t, server, "/invoices/1", updatedInvoice)
+	response := webtest.Put(t, server, "/invoices/1", updatedInvoice)
 
 	require.Equal(t, http.StatusInternalServerError, response.Code)
 
@@ -473,7 +474,7 @@ func TestUpdateInvoiceWithTheDatabaseDownReturns500(t *testing.T) {
 func TestUnknownRouteReturns404(t *testing.T) {
 	server := newServer(t)
 
-	response := get(t, server, "/notas-fiscais")
+	response := webtest.Get(t, server, "/notas-fiscais")
 
 	assert.Equal(t, http.StatusNotFound, response.Code)
 }
@@ -494,7 +495,7 @@ func itemBody(item string) string {
 func TestCreateInvoiceReturns201WithTheItems(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", invoiceWithItems)
+	response := webtest.Post(t, server, "/invoices", invoiceWithItems)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 
@@ -513,7 +514,7 @@ func TestCreateInvoiceReturns201WithTheItems(t *testing.T) {
 func TestCreateInvoiceCarriesBothIDsOfTheProduct(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", invoiceWithItems)
+	response := webtest.Post(t, server, "/invoices", invoiceWithItems)
 	require.Equal(t, http.StatusCreated, response.Code)
 
 	created := decodeInvoice(t, response.Body.Bytes())
@@ -527,7 +528,7 @@ func TestCreateInvoiceCarriesBothIDsOfTheProduct(t *testing.T) {
 func TestCreateInvoiceTotalsTheItems(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", invoiceWithItems)
+	response := webtest.Post(t, server, "/invoices", invoiceWithItems)
 	require.Equal(t, http.StatusCreated, response.Code)
 
 	created := decodeInvoice(t, response.Body.Bytes())
@@ -541,7 +542,7 @@ func TestCreateInvoiceTotalsTheItems(t *testing.T) {
 func TestCreateInvoicePersistsTheItems(t *testing.T) {
 	server := newServer(t)
 
-	require.Equal(t, http.StatusCreated, post(t, server, "/invoices", invoiceWithItems).Code)
+	require.Equal(t, http.StatusCreated, webtest.Post(t, server, "/invoices", invoiceWithItems).Code)
 
 	var items []model.InvoiceItem
 	require.NoError(t, testConnection.Find(&items).Error)
@@ -555,7 +556,7 @@ func TestCreateInvoicePersistsTheItems(t *testing.T) {
 func TestCreateInvoiceUppercasesTheCodeOfTheItem(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices",
+	response := webtest.Post(t, server, "/invoices",
 		itemBody(`{"inventoryId":11,"code":"  prd-0009  ","name":"  Caneca  ","unit":"un","quantity":1,"unitPrice":10}`))
 
 	require.Equal(t, http.StatusCreated, response.Code)
@@ -571,7 +572,7 @@ func TestCreateInvoiceUppercasesTheCodeOfTheItem(t *testing.T) {
 func TestCreateInvoiceWithoutItemsReturnsAnEmptyArray(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", validInvoice)
+	response := webtest.Post(t, server, "/invoices", validInvoice)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 
@@ -585,7 +586,7 @@ func TestCreateInvoiceWithoutItemsReturnsAnEmptyArray(t *testing.T) {
 func TestCreateInvoiceAcceptsAnItemGivenAway(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices",
+	response := webtest.Post(t, server, "/invoices",
 		itemBody(`{"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":1,"unitPrice":0}`))
 
 	require.Equal(t, http.StatusCreated, response.Code)
@@ -595,7 +596,7 @@ func TestCreateInvoiceAcceptsAnItemGivenAway(t *testing.T) {
 func TestCreateInvoiceWithAnItemWithoutTheRequiredFieldsReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", itemBody(`{}`))
+	response := webtest.Post(t, server, "/invoices", itemBody(`{}`))
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
@@ -616,7 +617,7 @@ func TestCreateInvoiceWithAnItemWithoutTheRequiredFieldsReturns400(t *testing.T)
 func TestCreateInvoicePointsAtTheItemThatWasRejected(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/invoices", `{"number":"NF-0001","status":"OPEN","items":[
+	response := webtest.Post(t, server, "/invoices", `{"number":"NF-0001","status":"OPEN","items":[
         {"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":1,"unitPrice":10},
         {"inventoryId":12,"code":"PRD-0002","name":"Caneca","unit":"UN","quantity":0,"unitPrice":10}
     ]}`)
@@ -632,7 +633,7 @@ func TestCreateInvoicePointsAtTheItemThatWasRejected(t *testing.T) {
 func TestCreateInvoiceWithANegativeQuantityReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server,
+	response := webtest.Post(t, server,
 		"/invoices",
 		itemBody(`{"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":-1,"unitPrice":10}`))
 
@@ -644,7 +645,7 @@ func TestCreateInvoiceWithANegativeQuantityReturns400(t *testing.T) {
 func TestCreateInvoiceWithANegativeUnitPriceReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server,
+	response := webtest.Post(t, server,
 		"/invoices",
 		itemBody(`{"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":1,"unitPrice":-1}`))
 
@@ -656,7 +657,7 @@ func TestCreateInvoiceWithANegativeUnitPriceReturns400(t *testing.T) {
 func TestCreateInvoiceWithAnItemWithoutTheProductReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server,
+	response := webtest.Post(t, server,
 		"/invoices",
 		itemBody(`{"inventoryId":0,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":1,"unitPrice":10}`))
 
@@ -667,9 +668,9 @@ func TestCreateInvoiceWithAnItemWithoutTheProductReturns400(t *testing.T) {
 func TestGetInvoicesCarriesTheItems(t *testing.T) {
 	server := newServer(t)
 
-	require.Equal(t, http.StatusCreated, post(t, server, "/invoices", invoiceWithItems).Code)
+	require.Equal(t, http.StatusCreated, webtest.Post(t, server, "/invoices", invoiceWithItems).Code)
 
-	response := get(t, server, "/invoices")
+	response := webtest.Get(t, server, "/invoices")
 
 	require.Equal(t, http.StatusOK, response.Code)
 
@@ -686,7 +687,7 @@ func TestGetInvoiceByIDCarriesTheItems(t *testing.T) {
 
 	id := createInvoice(t, server, invoiceWithItems)
 
-	response := get(t, server, fmt.Sprintf("/invoices/%d", id))
+	response := webtest.Get(t, server, fmt.Sprintf("/invoices/%d", id))
 
 	require.Equal(t, http.StatusOK, response.Code)
 
@@ -701,7 +702,7 @@ func TestUpdateInvoiceReplacesTheItems(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, invoiceWithItems)
 
-	response := put(t, server, fmt.Sprintf("/invoices/%d", id),
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
 		itemBody(`{"inventoryId":13,"code":"PRD-0003","name":"Mochila","unit":"UN","quantity":3,"unitPrice":99.9}`))
 
 	require.Equal(t, http.StatusOK, response.Code)
@@ -721,7 +722,7 @@ func TestUpdateInvoiceWithAnEmptyListEmptiesTheInvoice(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, invoiceWithItems)
 
-	response := put(t, server, fmt.Sprintf("/invoices/%d", id),
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
 		`{"number":"NF-0001","status":"OPEN","items":[]}`)
 
 	require.Equal(t, http.StatusOK, response.Code)
@@ -736,7 +737,7 @@ func TestUpdateInvoiceWithoutTheItemsKeyKeepsTheItems(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, invoiceWithItems)
 
-	response := put(t, server, fmt.Sprintf("/invoices/%d", id), updatedInvoice)
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), updatedInvoice)
 
 	require.Equal(t, http.StatusOK, response.Code)
 
@@ -751,12 +752,12 @@ func TestUpdateInvoiceWithARejectedItemKeepsTheInvoiceUntouched(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, invoiceWithItems)
 
-	response := put(t, server, fmt.Sprintf("/invoices/%d", id),
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
 		itemBody(`{"inventoryId":13,"code":"PRD-0003","name":"Mochila","unit":"UN","quantity":0,"unitPrice":99.9}`))
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
-	invoice := decodeInvoice(t, get(t, server, fmt.Sprintf("/invoices/%d", id)).Body.Bytes())
+	invoice := decodeInvoice(t, webtest.Get(t, server, fmt.Sprintf("/invoices/%d", id)).Body.Bytes())
 
 	require.Len(t, invoice.Items, 2, "a rejected update must leave the items untouched")
 	assert.Equal(t, "Camiseta", invoice.Items[0].Name)
@@ -766,7 +767,7 @@ func TestUpdateInvoiceKeepsSellingTheSameProduct(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, invoiceWithItems)
 
-	response := put(t, server, fmt.Sprintf("/invoices/%d", id),
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
 		itemBody(`{"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":5,"unitPrice":30.99}`))
 
 	require.Equal(t, http.StatusOK, response.Code)

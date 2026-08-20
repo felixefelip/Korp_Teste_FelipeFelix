@@ -1,4 +1,4 @@
-package web_test
+package product_test
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"inventory/internal/model"
+	"inventory/internal/test/webtest"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -52,7 +53,7 @@ func decodeErrors(t *testing.T, body []byte) map[string]string {
 func TestCreateProductReturns201WithTheCreatedProduct(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products", validProduct)
+	response := webtest.Post(t, server, "/products", validProduct)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 
@@ -67,7 +68,7 @@ func TestCreateProductReturns201WithTheCreatedProduct(t *testing.T) {
 func TestCreateProductWithoutStockReturnsZero(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products", `{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99}`)
+	response := webtest.Post(t, server, "/products", `{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99}`)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 	assert.Zero(t, decodeProduct(t, response.Body.Bytes()).Stock)
@@ -76,7 +77,7 @@ func TestCreateProductWithoutStockReturnsZero(t *testing.T) {
 func TestCreateProductPersistsToTheDatabase(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products", validProduct)
+	response := webtest.Post(t, server, "/products", validProduct)
 	require.Equal(t, http.StatusCreated, response.Code)
 
 	var saved []model.Product
@@ -91,7 +92,7 @@ func TestCreateProductPersistsToTheDatabase(t *testing.T) {
 func TestCreateProductWithInvalidJSONReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products", `{"name":`)
+	response := webtest.Post(t, server, "/products", `{"name":`)
 
 	assert.Equal(t, http.StatusBadRequest, response.Code)
 
@@ -107,7 +108,7 @@ func TestCreateProductWithInvalidJSONReturns400(t *testing.T) {
 func TestCreateProductWithWrongPriceTypeReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products",
+	response := webtest.Post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":"muito caro"}`)
 
 	assert.Equal(t, http.StatusBadRequest, response.Code)
@@ -117,7 +118,7 @@ func TestCreateProductWithWrongPriceTypeReturns400(t *testing.T) {
 func TestCreateProductWithWrongStockTypeReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products",
+	response := webtest.Post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99,"stock":"muitos"}`)
 
 	assert.Equal(t, http.StatusBadRequest, response.Code)
@@ -127,7 +128,7 @@ func TestCreateProductWithWrongStockTypeReturns400(t *testing.T) {
 func TestCreateProductWithoutTheRequiredFieldsReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products", `{}`)
+	response := webtest.Post(t, server, "/products", `{}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
@@ -148,7 +149,7 @@ func TestCreateProductWithoutTheRequiredFieldsReturns400(t *testing.T) {
 func TestCreateProductWithZeroPriceAndStockReturns201(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products",
+	response := webtest.Post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Amostra gratis","unit":"UN","price":0,"stock":0}`)
 
 	require.Equal(t, http.StatusCreated, response.Code)
@@ -161,7 +162,7 @@ func TestCreateProductWithZeroPriceAndStockReturns201(t *testing.T) {
 func TestCreateProductWithNegativePriceReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products",
+	response := webtest.Post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":-10}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
@@ -171,7 +172,7 @@ func TestCreateProductWithNegativePriceReturns400(t *testing.T) {
 func TestCreateProductWithNegativeStockReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products",
+	response := webtest.Post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99,"stock":-5}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
@@ -181,7 +182,7 @@ func TestCreateProductWithNegativeStockReturns400(t *testing.T) {
 func TestCreateProductWithUnitOutsideTheListReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products",
+	response := webtest.Post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"BANANA","price":30.99}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
@@ -196,7 +197,7 @@ func TestCreateProductWithTextOverTheLimitReturns400(t *testing.T) {
 		longCode += "X"
 	}
 
-	response := post(t, server, "/products",
+	response := webtest.Post(t, server, "/products",
 		fmt.Sprintf(`{"code":%q,"name":"Camiseta","unit":"UN","price":30.99}`, longCode))
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
@@ -209,7 +210,7 @@ func TestCreateProductWithTextOverTheLimitReturns400(t *testing.T) {
 func TestCreateProductIgnoresTheIDSentByTheClient(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products",
+	response := webtest.Post(t, server, "/products",
 		`{"id":999,"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99}`)
 
 	require.Equal(t, http.StatusCreated, response.Code)
@@ -219,7 +220,7 @@ func TestCreateProductIgnoresTheIDSentByTheClient(t *testing.T) {
 func TestCreateProductNormalizesCodeAndName(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products",
+	response := webtest.Post(t, server, "/products",
 		`{"code":"  prd-0001 ","name":"  Camiseta  ","unit":"UN","price":30.99}`)
 
 	require.Equal(t, http.StatusCreated, response.Code)
@@ -239,7 +240,7 @@ func TestCreateProductNormalizesCodeAndName(t *testing.T) {
 func TestResponseExposesOnlyTheContractFields(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products", validProduct)
+	response := webtest.Post(t, server, "/products", validProduct)
 	require.Equal(t, http.StatusCreated, response.Code)
 
 	var body map[string]any
@@ -257,11 +258,11 @@ func TestResponseExposesOnlyTheContractFields(t *testing.T) {
 func TestGetProductsReturns200WithTheProducts(t *testing.T) {
 	server := newServer(t)
 
-	require.Equal(t, http.StatusCreated, post(t, server, "/products", validProduct).Code)
-	require.Equal(t, http.StatusCreated, post(t, server, "/products",
+	require.Equal(t, http.StatusCreated, webtest.Post(t, server, "/products", validProduct).Code)
+	require.Equal(t, http.StatusCreated, webtest.Post(t, server, "/products",
 		`{"code":"PRD-0002","name":"Calca Jeans","unit":"UN","price":89.99,"stock":3}`).Code)
 
-	response := get(t, server, "/products")
+	response := webtest.Get(t, server, "/products")
 
 	require.Equal(t, http.StatusOK, response.Code)
 
@@ -280,7 +281,7 @@ func TestGetProductsReturns200WithTheProducts(t *testing.T) {
 func TestGetProductsWhenThereAreNoProducts(t *testing.T) {
 	server := newServer(t)
 
-	response := get(t, server, "/products")
+	response := webtest.Get(t, server, "/products")
 
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.JSONEq(t, `[]`, response.Body.String())
@@ -289,7 +290,7 @@ func TestGetProductsWhenThereAreNoProducts(t *testing.T) {
 func TestGetProductsWhenTheDatabaseFailsReturns500(t *testing.T) {
 	server := newServerWithDatabaseDown(t)
 
-	response := get(t, server, "/products")
+	response := webtest.Get(t, server, "/products")
 
 	require.Equal(t, http.StatusInternalServerError, response.Code)
 
@@ -301,12 +302,12 @@ func TestGetProductsWhenTheDatabaseFailsReturns500(t *testing.T) {
 func TestGetProductByIDReturns200WithTheProduct(t *testing.T) {
 	server := newServer(t)
 
-	created := post(t, server, "/products", validProduct)
+	created := webtest.Post(t, server, "/products", validProduct)
 	require.Equal(t, http.StatusCreated, created.Code)
 
 	expected := decodeProduct(t, created.Body.Bytes())
 
-	response := get(t, server, fmt.Sprintf("/products/%d", expected.ID))
+	response := webtest.Get(t, server, fmt.Sprintf("/products/%d", expected.ID))
 
 	require.Equal(t, http.StatusOK, response.Code)
 
@@ -321,7 +322,7 @@ func TestGetProductByIDReturns200WithTheProduct(t *testing.T) {
 func TestGetProductByIDWhenItDoesNotExistReturns404(t *testing.T) {
 	server := newServer(t)
 
-	response := get(t, server, "/products/404")
+	response := webtest.Get(t, server, "/products/404")
 
 	require.Equal(t, http.StatusNotFound, response.Code)
 
@@ -333,7 +334,7 @@ func TestGetProductByIDWhenItDoesNotExistReturns404(t *testing.T) {
 func TestGetProductByIDWithNonNumericIDReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := get(t, server, "/products/abc")
+	response := webtest.Get(t, server, "/products/abc")
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
@@ -345,7 +346,7 @@ func TestGetProductByIDWithNonNumericIDReturns400(t *testing.T) {
 func TestCreateProductReturnsCodeAndUnit(t *testing.T) {
 	server := newServer(t)
 
-	response := post(t, server, "/products", validProduct)
+	response := webtest.Post(t, server, "/products", validProduct)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 
@@ -357,7 +358,7 @@ func TestCreateProductReturnsCodeAndUnit(t *testing.T) {
 func TestCreateProductPersistsCodeAndUnit(t *testing.T) {
 	server := newServer(t)
 
-	require.Equal(t, http.StatusCreated, post(t, server, "/products",
+	require.Equal(t, http.StatusCreated, webtest.Post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"CX","price":30.99}`).Code)
 
 	var saved []model.Product
@@ -371,9 +372,9 @@ func TestCreateProductPersistsCodeAndUnit(t *testing.T) {
 func TestGetProductsReturnsCodeAndUnit(t *testing.T) {
 	server := newServer(t)
 
-	require.Equal(t, http.StatusCreated, post(t, server, "/products", validProduct).Code)
+	require.Equal(t, http.StatusCreated, webtest.Post(t, server, "/products", validProduct).Code)
 
-	response := get(t, server, "/products")
+	response := webtest.Get(t, server, "/products")
 	require.Equal(t, http.StatusOK, response.Code)
 
 	var products []productResponse
@@ -387,9 +388,9 @@ func TestGetProductsReturnsCodeAndUnit(t *testing.T) {
 func TestCreateProductAcceptsDuplicateCode(t *testing.T) {
 	server := newServer(t)
 
-	first := post(t, server, "/products",
+	first := webtest.Post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99}`)
-	second := post(t, server, "/products",
+	second := webtest.Post(t, server, "/products",
 		`{"code":"PRD-0001","name":"Calca Jeans","unit":"UN","price":89.99}`)
 
 	assert.Equal(t, http.StatusCreated, first.Code)
@@ -405,7 +406,7 @@ const updatedProduct = `{"code":"PRD-0002","name":"Camiseta polo","unit":"CX","p
 func createProduct(t *testing.T, server *gin.Engine, body string) int {
 	t.Helper()
 
-	response := post(t, server, "/products", body)
+	response := webtest.Post(t, server, "/products", body)
 	require.Equal(t, http.StatusCreated, response.Code)
 
 	return decodeProduct(t, response.Body.Bytes()).ID
@@ -415,7 +416,7 @@ func TestUpdateProductReturns200WithTheUpdatedProduct(t *testing.T) {
 	server := newServer(t)
 	id := createProduct(t, server, validProduct)
 
-	response := put(t, server, fmt.Sprintf("/products/%d", id), updatedProduct)
+	response := webtest.Put(t, server, fmt.Sprintf("/products/%d", id), updatedProduct)
 
 	require.Equal(t, http.StatusOK, response.Code)
 
@@ -433,7 +434,7 @@ func TestUpdateProductPersistsToTheDatabase(t *testing.T) {
 	server := newServer(t)
 	id := createProduct(t, server, validProduct)
 
-	require.Equal(t, http.StatusOK, put(t, server, fmt.Sprintf("/products/%d", id), updatedProduct).Code)
+	require.Equal(t, http.StatusOK, webtest.Put(t, server, fmt.Sprintf("/products/%d", id), updatedProduct).Code)
 
 	var saved []model.Product
 	require.NoError(t, testConnection.Find(&saved).Error)
@@ -448,7 +449,7 @@ func TestUpdateProductNormalizesCodeAndName(t *testing.T) {
 	server := newServer(t)
 	id := createProduct(t, server, validProduct)
 
-	response := put(t, server, fmt.Sprintf("/products/%d", id),
+	response := webtest.Put(t, server, fmt.Sprintf("/products/%d", id),
 		`{"code":"  prd-0009  ","name":"  Caneca  ","unit":"UN","price":10,"stock":1}`)
 
 	require.Equal(t, http.StatusOK, response.Code)
@@ -463,7 +464,7 @@ func TestUpdateProductWithZeroPriceAndStockReturns200(t *testing.T) {
 	server := newServer(t)
 	id := createProduct(t, server, validProduct)
 
-	response := put(t, server, fmt.Sprintf("/products/%d", id),
+	response := webtest.Put(t, server, fmt.Sprintf("/products/%d", id),
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":0,"stock":0}`)
 
 	require.Equal(t, http.StatusOK, response.Code)
@@ -478,7 +479,7 @@ func TestUpdateProductIgnoresTheIDSentInTheBody(t *testing.T) {
 	server := newServer(t)
 	id := createProduct(t, server, validProduct)
 
-	response := put(t, server, fmt.Sprintf("/products/%d", id),
+	response := webtest.Put(t, server, fmt.Sprintf("/products/%d", id),
 		fmt.Sprintf(`{"id":%d,"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99,"stock":12}`, id+900))
 
 	require.Equal(t, http.StatusOK, response.Code)
@@ -492,7 +493,7 @@ func TestUpdateProductIgnoresTheIDSentInTheBody(t *testing.T) {
 func TestUpdateProductWhenItDoesNotExistReturns404(t *testing.T) {
 	server := newServer(t)
 
-	response := put(t, server, "/products/9999", updatedProduct)
+	response := webtest.Put(t, server, "/products/9999", updatedProduct)
 
 	require.Equal(t, http.StatusNotFound, response.Code)
 
@@ -508,7 +509,7 @@ func TestUpdateProductWhenItDoesNotExistReturns404(t *testing.T) {
 func TestUpdateProductWithNonNumericIDReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := put(t, server, "/products/abc", updatedProduct)
+	response := webtest.Put(t, server, "/products/abc", updatedProduct)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
@@ -521,7 +522,7 @@ func TestUpdateProductWithoutTheRequiredFieldsReturns400(t *testing.T) {
 	server := newServer(t)
 	id := createProduct(t, server, validProduct)
 
-	response := put(t, server, fmt.Sprintf("/products/%d", id), `{}`)
+	response := webtest.Put(t, server, fmt.Sprintf("/products/%d", id), `{}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
@@ -541,7 +542,7 @@ func TestUpdateProductWithNegativePriceReturns400(t *testing.T) {
 	server := newServer(t)
 	id := createProduct(t, server, validProduct)
 
-	response := put(t, server, fmt.Sprintf("/products/%d", id),
+	response := webtest.Put(t, server, fmt.Sprintf("/products/%d", id),
 		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":-1,"stock":12}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
@@ -552,7 +553,7 @@ func TestUpdateProductWithUnitOutsideTheListReturns400(t *testing.T) {
 	server := newServer(t)
 	id := createProduct(t, server, validProduct)
 
-	response := put(t, server, fmt.Sprintf("/products/%d", id),
+	response := webtest.Put(t, server, fmt.Sprintf("/products/%d", id),
 		`{"code":"PRD-0001","name":"Camiseta","unit":"DZ","price":30.99,"stock":12}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
@@ -563,7 +564,7 @@ func TestUpdateProductWithInvalidJSONReturns400(t *testing.T) {
 	server := newServer(t)
 	id := createProduct(t, server, validProduct)
 
-	response := put(t, server, fmt.Sprintf("/products/%d", id), `{"code":`)
+	response := webtest.Put(t, server, fmt.Sprintf("/products/%d", id), `{"code":`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 
@@ -575,7 +576,7 @@ func TestUpdateProductWithInvalidJSONReturns400(t *testing.T) {
 func TestUpdateProductWithTheDatabaseDownReturns500(t *testing.T) {
 	server := newServerWithDatabaseDown(t)
 
-	response := put(t, server, "/products/1", updatedProduct)
+	response := webtest.Put(t, server, "/products/1", updatedProduct)
 
 	require.Equal(t, http.StatusInternalServerError, response.Code)
 

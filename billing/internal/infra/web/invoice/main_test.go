@@ -1,14 +1,16 @@
-package web_test
+package invoice_test
 
 import (
 	"fmt"
 	"os"
 	"testing"
 
+	"billing/internal/infra/db"
 	"billing/internal/infra/web"
 	"billing/internal/test/dbtest"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
 
@@ -34,6 +36,22 @@ func newServer(t *testing.T) *gin.Engine {
 
 	server := gin.New()
 	web.Register(server, testConnection)
+
+	return server
+}
+
+func newServerWithDatabaseDown(t *testing.T) *gin.Engine {
+	t.Helper()
+
+	connection, err := db.ConnectDB()
+	require.NoError(t, err)
+
+	sqlDB, err := connection.DB()
+	require.NoError(t, err)
+	require.NoError(t, sqlDB.Close())
+
+	server := gin.New()
+	web.Register(server, connection)
 
 	return server
 }
