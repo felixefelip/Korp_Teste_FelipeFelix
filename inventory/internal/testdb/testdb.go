@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"inventory/internal/db"
+	"inventory/internal/infra/db"
 	"inventory/internal/model"
 
 	"github.com/stretchr/testify/require"

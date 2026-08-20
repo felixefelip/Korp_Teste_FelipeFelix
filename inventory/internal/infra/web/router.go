@@ -1,10 +1,9 @@
-package router
+package web
 
 import (
 	"net/http"
 
-	"inventory/internal/controller"
-	"inventory/internal/repository"
+	"inventory/internal/infra/db"
 	"inventory/internal/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -20,9 +19,9 @@ func New(connection *gorm.DB) *gin.Engine {
 }
 
 func Register(server *gin.Engine, connection *gorm.DB) {
-	productRepository := repository.NewProductRepository(connection)
+	productRepository := db.NewProductRepository(connection)
 	productUsecase := usecase.NewProductUsecase(productRepository)
-	productController := controller.NewProductController(productUsecase)
+	productController := NewProductController(productUsecase)
 
 	server.GET("/ping", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"message": "pong"})

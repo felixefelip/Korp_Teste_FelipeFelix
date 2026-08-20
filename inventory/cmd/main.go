@@ -1,9 +1,9 @@
 package main
 
 import (
-	"inventory/internal/db"
+	"inventory/internal/infra/db"
+	"inventory/internal/infra/web"
 	"inventory/internal/model"
-	"inventory/internal/router"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 		panic(err)
 	}
 
-	server := router.New(dbConnection)
+	server := web.New(dbConnection)
 
 	server.Run(":8000")
 }

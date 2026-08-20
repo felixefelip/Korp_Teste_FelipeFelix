@@ -1,10 +1,11 @@
-package repository
+package db_test
 
 import (
 	"fmt"
 	"os"
 	"testing"
 
+	"inventory/internal/infra/db"
 	"inventory/internal/testdb"
 
 	"gorm.io/gorm"
@@ -24,10 +25,10 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func newRepository(t *testing.T) ProductRepository {
+func newRepository(t *testing.T) db.ProductRepository {
 	t.Helper()
 
 	testdb.Reset(t, testConnection)
 
-	return NewProductRepository(testConnection)
+	return db.NewProductRepository(testConnection)
 }

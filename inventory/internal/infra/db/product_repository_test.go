@@ -1,4 +1,4 @@
-package repository
+package db_test
 
 import (
 	"testing"
