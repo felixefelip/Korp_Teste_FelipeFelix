@@ -41,7 +41,7 @@ func (f *fakeRepository) CreateProduct(product model.Product) (int, error) {
 
 var errRepository = errors.New("database down")
 
-func newUsecase(repository usecase.ProductRepository) usecase.ProductUsecase {
+func newUsecase(repository model.ProductRepository) usecase.ProductUsecase {
 	return usecase.NewProductUsecase(repository)
 }
 
