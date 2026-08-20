@@ -127,12 +127,12 @@ export class ProductForm {
         },
         error: (response: HttpErrorResponse) => {
           this.saving.set(false);
-          this.handleFailure(response);
+          this.handleServerFailure(response);
         }
       });
   }
 
-  private handleFailure(response: HttpErrorResponse): void {
+  private handleServerFailure(response: HttpErrorResponse): void {
     const errors = response.error?.errors as ServerErrors | undefined;
 
     if (!errors) {
