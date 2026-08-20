@@ -34,7 +34,6 @@
             <th scope="col">Unidade</th>
             <th scope="col" class="tabela__num">Preço unitário</th>
             <th scope="col" class="tabela__num">Estoque</th>
-            <th scope="col">Situação</th>
           </tr>
         </thead>
         <tbody>
@@ -47,19 +46,10 @@
                 {{ produto.precoUnitario | currency: 'BRL' : 'symbol' : '1.2-2' }}
               </td>
               <td class="tabela__num">{{ produto.estoque }}</td>
-              <td>
-                <span
-                  class="tag"
-                  [class.tag--ativo]="produto.ativo"
-                  [class.tag--inativo]="!produto.ativo"
-                >
-                  {{ produto.ativo ? 'Ativo' : 'Inativo' }}
-                </span>
-              </td>
             </tr>
           } @empty {
             <tr>
-              <td colspan="6" class="tabela__vazio">
+              <td colspan="5" class="tabela__vazio">
                 Nenhum produto encontrado.
               </td>
             </tr>

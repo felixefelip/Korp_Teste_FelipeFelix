@@ -10,27 +10,12 @@ describe('ProdutoService', () => {
     descricao: 'Cadeira de escritório',
     unidade: 'UN',
     precoUnitario: 750.5,
-    estoque: 8,
-    ativo: true
+    estoque: 8
   };
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
     servico = TestBed.inject(ProdutoService);
-  });
-
-  describe('existeCodigo', () => {
-    it('reconhece um código já cadastrado', () => {
-      expect(servico.existeCodigo('PRD-0001')).toBe(true);
-    });
-
-    it('ignora caixa e espaços em volta', () => {
-      expect(servico.existeCodigo('  prd-0001  ')).toBe(true);
-    });
-
-    it('retorna falso para código inédito', () => {
-      expect(servico.existeCodigo('XYZ-0001')).toBe(false);
-    });
   });
 
   describe('proximoCodigo', () => {
@@ -70,9 +55,12 @@ describe('ProdutoService', () => {
       expect(criado.codigo).toBe('PRD-0100');
     });
 
-    it('passa a reconhecer o código recém-cadastrado', () => {
-      servico.cadastrar(novoProduto);
-      expect(servico.existeCodigo('PRD-0100')).toBe(true);
+    it('aceita cadastrar dois produtos com o mesmo código', () => {
+      const primeiro = servico.cadastrar(novoProduto);
+      const segundo = servico.cadastrar(novoProduto);
+
+      expect(segundo.codigo).toBe(primeiro.codigo);
+      expect(segundo.id).not.toBe(primeiro.id);
     });
 
     it('não altera o array anterior da listagem', () => {

@@ -17,8 +17,7 @@ const PRODUTOS: Produto[] = [
     descricao: 'Notebook Dell Inspiron 15',
     unidade: 'UN',
     precoUnitario: 4299.9,
-    estoque: 12,
-    ativo: true
+    estoque: 12
   },
   {
     id: 2,
@@ -26,8 +25,7 @@ const PRODUTOS: Produto[] = [
     descricao: 'Monitor LG 24" Full HD',
     unidade: 'UN',
     precoUnitario: 899,
-    estoque: 34,
-    ativo: true
+    estoque: 34
   },
   {
     id: 3,
@@ -35,8 +33,7 @@ const PRODUTOS: Produto[] = [
     descricao: 'Papel Sulfite A4',
     unidade: 'CX',
     precoUnitario: 27.4,
-    estoque: 0,
-    ativo: false
+    estoque: 0
   }
 ];
 
@@ -98,22 +95,13 @@ describe('ProdutoLista', () => {
         'Notebook Dell Inspiron 15',
         'UN',
         'R$ 4.299,90',
-        '12',
-        'Ativo'
+        '12'
       ]);
     });
 
     it('formata o preço unitário em reais com duas casas', () => {
       const precos = linhas().map((linha) => colunas(linha)[3]);
       expect(precos).toEqual(['R$ 4.299,90', 'R$ 899,00', 'R$ 27,40']);
-    });
-
-    it('marca a situação de produtos ativos e inativos', () => {
-      const tags = Array.from(elemento().querySelectorAll('tbody .tag'));
-
-      expect(tags.map(texto)).toEqual(['Ativo', 'Ativo', 'Inativo']);
-      expect(tags[0].classList).toContain('tag--ativo');
-      expect(tags[2].classList).toContain('tag--inativo');
     });
 
     it('informa a quantidade de produtos no subtítulo', () => {

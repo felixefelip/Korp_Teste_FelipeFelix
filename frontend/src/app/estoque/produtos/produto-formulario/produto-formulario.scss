@@ -42,11 +42,6 @@
   grid-column: span 3;
 }
 
-.campo-grupo--checkbox {
-  grid-column: 1 / -1;
-  justify-content: center;
-}
-
 .campo-rotulo {
   font-size: 0.75rem;
   font-weight: 600;
@@ -84,22 +79,6 @@
   margin: 0;
   font-size: 0.75rem;
   color: var(--danger-500);
-}
-
-.campo-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--text-700);
-  cursor: pointer;
-}
-
-.campo-check input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--brand-500);
-  cursor: pointer;
 }
 
 .form__acoes {

@@ -8,7 +8,6 @@ import { ProdutoFormulario } from './produto-formulario';
 describe('ProdutoFormulario', () => {
   let fixture: ComponentFixture<ProdutoFormulario>;
   let servico: {
-    existeCodigo: ReturnType<typeof vi.fn>;
     proximoCodigo: ReturnType<typeof vi.fn>;
     cadastrar: ReturnType<typeof vi.fn>;
   };
@@ -28,13 +27,6 @@ describe('ProdutoFormulario', () => {
     input.dispatchEvent(new Event('input'));
     input.dispatchEvent(new Event('change'));
     input.dispatchEvent(new Event('blur'));
-    await fixture.whenStable();
-  };
-
-  const marcarAtivo = async (marcado: boolean) => {
-    const check = elemento().querySelector<HTMLInputElement>('input[type="checkbox"]')!;
-    check.checked = marcado;
-    check.dispatchEvent(new Event('change'));
     await fixture.whenStable();
   };
 
@@ -66,7 +58,6 @@ describe('ProdutoFormulario', () => {
 
   beforeEach(async () => {
     servico = {
-      existeCodigo: vi.fn().mockReturnValue(false),
       proximoCodigo: vi.fn().mockReturnValue('PRD-0006'),
       cadastrar: vi.fn((dados: Omit<Produto, 'id'>) => ({ ...dados, id: 6 }))
     };
@@ -96,11 +87,8 @@ describe('ProdutoFormulario', () => {
       expect(campo<HTMLInputElement>('estoque').value).toBe('0');
     });
 
-    it('começa com a primeira unidade e o produto ativo', () => {
+    it('começa com a primeira unidade selecionada', () => {
       expect(campo<HTMLSelectElement>('unidade').value).toBe('UN');
-      expect(
-        elemento().querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked
-      ).toBe(true);
     });
 
     it('lista as unidades de medida disponíveis', () => {
@@ -147,11 +135,15 @@ describe('ProdutoFormulario', () => {
       expect(erroDe('codigo')).toBe('Use apenas letras, números e hífen.');
     });
 
-    it('recusa código já cadastrado', async () => {
-      servico.existeCodigo.mockReturnValue(true);
+    it('aceita código já usado por outro produto', async () => {
+      await preencherFormularioValido();
       await preencher('codigo', 'PRD-0001');
+      await enviar();
 
-      expect(erroDe('codigo')).toBe('Já existe um produto com este código.');
+      expect(erroDe('codigo')).toBe('');
+      expect(servico.cadastrar).toHaveBeenCalledWith(
+        expect.objectContaining({ codigo: 'PRD-0001' })
+      );
     });
 
     it('recusa preço negativo', async () => {
@@ -204,8 +196,7 @@ describe('ProdutoFormulario', () => {
         descricao: 'Cadeira de escritório',
         unidade: 'CX',
         precoUnitario: 750.5,
-        estoque: 8,
-        ativo: true
+        estoque: 8
       });
     });
 
@@ -216,16 +207,6 @@ describe('ProdutoFormulario', () => {
 
       expect(servico.cadastrar).toHaveBeenCalledWith(
         expect.objectContaining({ descricao: 'Mesa de reunião' })
-      );
-    });
-
-    it('respeita o produto marcado como inativo', async () => {
-      await preencherFormularioValido();
-      await marcarAtivo(false);
-      await enviar();
-
-      expect(servico.cadastrar).toHaveBeenCalledWith(
-        expect.objectContaining({ ativo: false })
       );
     });
 

@@ -11,8 +11,7 @@ const PRODUTOS_MOCK: Produto[] = [
     descricao: 'Notebook Dell Inspiron 15',
     unidade: 'UN',
     precoUnitario: 4299.9,
-    estoque: 12,
-    ativo: true
+    estoque: 12
   },
   {
     id: 2,
@@ -20,8 +19,7 @@ const PRODUTOS_MOCK: Produto[] = [
     descricao: 'Monitor LG 24" Full HD',
     unidade: 'UN',
     precoUnitario: 899.0,
-    estoque: 34,
-    ativo: true
+    estoque: 34
   },
   {
     id: 3,
@@ -29,8 +27,7 @@ const PRODUTOS_MOCK: Produto[] = [
     descricao: 'Teclado Mecânico ABNT2',
     unidade: 'UN',
     precoUnitario: 349.5,
-    estoque: 0,
-    ativo: true
+    estoque: 0
   },
   {
     id: 4,
@@ -38,8 +35,7 @@ const PRODUTOS_MOCK: Produto[] = [
     descricao: 'Cabo HDMI 2.0 - 2 metros',
     unidade: 'PC',
     precoUnitario: 39.9,
-    estoque: 128,
-    ativo: true
+    estoque: 128
   },
   {
     id: 5,
@@ -47,8 +43,7 @@ const PRODUTOS_MOCK: Produto[] = [
     descricao: 'Papel Sulfite A4 75g (resma)',
     unidade: 'CX',
     precoUnitario: 27.4,
-    estoque: 56,
-    ativo: false
+    estoque: 56
   }
 ];
 
@@ -57,12 +52,6 @@ export class ProdutoService {
   private readonly _produtos = signal<Produto[]>(PRODUTOS_MOCK);
 
   readonly produtos = this._produtos.asReadonly();
-
-  /** Verifica se o código já está em uso, ignorando caixa e espaços. */
-  existeCodigo(codigo: string): boolean {
-    const alvo = codigo.trim().toUpperCase();
-    return this._produtos().some((produto) => produto.codigo.toUpperCase() === alvo);
-  }
 
   /** Sugere o próximo código sequencial no padrão PRD-0000. */
   proximoCodigo(): string {

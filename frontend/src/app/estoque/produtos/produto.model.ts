@@ -5,5 +5,4 @@ export interface Produto {
   unidade: string;
   precoUnitario: number;
   estoque: number;
-  ativo: boolean;
 }

@@ -25,7 +25,6 @@ const MENSAGENS: Record<string, string> = {
   minlength: 'Informe pelo menos 3 caracteres.',
   maxlength: 'Limite de 120 caracteres excedido.',
   pattern: 'Use apenas letras, números e hífen.',
-  codigoDuplicado: 'Já existe um produto com este código.',
   min: 'O valor não pode ser negativo.',
   naoInteiro: 'Informe um número inteiro.'
 };
@@ -47,11 +46,7 @@ export class ProdutoFormulario {
   protected readonly formulario = this.fb.group({
     codigo: this.fb.nonNullable.control(this.produtoService.proximoCodigo(), [
       Validators.required,
-      Validators.pattern(/^[A-Za-z0-9-]+$/),
-      (controle: AbstractControl) =>
-        this.produtoService.existeCodigo(controle.value ?? '')
-          ? { codigoDuplicado: true }
-          : null
+      Validators.pattern(/^[A-Za-z0-9-]+$/)
     ]),
     descricao: this.fb.nonNullable.control('', [
       Validators.required,
@@ -67,8 +62,7 @@ export class ProdutoFormulario {
       Validators.required,
       Validators.min(0),
       inteiro
-    ]),
-    ativo: this.fb.nonNullable.control(true)
+    ])
   });
 
   /** Mensagem de erro do campo, ou null enquanto não houver o que mostrar. */
@@ -91,7 +85,7 @@ export class ProdutoFormulario {
       return;
     }
 
-    const { codigo, descricao, unidade, precoUnitario, estoque, ativo } =
+    const { codigo, descricao, unidade, precoUnitario, estoque } =
       this.formulario.getRawValue();
 
     this.produtoService.cadastrar({
@@ -99,8 +93,7 @@ export class ProdutoFormulario {
       descricao: descricao.trim(),
       unidade,
       precoUnitario: precoUnitario!,
-      estoque: estoque!,
-      ativo
+      estoque: estoque!
     });
 
     this.router.navigate(['/estoque/produtos']);
