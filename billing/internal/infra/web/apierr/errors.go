@@ -1,4 +1,4 @@
-package web
+package apierr
 
 import (
 	"encoding/json"
@@ -27,13 +27,13 @@ func init() {
 	})
 }
 
-func bindErrors(err error) map[string]string {
+func FieldErrors(err error) map[string]string {
 	var validationErrors validator.ValidationErrors
 	if errors.As(err, &validationErrors) {
 		messages := make(map[string]string, len(validationErrors))
 
 		for _, fieldError := range validationErrors {
-			messages[fieldError.Field()] = validationMessage(fieldError)
+			messages[fieldKey(fieldError)] = validationMessage(fieldError)
 		}
 
 		return messages
@@ -47,6 +47,16 @@ func bindErrors(err error) map[string]string {
 	return nil
 }
 
+func fieldKey(fieldError validator.FieldError) string {
+	namespace := fieldError.Namespace()
+
+	if _, path, found := strings.Cut(namespace, "."); found {
+		return path
+	}
+
+	return fieldError.Field()
+}
+
 func validationMessage(fieldError validator.FieldError) string {
 	switch fieldError.Tag() {
 	case "required":
@@ -57,6 +67,12 @@ func validationMessage(fieldError validator.FieldError) string {
 		}
 
 		return fmt.Sprintf("O valor não pode ser menor que %s.", fieldError.Param())
+	case "gt":
+		if fieldError.Param() == "0" {
+			return "O valor precisa ser maior que zero."
+		}
+
+		return fmt.Sprintf("O valor precisa ser maior que %s.", fieldError.Param())
 	case "max":
 		return fmt.Sprintf("Limite de %s caracteres excedido.", fieldError.Param())
 	default:

@@ -1,37 +1,38 @@
-package web
+package product
 
 import (
 	"errors"
 	"net/http"
 	"strconv"
 
+	"inventory/internal/infra/web/apierr"
 	"inventory/internal/usecase"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-type productController struct {
+type Controller struct {
 	productUsecase usecase.ProductUsecase
 }
 
-func NewProductController(usecase usecase.ProductUsecase) productController {
-	return productController{
+func NewController(usecase usecase.ProductUsecase) Controller {
+	return Controller{
 		productUsecase: usecase,
 	}
 }
 
-func (p *productController) GetProducts(ctx *gin.Context) {
+func (p *Controller) GetProducts(ctx *gin.Context) {
 	products, err := p.productUsecase.GetProducts()
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, newProductResponses(products))
+	ctx.JSON(http.StatusOK, newResponses(products))
 }
 
-func (p *productController) GetProductByID(ctx *gin.Context) {
+func (p *Controller) GetProductByID(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "o id do produto precisa ser um numero inteiro"})
@@ -49,19 +50,19 @@ func (p *productController) GetProductByID(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, newProductResponse(product))
+	ctx.JSON(http.StatusOK, newResponse(product))
 }
 
-func (p *productController) UpdateProduct(ctx *gin.Context) {
+func (p *Controller) UpdateProduct(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "o id do produto precisa ser um numero inteiro"})
 		return
 	}
 
-	var request updateProductRequest
+	var request updateRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		if fieldErrors := bindErrors(err); fieldErrors != nil {
+		if fieldErrors := apierr.FieldErrors(err); fieldErrors != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"errors": fieldErrors})
 			return
 		}
@@ -81,13 +82,13 @@ func (p *productController) UpdateProduct(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, newProductResponse(updatedProduct))
+	ctx.JSON(http.StatusOK, newResponse(updatedProduct))
 }
 
-func (p *productController) CreateProduct(ctx *gin.Context) {
-	var request createProductRequest
+func (p *Controller) CreateProduct(ctx *gin.Context) {
+	var request createRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		if fieldErrors := bindErrors(err); fieldErrors != nil {
+		if fieldErrors := apierr.FieldErrors(err); fieldErrors != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"errors": fieldErrors})
 			return
 		}
@@ -102,5 +103,5 @@ func (p *productController) CreateProduct(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, newProductResponse(insertedProduct))
+	ctx.JSON(http.StatusCreated, newResponse(insertedProduct))
 }
