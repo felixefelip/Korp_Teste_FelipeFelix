@@ -1,4 +1,5 @@
-import { AbstractControl } from '@angular/forms';
+import { Signal } from '@angular/core';
+import { AbstractControl, FormGroup } from '@angular/forms';
 
 export type ValidationMessage = (error: any) => string;
 
@@ -40,4 +41,20 @@ export function fieldErrorMessage(
   const message = overrides[key] ?? VALIDATION_MESSAGES[key];
 
   return message ? message(errors[key]) : FALLBACK;
+}
+
+export function fieldErrorFor(
+  form: FormGroup,
+  submitted: Signal<boolean>,
+  overrides: Record<string, ValidationMessage> = {}
+): (field: string) => string | null {
+  return (field) => {
+    const control = form.get(field);
+
+    if (!control || !(control.touched || submitted())) {
+      return null;
+    }
+
+    return fieldErrorMessage(control, overrides);
+  };
 }
