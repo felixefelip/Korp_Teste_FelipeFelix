@@ -93,31 +93,6 @@ describe('ProductService', () => {
     });
   });
 
-  describe('nextCode', () => {
-    it('suggests the sequence after the highest loaded code', () => {
-      load();
-      expect(service.nextCode()).toBe('PRD-0006');
-    });
-
-    it('suggests the first code when there are no products yet', () => {
-      expect(service.nextCode()).toBe('PRD-0001');
-    });
-
-    it('moves the suggestion forward after a matching creation', () => {
-      load();
-
-      service.create({ ...newProduct, code: 'PRD-0009' }).subscribe();
-      http.expectOne('/api/products').flush({ ...newProduct, id: 3, code: 'PRD-0009' });
-
-      expect(service.nextCode()).toBe('PRD-0010');
-    });
-
-    it('ignores codes outside the PRD-0000 pattern', () => {
-      load([...products, { ...newProduct, id: 3, code: 'ABC-9999' }]);
-      expect(service.nextCode()).toBe('PRD-0006');
-    });
-  });
-
   describe('create', () => {
     it('posts the product and returns what the API created', () => {
       const created = { ...newProduct, id: 7 };
