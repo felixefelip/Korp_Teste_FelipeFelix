@@ -1,12 +1,8 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { Observable, Subject, of, throwError } from 'rxjs';
+import { provideRouter } from '@angular/router';
 
-import { FlashService } from '../../../shared/flash/flash.service';
 import { Product } from '../product.model';
-import { ProductService } from '../product.service';
-import { ProductForm } from './product-form';
+import { ProductForm, ProductPayload } from './product-form';
 
 const EXISTING: Product = {
   id: 7,
@@ -19,13 +15,7 @@ const EXISTING: Product = {
 
 describe('ProductForm', () => {
   let fixture: ComponentFixture<ProductForm>;
-  let service: {
-    create: ReturnType<typeof vi.fn>;
-    get: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-  };
-  let navigate: ReturnType<typeof vi.spyOn>;
-  let flash: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
+  let saved: ProductPayload[];
 
   const element = () => fixture.nativeElement as HTMLElement;
 
@@ -34,6 +24,11 @@ describe('ProductForm', () => {
 
   const text = (el: Element | null | undefined) =>
     (el?.textContent ?? '').replace(/[\u00A0\u202F]/g, ' ').trim();
+
+  const setInput = async (name: string, value: unknown) => {
+    fixture.componentRef.setInput(name, value);
+    await fixture.whenStable();
+  };
 
   const fill = async (id: string, value: string) => {
     const input = field<HTMLInputElement | HTMLSelectElement>(id);
@@ -57,12 +52,10 @@ describe('ProductForm', () => {
   const errorOf = (id: string) =>
     text(field(id).parentElement?.querySelector('.field-error'));
 
-  const failure = () => text(element().querySelector('.form__failure'));
+  const banner = () => text(element().querySelector('.form__failure'));
 
-  const rejectWith = (body: unknown, status = 400) =>
-    service.create.mockReturnValue(
-      throwError(() => new HttpErrorResponse({ status, error: body }))
-    );
+  const submitButton = () =>
+    element().querySelector<HTMLButtonElement>('button[type="submit"]')!;
 
   const fillValidForm = async () => {
     await fill('code', 'PRD-0006');
@@ -79,26 +72,14 @@ describe('ProductForm', () => {
   };
 
   beforeEach(async () => {
-    service = {
-      create: vi.fn((data: Omit<Product, 'id'>) => of({ ...data, id: 6 })),
-      get: vi.fn(() => of(EXISTING)),
-      update: vi.fn((id: number, data: Omit<Product, 'id'>) => of({ ...data, id }))
-    };
-
-    flash = { error: vi.fn(), success: vi.fn() };
-
     await TestBed.configureTestingModule({
       imports: [ProductForm],
-      providers: [
-        provideRouter([]),
-        { provide: ProductService, useValue: service },
-        { provide: FlashService, useValue: flash }
-      ]
+      providers: [provideRouter([])]
     }).compileComponents();
 
-    navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
-
     fixture = TestBed.createComponent(ProductForm);
+    saved = [];
+    fixture.componentInstance.save.subscribe((product) => saved.push(product));
     await fixture.whenStable();
   });
 
@@ -128,7 +109,7 @@ describe('ProductForm', () => {
 
     it('shows no error before any interaction', () => {
       expect(errors()).toEqual([]);
-      expect(failure()).toBe('');
+      expect(banner()).toBe('');
     });
 
     it('offers cancel going back to the listing', () => {
@@ -142,8 +123,7 @@ describe('ProductForm', () => {
     it('blocks the submit and reveals the required field errors', async () => {
       await submit();
 
-      expect(service.create).not.toHaveBeenCalled();
-      expect(navigate).not.toHaveBeenCalled();
+      expect(saved).toEqual([]);
       expect(errorOf('code')).toBe('Campo obrigatório.');
       expect(errorOf('name')).toBe('Campo obrigatório.');
       expect(errorOf('price')).toBe('Campo obrigatório.');
@@ -166,9 +146,7 @@ describe('ProductForm', () => {
       await submit();
 
       expect(errorOf('code')).toBe('');
-      expect(service.create).toHaveBeenCalledWith(
-        expect.objectContaining({ code: 'PRD-0001' })
-      );
+      expect(saved).toEqual([expect.objectContaining({ code: 'PRD-0001' })]);
     });
 
     it('rejects a negative price', async () => {
@@ -192,9 +170,7 @@ describe('ProductForm', () => {
       await fill('stock', '0');
       await submit();
 
-      expect(service.create).toHaveBeenCalledWith(
-        expect.objectContaining({ price: 0, stock: 0 })
-      );
+      expect(saved).toEqual([expect.objectContaining({ price: 0, stock: 0 })]);
     });
 
     it('marks the invalid field visually', async () => {
@@ -211,18 +187,20 @@ describe('ProductForm', () => {
     });
   });
 
-  describe('creation', () => {
-    it('sends the filled data to the service', async () => {
+  describe('emitting what was filled', () => {
+    it('hands over the filled data', async () => {
       await fillValidForm();
       await submit();
 
-      expect(service.create).toHaveBeenCalledWith({
-        code: 'PRD-0006',
-        name: 'Cadeira de escritório',
-        unit: 'CX',
-        price: 750.5,
-        stock: 8
-      });
+      expect(saved).toEqual([
+        {
+          code: 'PRD-0006',
+          name: 'Cadeira de escritório',
+          unit: 'CX',
+          price: 750.5,
+          stock: 8
+        }
+      ]);
     });
 
     it('trims surrounding spaces from the name', async () => {
@@ -230,372 +208,176 @@ describe('ProductForm', () => {
       await fill('name', '   Mesa de reunião   ');
       await submit();
 
-      expect(service.create).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'Mesa de reunião' })
-      );
+      expect(saved).toEqual([expect.objectContaining({ name: 'Mesa de reunião' })]);
     });
 
-    it('saves with the default stock when the field is untouched', async () => {
+    it('hands over the default stock when the field is untouched', async () => {
       await fillMinimum();
       await submit();
 
-      expect(service.create).toHaveBeenCalledWith(
-        expect.objectContaining({ stock: 0 })
-      );
+      expect(saved).toEqual([expect.objectContaining({ stock: 0 })]);
     });
 
-    it('goes back to the listing after saving', async () => {
+    it('emits only once per submit', async () => {
       await fillValidForm();
       await submit();
 
-      expect(navigate).toHaveBeenCalledWith(['/inventory/products']);
+      expect(saved.length).toBe(1);
     });
 
-    it('creates only once per submit', async () => {
+    it('emits nothing while a save is already running', async () => {
       await fillValidForm();
+      await setInput('saving', true);
       await submit();
 
-      expect(service.create).toHaveBeenCalledTimes(1);
+      expect(saved).toEqual([]);
     });
   });
 
-  describe('API rejection', () => {
-    it('shows on the field the error the server pointed at', async () => {
-      rejectWith({ errors: { code: 'Campo obrigatório.' } });
+  describe('the product being edited', () => {
+    it('fills every field with the value it was given', async () => {
+      await setInput('value', EXISTING);
 
-      await fillValidForm();
+      expect(field<HTMLInputElement>('code').value).toBe('PRD-0007');
+      expect(field<HTMLInputElement>('name').value).toBe('Cadeira de escritório');
+      expect(field<HTMLSelectElement>('unit').value).toBe('CX');
+      expect(field<HTMLInputElement>('price').value).toBe('750.5');
+      expect(field<HTMLInputElement>('stock').value).toBe('8');
+    });
+
+    it('shows no error over a product that is still untouched', async () => {
+      await setInput('value', EXISTING);
+
+      expect(errors()).toEqual([]);
+      expect(banner()).toBe('');
+    });
+
+    it('hands over the edited data', async () => {
+      await setInput('value', EXISTING);
+      await fill('name', 'Cadeira gamer');
+      await fill('price', '899.9');
       await submit();
 
-      expect(errorOf('code')).toBe('Campo obrigatório.');
-      expect(navigate).not.toHaveBeenCalled();
-    });
-
-    it('shows the server phrase exactly as it came', async () => {
-      rejectWith({ errors: { price: 'O valor não pode ser negativo.' } });
-
-      await fillValidForm();
-      await submit();
-
-      expect(errorOf('price')).toBe('O valor não pode ser negativo.');
-    });
-
-    it('shows a phrase the frontend has no copy for', async () => {
-      rejectWith({ errors: { unit: 'Esta unidade foi descontinuada.' } });
-
-      await fillValidForm();
-      await submit();
-
-      expect(errorOf('unit')).toBe('Esta unidade foi descontinuada.');
-    });
-
-    it('drops the server error as soon as the field is fixed', async () => {
-      rejectWith({ errors: { code: 'Campo obrigatório.' } });
-
-      await fillValidForm();
-      await submit();
-      expect(errorOf('code')).toBe('Campo obrigatório.');
-
-      await fill('code', 'PRD-0042');
-      expect(errorOf('code')).toBe('');
-    });
-
-    it('shows a general warning when the body points at no field', async () => {
-      rejectWith({ message: 'Não foi possível ler os dados enviados.' });
-
-      await fillValidForm();
-      await submit();
-
-      expect(failure()).toBe('Não foi possível ler os dados enviados.');
-      expect(navigate).not.toHaveBeenCalled();
-    });
-
-    it('accepts field errors on a 422', async () => {
-      rejectWith({ errors: { stock: 'O valor não pode ser negativo.' } }, 422);
-
-      await fillValidForm();
-      await submit();
-
-      expect(errorOf('stock')).toBe('O valor não pode ser negativo.');
-    });
-
-    it('shows a general warning when the API is down', async () => {
-      rejectWith(null, 500);
-
-      await fillValidForm();
-      await submit();
-
-      expect(failure()).toBe('Não foi possível salvar o produto. Tente novamente.');
-    });
-
-    it('never shows the body message of a 500 to the user', async () => {
-      rejectWith({ message: 'erro ao criar o produto' }, 500);
-
-      await fillValidForm();
-      await submit();
-
-      expect(failure()).toBe('Não foi possível salvar o produto. Tente novamente.');
-      expect(navigate).not.toHaveBeenCalled();
-    });
-
-    it('does not mark fields from the body of a 500', async () => {
-      rejectWith({ errors: { code: 'Campo obrigatório.' } }, 500);
-
-      await fillValidForm();
-      await submit();
-
-      expect(errorOf('code')).toBe('');
-      expect(failure()).toBe('Não foi possível salvar o produto. Tente novamente.');
-    });
-
-    it('shows a general warning when there is no response at all', async () => {
-      rejectWith(new ProgressEvent('error'), 0);
-
-      await fillValidForm();
-      await submit();
-
-      expect(failure()).toBe('Não foi possível salvar o produto. Tente novamente.');
-    });
-
-    it('allows fixing and trying again', async () => {
-      rejectWith({ errors: { code: 'Campo obrigatório.' } });
-
-      await fillValidForm();
-      await submit();
-
-      service.create.mockReturnValue(of({ id: 6 } as Product));
-      await fill('code', 'PRD-0042');
-      await submit();
-
-      expect(service.create).toHaveBeenCalledTimes(2);
-      expect(navigate).toHaveBeenCalledWith(['/inventory/products']);
-    });
-  });
-
-  describe('edit mode', () => {
-    const mountEditing = async (
-      load: () => Observable<Product> = () => of(EXISTING),
-      id = '7'
-    ) => {
-      TestBed.resetTestingModule();
-
-      service = {
-        create: vi.fn(),
-        get: vi.fn(load),
-        update: vi.fn((productId: number, data: Omit<Product, 'id'>) =>
-          of({ ...data, id: productId })
-        )
-      };
-
-      flash = { error: vi.fn(), success: vi.fn() };
-
-      await TestBed.configureTestingModule({
-        imports: [ProductForm],
-        providers: [
-          provideRouter([]),
-          { provide: ProductService, useValue: service },
-          { provide: FlashService, useValue: flash },
-          {
-            provide: ActivatedRoute,
-            useValue: { snapshot: { paramMap: convertToParamMap({ id }) } }
-          }
-        ]
-      }).compileComponents();
-
-      navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
-
-      fixture = TestBed.createComponent(ProductForm);
-      await fixture.whenStable();
-    };
-
-    const title = () => text(element().querySelector('.page__title'));
-
-    const submitButton = () =>
-      element().querySelector<HTMLButtonElement>('button[type="submit"]')!;
-
-    beforeEach(async () => {
-      await mountEditing();
-    });
-
-    describe('loading the product', () => {
-      it('asks the API for the product in the route', () => {
-        expect(service.get).toHaveBeenCalledWith(7);
-      });
-
-      it('fills every field with what came back', () => {
-        expect(field<HTMLInputElement>('code').value).toBe('PRD-0007');
-        expect(field<HTMLInputElement>('name').value).toBe('Cadeira de escritório');
-        expect(field<HTMLSelectElement>('unit').value).toBe('CX');
-        expect(field<HTMLInputElement>('price').value).toBe('750.5');
-        expect(field<HTMLInputElement>('stock').value).toBe('8');
-      });
-
-      it('announces that it is editing, not creating', () => {
-        expect(title()).toBe('Editar produto');
-        expect(text(submitButton())).toBe('Salvar alterações');
-      });
-
-      it('shows no error over a product that is still untouched', () => {
-        expect(errors()).toEqual([]);
-        expect(failure()).toBe('');
-        expect(flash.error).not.toHaveBeenCalled();
-      });
-
-      it('waits for the product before showing the fields', async () => {
-        await mountEditing(() => new Subject<Product>());
-
-        expect(text(element().querySelector('.form__status'))).toBe(
-          'Carregando produto…'
-        );
-        expect(element().querySelector('#code')).toBeNull();
-        expect(submitButton().disabled).toBe(true);
-      });
-    });
-
-    describe('saving the changes', () => {
-      it('sends the edited data to the update of that id', async () => {
-        await fill('name', 'Cadeira gamer');
-        await fill('price', '899.9');
-        await submit();
-
-        expect(service.update).toHaveBeenCalledWith(7, {
+      expect(saved).toEqual([
+        {
           code: 'PRD-0007',
           name: 'Cadeira gamer',
           unit: 'CX',
           price: 899.9,
           stock: 8
-        });
-      });
-
-      it('never creates a second product', async () => {
-        await submit();
-
-        expect(service.create).not.toHaveBeenCalled();
-        expect(service.update).toHaveBeenCalledTimes(1);
-      });
-
-      it('trims surrounding spaces from the name', async () => {
-        await fill('name', '   Mesa de reunião   ');
-        await submit();
-
-        expect(service.update).toHaveBeenCalledWith(
-          7,
-          expect.objectContaining({ name: 'Mesa de reunião' })
-        );
-      });
-
-      it('saves a price and a stock zeroed by the user', async () => {
-        await fill('price', '0');
-        await fill('stock', '0');
-        await submit();
-
-        expect(service.update).toHaveBeenCalledWith(
-          7,
-          expect.objectContaining({ price: 0, stock: 0 })
-        );
-      });
-
-      it('goes back to the listing after saving', async () => {
-        await submit();
-
-        expect(navigate).toHaveBeenCalledWith(['/inventory/products']);
-      });
-
-      it('still blocks the submit when a field was emptied', async () => {
-        await fill('name', '');
-        await submit();
-
-        expect(service.update).not.toHaveBeenCalled();
-        expect(errorOf('name')).toBe('Campo obrigatório.');
-      });
-
-      it('shows on the field the error the server pointed at', async () => {
-        service.update.mockReturnValue(
-          throwError(
-            () =>
-              new HttpErrorResponse({
-                status: 400,
-                error: { errors: { code: 'Campo obrigatório.' } }
-              })
-          )
-        );
-
-        await submit();
-
-        expect(errorOf('code')).toBe('Campo obrigatório.');
-        expect(navigate).not.toHaveBeenCalled();
-      });
-
-      it('warns without leaking the message of a 500', async () => {
-        service.update.mockReturnValue(
-          throwError(
-            () =>
-              new HttpErrorResponse({
-                status: 500,
-                error: { message: 'erro ao atualizar o produto' }
-              })
-          )
-        );
-
-        await submit();
-
-        expect(failure()).toBe('Não foi possível salvar o produto. Tente novamente.');
-        expect(navigate).not.toHaveBeenCalled();
-      });
+        }
+      ]);
     });
 
-    describe('product that cannot be loaded', () => {
-      const failLoadWith = (status: number) =>
-        mountEditing(() => throwError(() => new HttpErrorResponse({ status })));
+    it('still blocks the submit when a field was emptied', async () => {
+      await setInput('value', EXISTING);
+      await fill('name', '');
+      await submit();
 
-      it('goes back to the listing when the product does not exist', async () => {
-        await failLoadWith(404);
+      expect(saved).toEqual([]);
+      expect(errorOf('name')).toBe('Campo obrigatório.');
+    });
+  });
 
-        expect(navigate).toHaveBeenCalledWith(['/inventory/products']);
-      });
+  describe('labels and states given by the page', () => {
+    it('names the submit button as asked', async () => {
+      await setInput('submitLabel', 'Salvar alterações');
 
-      it('goes back to the listing when the API is down', async () => {
-        await failLoadWith(500);
+      expect(text(submitButton())).toBe('Salvar alterações');
+    });
 
-        expect(navigate).toHaveBeenCalledWith(['/inventory/products']);
-      });
+    it('names the stock field as asked', async () => {
+      await setInput('stockLabel', 'Estoque inicial');
 
-      it('says on the way out that the product does not exist', async () => {
-        await failLoadWith(404);
+      expect(text(field('stock').parentElement?.querySelector('.field-label'))).toBe(
+        'Estoque inicial'
+      );
+    });
 
-        expect(flash.error).toHaveBeenCalledWith('Produto não encontrado.');
-      });
+    it('announces the save in progress', async () => {
+      await setInput('saving', true);
 
-      it('blames the API when the failure was not a 404', async () => {
-        await failLoadWith(500);
+      expect(text(submitButton())).toBe('Salvando…');
+      expect(submitButton().disabled).toBe(true);
+    });
 
-        expect(flash.error).toHaveBeenCalledWith(
-          'Não foi possível carregar o produto. Tente novamente.'
-        );
-      });
+    it('waits for the product before showing the fields', async () => {
+      await setInput('loading', true);
 
-      it('warns once per failed load', async () => {
-        await failLoadWith(404);
+      expect(text(element().querySelector('.form__status'))).toBe(
+        'Carregando produto…'
+      );
+      expect(element().querySelector('#code')).toBeNull();
+      expect(submitButton().disabled).toBe(true);
+    });
 
-        expect(flash.error).toHaveBeenCalledTimes(1);
-      });
+    it('emits nothing while the product is still loading', async () => {
+      await setInput('loading', true);
+      await submit();
 
-      it('never shows the empty form while it leaves the screen', async () => {
-        await failLoadWith(404);
+      expect(saved).toEqual([]);
+    });
+  });
 
-        expect(element().querySelector('#code')).toBeNull();
-        expect(text(element().querySelector('.form__status'))).toBe(
-          'Carregando produto…'
-        );
-      });
+  describe('failure coming from the page', () => {
+    const rejectWith = (fieldErrors: unknown, message = 'Não foi possível salvar.') =>
+      setInput('failure', { fieldErrors, message });
 
-      it('saves nothing on the way out', async () => {
-        await failLoadWith(404);
+    it('shows on the field the error the server pointed at', async () => {
+      await fillValidForm();
+      await rejectWith({ code: 'Campo obrigatório.' });
 
-        await submit();
+      expect(errorOf('code')).toBe('Campo obrigatório.');
+      expect(banner()).toBe('');
+    });
 
-        expect(service.update).not.toHaveBeenCalled();
-        expect(service.create).not.toHaveBeenCalled();
-      });
+    it('shows the server phrase exactly as it came', async () => {
+      await fillValidForm();
+      await rejectWith({ price: 'O valor não pode ser negativo.' });
+
+      expect(errorOf('price')).toBe('O valor não pode ser negativo.');
+    });
+
+    it('shows a phrase the frontend has no copy for', async () => {
+      await fillValidForm();
+      await rejectWith({ unit: 'Esta unidade foi descontinuada.' });
+
+      expect(errorOf('unit')).toBe('Esta unidade foi descontinuada.');
+    });
+
+    it('drops the server error as soon as the field is fixed', async () => {
+      await fillValidForm();
+      await rejectWith({ code: 'Campo obrigatório.' });
+      expect(errorOf('code')).toBe('Campo obrigatório.');
+
+      await fill('code', 'PRD-0042');
+      expect(errorOf('code')).toBe('');
+    });
+
+    it('shows a general warning when no field was pointed at', async () => {
+      await fillValidForm();
+      await rejectWith(null, 'Não foi possível ler os dados enviados.');
+
+      expect(banner()).toBe('Não foi possível ler os dados enviados.');
+      expect(errors()).toEqual([]);
+    });
+
+    it('shows a general warning when the pointed field does not exist here', async () => {
+      await fillValidForm();
+      await rejectWith({ supplier: 'Fornecedor inválido.' }, 'Dados inválidos.');
+
+      expect(banner()).toBe('Dados inválidos.');
+      expect(errors()).toEqual([]);
+    });
+
+    it('drops the warning when the page starts another save', async () => {
+      await fillValidForm();
+      await rejectWith(null, 'Não foi possível salvar.');
+      expect(banner()).toBe('Não foi possível salvar.');
+
+      await setInput('failure', null);
+
+      expect(banner()).toBe('');
     });
   });
 });

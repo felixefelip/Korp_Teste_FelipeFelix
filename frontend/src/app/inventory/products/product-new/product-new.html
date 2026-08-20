@@ -1,0 +1,16 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1 class="page__title">Cadastrar produto</h1>
+      <p class="page__subtitle">Estoque &rsaquo; Produtos &rsaquo; Novo</p>
+    </div>
+  </header>
+
+  <app-product-form
+    stockLabel="Estoque inicial"
+    submitLabel="Salvar produto"
+    [saving]="saving()"
+    [failure]="failure()"
+    (save)="create($event)"
+  />
+</section>

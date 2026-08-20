@@ -12,12 +12,12 @@ export const inventoryRoutes: Routes = [
     path: 'products/new',
     title: 'Cadastrar produto | Korp ERP',
     loadComponent: () =>
-      import('./products/product-form/product-form').then((m) => m.ProductForm)
+      import('./products/product-new/product-new').then((m) => m.ProductNew)
   },
   {
     path: 'products/:id/edit',
     title: 'Editar produto | Korp ERP',
     loadComponent: () =>
-      import('./products/product-form/product-form').then((m) => m.ProductForm)
+      import('./products/product-edit/product-edit').then((m) => m.ProductEdit)
   }
 ];

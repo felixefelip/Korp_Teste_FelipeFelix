@@ -1,19 +1,17 @@
-import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 
-import { FlashService } from '../../../shared/flash/flash.service';
 import { CustomFormValidation } from '../../../shared/forms/custom-form-validation';
-import { isClientError } from '../../../shared/forms/http-errors';
+import { ApiFailure } from '../../../shared/forms/http-errors';
 import { CustomValidators } from '../../../shared/forms/validators';
-import { ProductService } from '../product.service';
+import { Product } from '../product.model';
 
 export const UNITS = ['UN', 'CX', 'PC', 'KG', 'L', 'M'];
 
-const GENERIC_FAILURE = 'Não foi possível salvar o produto. Tente novamente.';
-const NOT_FOUND_FAILURE = 'Produto não encontrado.';
-const LOAD_FAILURE = 'Não foi possível carregar o produto. Tente novamente.';
+export const SAVE_FAILURE = 'Não foi possível salvar o produto. Tente novamente.';
+
+export type ProductPayload = Omit<Product, 'id'>;
 
 @Component({
   selector: 'app-product-form',
@@ -23,19 +21,19 @@ const LOAD_FAILURE = 'Não foi possível carregar o produto. Tente novamente.';
 })
 export class ProductForm {
   private readonly fb = inject(FormBuilder);
-  private readonly productService = inject(ProductService);
-  private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
-  private readonly flash = inject(FlashService);
 
-  private readonly productId = Number(this.route.snapshot.paramMap.get('id')) || null;
+  readonly value = input<Product | null>(null);
+  readonly loading = input(false);
+  readonly saving = input(false);
+  readonly failure = input<ApiFailure | null>(null);
+  readonly stockLabel = input('Estoque');
+  readonly submitLabel = input('Salvar produto');
 
-  protected readonly editing = this.productId !== null;
+  readonly save = output<ProductPayload>();
+
   protected readonly units = UNITS;
   protected readonly submitted = signal(false);
-  protected readonly saving = signal(false);
-  protected readonly loading = signal(this.productId !== null);
-  protected readonly failure = signal<string | null>(null);
+  protected readonly banner = signal<string | null>(null);
 
   protected readonly form = this.fb.group({
     code: this.fb.nonNullable.control('', Validators.required),
@@ -62,18 +60,45 @@ export class ProductForm {
   );
 
   constructor() {
-    if (this.productId !== null) {
-      this.load(this.productId);
-    }
+    effect(() => {
+      const product = this.value();
+
+      if (!product) {
+        return;
+      }
+
+      this.form.setValue({
+        code: product.code,
+        name: product.name,
+        unit: product.unit,
+        price: product.price,
+        stock: product.stock
+      });
+    });
+
+    effect(() => {
+      const failure = this.failure();
+
+      if (!failure) {
+        this.banner.set(null);
+        return;
+      }
+
+      const applied = CustomFormValidation.applyMessageErrorsToForm(
+        this.form,
+        failure.fieldErrors
+      );
+
+      this.banner.set(applied ? null : failure.message);
+    });
   }
 
-  protected save(): void {
+  protected submit(): void {
     if (this.loading()) {
       return;
     }
 
     this.submitted.set(true);
-    this.failure.set(null);
 
     if (this.form.invalid || this.saving()) {
       this.form.markAllAsTouched();
@@ -81,63 +106,7 @@ export class ProductForm {
     }
 
     const { code, name, unit, price, stock } = this.form.getRawValue();
-    const product = { code, name: name.trim(), unit, price: price!, stock: stock! };
 
-    this.saving.set(true);
-
-    const saved =
-      this.productId === null
-        ? this.productService.create(product)
-        : this.productService.update(this.productId, product);
-
-    saved.subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.router.navigate(['/inventory/products']);
-      },
-      error: (response: HttpErrorResponse) => {
-        this.saving.set(false);
-        this.handleServerFailure(response);
-      }
-    });
-  }
-
-  private load(id: number): void {
-    this.productService.get(id).subscribe({
-      next: (product) => {
-        this.form.setValue({
-          code: product.code,
-          name: product.name,
-          unit: product.unit,
-          price: product.price,
-          stock: product.stock
-        });
-        this.loading.set(false);
-      },
-      error: (response: HttpErrorResponse) => {
-        this.flash.error(
-          response.status === HttpStatusCode.NotFound ? NOT_FOUND_FAILURE : LOAD_FAILURE
-        );
-        this.router.navigate(['/inventory/products']);
-      }
-    });
-  }
-
-  private handleServerFailure(response: HttpErrorResponse): void {
-    if (!isClientError(response.status)) {
-      this.failure.set(GENERIC_FAILURE);
-      return;
-    }
-
-    const errors = response.error?.errors;
-
-    if (CustomFormValidation.applyMessageErrorsToForm(this.form, errors)) {
-      this.failure.set(null);
-      return;
-    }
-
-    const message = response.error?.message;
-
-    this.failure.set(typeof message === 'string' && message ? message : GENERIC_FAILURE);
+    this.save.emit({ code, name: name.trim(), unit, price: price!, stock: stock! });
   }
 }
