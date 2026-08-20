@@ -10,8 +10,8 @@ type ProductRepository struct {
 	connection *gorm.DB
 }
 
-func NewProductRepository(connection *gorm.DB) ProductRepository {
-	return ProductRepository{
+func NewProductRepository(connection *gorm.DB) *ProductRepository {
+	return &ProductRepository{
 		connection: connection,
 	}
 }
