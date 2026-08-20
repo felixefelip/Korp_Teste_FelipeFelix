@@ -9,6 +9,47 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestGetInvoicesReturnsEverythingStored(t *testing.T) {
+	repository := newRepository(t)
+
+	_, err := repository.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "OPEN"})
+	require.NoError(t, err)
+
+	_, err = repository.CreateInvoice(model.Invoice{Number: "NF-0002", Status: "CLOSED"})
+	require.NoError(t, err)
+
+	invoices, err := repository.GetInvoices()
+	require.NoError(t, err)
+
+	require.Len(t, invoices, 2)
+	assert.ElementsMatch(t,
+		[]string{"NF-0001", "NF-0002"},
+		[]string{invoices[0].Number, invoices[1].Number},
+	)
+}
+
+func TestGetInvoicesReturnsTheStoredFields(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "CLOSED"})
+	require.NoError(t, err)
+
+	invoices, err := repository.GetInvoices()
+	require.NoError(t, err)
+
+	require.Len(t, invoices, 1)
+	assert.Equal(t, model.Invoice{ID: id, Number: "NF-0001", Status: "CLOSED"}, invoices[0])
+}
+
+func TestGetInvoicesWithNothingStoredReturnsAnEmptyList(t *testing.T) {
+	repository := newRepository(t)
+
+	invoices, err := repository.GetInvoices()
+
+	require.NoError(t, err)
+	assert.Empty(t, invoices)
+}
+
 func TestCreateInvoice(t *testing.T) {
 	repository := newRepository(t)
 

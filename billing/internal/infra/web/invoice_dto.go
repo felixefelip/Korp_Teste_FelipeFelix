@@ -31,3 +31,13 @@ func newInvoiceResponse(invoice model.Invoice) invoiceResponse {
 		Status: invoice.Status,
 	}
 }
+
+func newInvoiceResponses(invoices []model.Invoice) []invoiceResponse {
+	responses := make([]invoiceResponse, 0, len(invoices))
+
+	for _, invoice := range invoices {
+		responses = append(responses, newInvoiceResponse(invoice))
+	}
+
+	return responses
+}

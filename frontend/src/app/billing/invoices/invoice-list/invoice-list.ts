@@ -1,8 +1,58 @@
-import { Component } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
+
+import { InvoiceStatus } from '../invoice.model';
+import { InvoiceService } from '../invoice.service';
+
+const STATUS_LABELS: Record<InvoiceStatus, string> = {
+  OPEN: 'Aberta',
+  CLOSED: 'Fechada'
+};
 
 @Component({
   selector: 'app-invoice-list',
   templateUrl: './invoice-list.html',
   styleUrl: './invoice-list.scss'
 })
-export class InvoiceList {}
+export class InvoiceList {
+  private readonly invoiceService = inject(InvoiceService);
+
+  protected readonly filter = signal('');
+  protected readonly loading = signal(true);
+  protected readonly failed = signal(false);
+
+  protected readonly invoices = computed(() => {
+    const term = this.filter().trim().toLowerCase();
+    const list = this.invoiceService.invoices();
+
+    if (!term) {
+      return list;
+    }
+
+    return list.filter((invoice) => invoice.number.toLowerCase().includes(term));
+  });
+
+  constructor() {
+    this.load();
+  }
+
+  protected statusLabel(status: InvoiceStatus): string {
+    return STATUS_LABELS[status] ?? status;
+  }
+
+  protected load(): void {
+    this.loading.set(true);
+    this.failed.set(false);
+
+    this.invoiceService.list().subscribe({
+      next: () => this.loading.set(false),
+      error: () => {
+        this.loading.set(false);
+        this.failed.set(true);
+      }
+    });
+  }
+
+  protected onFilter(event: Event): void {
+    this.filter.set((event.target as HTMLInputElement).value);
+  }
+}

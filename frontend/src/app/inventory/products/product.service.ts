@@ -4,7 +4,7 @@ import { Observable, tap } from 'rxjs';
 
 import { Product } from './product.model';
 
-const RESOURCE = '/api/products';
+const RESOURCE = '/api/inventory/products';
 
 @Injectable({ providedIn: 'root' })
 export class ProductService {

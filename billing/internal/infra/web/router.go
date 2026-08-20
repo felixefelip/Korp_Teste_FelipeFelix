@@ -27,5 +27,6 @@ func Register(server *gin.Engine, connection *gorm.DB) {
 		ctx.JSON(http.StatusOK, gin.H{"message": "pong"})
 	})
 
+	server.GET("/invoices", invoiceController.GetInvoices)
 	server.POST("/invoices", invoiceController.CreateInvoice)
 }

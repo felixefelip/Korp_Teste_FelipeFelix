@@ -73,7 +73,8 @@ services:
       target: dev
     image: korp/frontend:dev
     environment:
-      API_URL: http://inventory:8000
+      INVENTORY_API_URL: http://inventory:8000
+      BILLING_API_URL: http://billing:8001
     ports:
       - "4200:4200"
     volumes:
@@ -81,6 +82,7 @@ services:
       - /app/node_modules
     depends_on:
       - inventory
+      - billing
 
 volumes:
   pgdata: {}

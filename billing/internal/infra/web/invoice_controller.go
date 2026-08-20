@@ -18,6 +18,16 @@ func NewInvoiceController(usecase usecase.InvoiceUsecase) invoiceController {
 	}
 }
 
+func (i *invoiceController) GetInvoices(ctx *gin.Context) {
+	invoices, err := i.invoiceUsecase.GetInvoices()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao buscar as notas fiscais"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, newInvoiceResponses(invoices))
+}
+
 func (i *invoiceController) CreateInvoice(ctx *gin.Context) {
 	var request createInvoiceRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {

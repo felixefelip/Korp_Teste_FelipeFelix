@@ -18,7 +18,8 @@ RUN npm run build
 # ---------- prod ----------
 FROM nginx:alpine AS prod
 
-ENV API_UPSTREAM=http://inventory:8000 \
+ENV INVENTORY_API_UPSTREAM=http://inventory:8000 \
+    BILLING_API_UPSTREAM=http://billing:8001 \
     DNS_RESOLVER=127.0.0.11 \
     NGINX_ENVSUBST_FILTER='API_|DNS_'
 

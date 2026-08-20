@@ -1,11 +1,71 @@
 <section class="page">
   <header class="page__header">
-    <h1 class="page__title">Notas Fiscais</h1>
+    <div>
+      <h1 class="page__title">Notas Fiscais</h1>
+      <p class="page__subtitle">
+        {{ invoices().length }} nota(s) fiscal(is) encontrada(s)
+      </p>
+    </div>
   </header>
 
   <div class="card">
-    <p class="card__message">
-      O cadastro de notas fiscais será implementado na próxima etapa.
-    </p>
+    <div class="card__filter">
+      <input
+        type="search"
+        class="field"
+        placeholder="Buscar por número"
+        aria-label="Buscar notas fiscais"
+        [value]="filter()"
+        (input)="onFilter($event)"
+      />
+    </div>
+
+    <div class="table-wrapper">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Número</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            <tr>
+              <td colspan="2" class="table__empty">Carregando notas fiscais…</td>
+            </tr>
+          } @else if (failed()) {
+            <tr>
+              <td colspan="2" class="table__empty table__error">
+                Não foi possível carregar as notas fiscais.
+                <button type="button" class="btn btn--ghost" (click)="load()">
+                  Tentar novamente
+                </button>
+              </td>
+            </tr>
+          } @else {
+            @for (invoice of invoices(); track invoice.id) {
+              <tr>
+                <td class="table__code">{{ invoice.number }}</td>
+                <td>
+                  <span
+                    class="badge"
+                    [class.badge--open]="invoice.status === 'OPEN'"
+                    [class.badge--closed]="invoice.status === 'CLOSED'"
+                  >
+                    {{ statusLabel(invoice.status) }}
+                  </span>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="2" class="table__empty">
+                  Nenhuma nota fiscal encontrada.
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
   </div>
 </section>

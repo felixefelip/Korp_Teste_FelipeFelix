@@ -16,6 +16,17 @@ func NewInvoiceRepository(connection *gorm.DB) *InvoiceRepository {
 	}
 }
 
+func (ir *InvoiceRepository) GetInvoices() ([]model.Invoice, error) {
+	var invoiceList []model.Invoice
+
+	err := ir.connection.Find(&invoiceList).Error
+	if err != nil {
+		return []model.Invoice{}, err
+	}
+
+	return invoiceList, nil
+}
+
 func (ir *InvoiceRepository) CreateInvoice(invoice model.Invoice) (int, error) {
 	err := ir.connection.Create(&invoice).Error
 	if err != nil {
