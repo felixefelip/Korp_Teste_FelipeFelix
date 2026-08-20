@@ -19,4 +19,10 @@ export class InvoiceService {
       .get<Invoice[]>(RESOURCE)
       .pipe(tap((invoices) => this._invoices.set(invoices)));
   }
+
+  create(data: Omit<Invoice, 'id'>): Observable<Invoice> {
+    return this.http
+      .post<Invoice>(RESOURCE, data)
+      .pipe(tap((invoice) => this._invoices.update((invoices) => [...invoices, invoice])));
+  }
 }

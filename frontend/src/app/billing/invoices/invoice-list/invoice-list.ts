@@ -1,15 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
-import { InvoiceStatus } from '../invoice.model';
+import { INVOICE_STATUS_LABELS, InvoiceStatus } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
-
-const STATUS_LABELS: Record<InvoiceStatus, string> = {
-  OPEN: 'Aberta',
-  CLOSED: 'Fechada'
-};
 
 @Component({
   selector: 'app-invoice-list',
+  imports: [RouterLink],
   templateUrl: './invoice-list.html',
   styleUrl: './invoice-list.scss'
 })
@@ -36,7 +33,7 @@ export class InvoiceList {
   }
 
   protected statusLabel(status: InvoiceStatus): string {
-    return STATUS_LABELS[status] ?? status;
+    return INVOICE_STATUS_LABELS[status] ?? status;
   }
 
   protected load(): void {
