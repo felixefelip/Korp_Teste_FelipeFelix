@@ -95,28 +95,33 @@ func TestGetInvoiceByIDPropagatesTheRepositoryError(t *testing.T) {
 	assert.ErrorIs(t, err, errRepository)
 }
 
-func TestCreateInvoiceReturnsTheInvoiceWithTheGeneratedID(t *testing.T) {
-	repository := &fakeRepository{newID: 7}
+func TestCreateInvoiceReturnsWhatWasStored(t *testing.T) {
+	stored := model.Invoice{ID: 7, Number: "NF-0001", Status: "OPEN"}
+	repository := &fakeRepository{newID: 7, invoice: stored}
 	invoiceUsecase := newUsecase(repository)
 
 	created, err := invoiceUsecase.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "OPEN"})
 
 	require.NoError(t, err)
-	assert.Equal(t, 7, created.ID)
-	assert.Equal(t, "NF-0001", created.Number)
-	assert.Equal(t, "OPEN", created.Status)
-	assert.Equal(t, 1, repository.calls)
+	assert.Equal(t, stored, created, "the response must be read back from the repository")
+	assert.Equal(t, 7, repository.receivedID, "it reads back the id the repository generated")
 }
 
 func TestCreateInvoiceHandsTheRepositoryWhatItReceived(t *testing.T) {
 	repository := &fakeRepository{newID: 1}
 	invoiceUsecase := newUsecase(repository)
 
-	invoice := model.Invoice{Number: "NF-0002", Status: "CLOSED"}
+	invoice := model.Invoice{
+		Number: "NF-0002",
+		Status: "CLOSED",
+		Items: []model.InvoiceItem{
+			{ProductCode: "PRD-0001", ProductName: "Camiseta", Unit: "UN", Quantity: 2, UnitPrice: 30.99},
+		},
+	}
 	_, err := invoiceUsecase.CreateInvoice(invoice)
 
 	require.NoError(t, err)
-	assert.Equal(t, invoice, repository.receivedInvoice)
+	assert.Equal(t, invoice, repository.receivedInvoice, "the items ride along untouched")
 }
 
 func TestCreateInvoicePropagatesTheRepositoryError(t *testing.T) {
@@ -129,17 +134,32 @@ func TestCreateInvoicePropagatesTheRepositoryError(t *testing.T) {
 	assert.Zero(t, created, "on failure nothing partially filled should leak out")
 }
 
-func TestUpdateInvoiceReturnsTheInvoiceItSaved(t *testing.T) {
-	repository := &fakeRepository{}
+func TestUpdateInvoiceReturnsWhatWasStored(t *testing.T) {
+	stored := model.Invoice{ID: 7, Number: "NF-0007", Status: "CLOSED"}
+	repository := &fakeRepository{invoice: stored}
 	invoiceUsecase := newUsecase(repository)
 
 	invoice := model.Invoice{ID: 7, Number: "NF-0007", Status: "CLOSED"}
 	updated, err := invoiceUsecase.UpdateInvoice(invoice)
 
 	require.NoError(t, err)
-	assert.Equal(t, invoice, updated)
+	assert.Equal(t, stored, updated, "the response must be read back from the repository")
 	assert.Equal(t, invoice, repository.receivedInvoice)
-	assert.Equal(t, 1, repository.calls)
+	assert.Equal(t, 7, repository.receivedID)
+}
+
+func TestUpdateInvoiceHandsTheItemsToTheRepository(t *testing.T) {
+	repository := &fakeRepository{}
+	invoiceUsecase := newUsecase(repository)
+
+	items := []model.InvoiceItem{
+		{ProductCode: "PRD-0001", ProductName: "Camiseta", Unit: "UN", Quantity: 2, UnitPrice: 30.99},
+	}
+
+	_, err := invoiceUsecase.UpdateInvoice(model.Invoice{ID: 7, Number: "NF-0007", Status: "OPEN", Items: items})
+
+	require.NoError(t, err)
+	assert.Equal(t, items, repository.receivedInvoice.Items)
 }
 
 func TestUpdateInvoicePropagatesTheRepositoryError(t *testing.T) {
