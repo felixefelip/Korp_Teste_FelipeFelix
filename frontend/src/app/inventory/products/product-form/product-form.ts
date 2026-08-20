@@ -1,42 +1,23 @@
-import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
-import {
-  AbstractControl,
-  FormBuilder,
-  ReactiveFormsModule,
-  ValidationErrors,
-  Validators
-} from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
-import { ServerErrors } from '../product.model';
+import { applyMessageErrorsToForm, isClientError } from '../../../shared/forms/http-errors';
+import {
+  ValidationMessage,
+  fieldErrorMessage
+} from '../../../shared/forms/validation-messages';
+import { integer } from '../../../shared/forms/validators';
 import { ProductService } from '../product.service';
 
 export const UNITS = ['UN', 'CX', 'PC', 'KG', 'L', 'M'];
 
-function integer(control: AbstractControl): ValidationErrors | null {
-  const value = control.value;
-  return value === null || value === '' || Number.isInteger(value)
-    ? null
-    : { notAnInteger: true };
-}
-
-const MESSAGES: Record<string, string> = {
-  required: 'Campo obrigatório.',
-  minlength: 'Informe pelo menos 3 caracteres.',
-  maxlength: 'Limite de 120 caracteres excedido.',
-  pattern: 'Use apenas letras, números e hífen.',
-  min: 'O valor não pode ser negativo.',
-  notAnInteger: 'Informe um número inteiro.'
+const MESSAGE_OVERRIDES: Record<string, ValidationMessage> = {
+  pattern: () => 'Use apenas letras, números e hífen.'
 };
 
 const GENERIC_FAILURE = 'Não foi possível salvar o produto. Tente novamente.';
-
-function isClientError(status: number): boolean {
-  return (
-    status >= HttpStatusCode.BadRequest && status < HttpStatusCode.InternalServerError
-  );
-}
 
 @Component({
   selector: 'app-product-form',
@@ -89,20 +70,14 @@ export class ProductForm {
     });
   }
 
-  protected error(field: string): string | null {
+  protected fieldError(field: string): string | null {
     const control = this.form.get(field);
 
-    if (!control || control.valid || !(control.touched || this.submitted())) {
+    if (!control || !(control.touched || this.submitted())) {
       return null;
     }
 
-    const errors = control.errors ?? {};
-
-    if (typeof errors['server'] === 'string') {
-      return errors['server'];
-    }
-
-    return MESSAGES[Object.keys(errors)[0]] ?? 'Valor inválido.';
+    return fieldErrorMessage(control, MESSAGE_OVERRIDES);
   }
 
   protected save(): void {
@@ -138,9 +113,7 @@ export class ProductForm {
       return;
     }
 
-    const errors = response.error?.errors as ServerErrors | undefined;
-
-    if (errors && typeof errors === 'object' && this.applyFieldErrors(errors)) {
+    if (applyMessageErrorsToForm(this.form, response.error?.errors)) {
       this.failure.set(null);
       return;
     }
@@ -148,20 +121,5 @@ export class ProductForm {
     const message = response.error?.message;
 
     this.failure.set(typeof message === 'string' && message ? message : GENERIC_FAILURE);
-  }
-
-  private applyFieldErrors(errors: ServerErrors): boolean {
-    let anyKnownField = false;
-
-    for (const [field, message] of Object.entries(errors)) {
-      const control = this.form.get(field);
-
-      if (control && typeof message === 'string') {
-        control.setErrors({ server: message });
-        anyKnownField = true;
-      }
-    }
-
-    return anyKnownField;
   }
 }

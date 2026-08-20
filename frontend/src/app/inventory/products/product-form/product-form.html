@@ -20,9 +20,9 @@
           class="field"
           formControlName="code"
           autocomplete="off"
-          [class.field--error]="error('code')"
+          [class.field--error]="fieldError('code')"
         />
-        @if (error('code'); as message) {
+        @if (fieldError('code'); as message) {
           <p class="field-error">{{ message }}</p>
         }
       </div>
@@ -34,9 +34,9 @@
           type="text"
           class="field"
           formControlName="name"
-          [class.field--error]="error('name')"
+          [class.field--error]="fieldError('name')"
         />
-        @if (error('name'); as message) {
+        @if (fieldError('name'); as message) {
           <p class="field-error">{{ message }}</p>
         }
       </div>
@@ -47,13 +47,13 @@
           id="unit"
           class="field"
           formControlName="unit"
-          [class.field--error]="error('unit')"
+          [class.field--error]="fieldError('unit')"
         >
           @for (unit of units; track unit) {
             <option [value]="unit">{{ unit }}</option>
           }
         </select>
-        @if (error('unit'); as message) {
+        @if (fieldError('unit'); as message) {
           <p class="field-error">{{ message }}</p>
         }
       </div>
@@ -68,9 +68,9 @@
           step="0.01"
           min="0"
           placeholder="0,00"
-          [class.field--error]="error('price')"
+          [class.field--error]="fieldError('price')"
         />
-        @if (error('price'); as message) {
+        @if (fieldError('price'); as message) {
           <p class="field-error">{{ message }}</p>
         }
       </div>
@@ -84,9 +84,9 @@
           formControlName="stock"
           step="1"
           min="0"
-          [class.field--error]="error('stock')"
+          [class.field--error]="fieldError('stock')"
         />
-        @if (error('stock'); as message) {
+        @if (fieldError('stock'); as message) {
           <p class="field-error">{{ message }}</p>
         }
       </div>
