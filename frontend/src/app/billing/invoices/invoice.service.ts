@@ -20,9 +20,23 @@ export class InvoiceService {
       .pipe(tap((invoices) => this._invoices.set(invoices)));
   }
 
+  get(id: number): Observable<Invoice> {
+    return this.http.get<Invoice>(`${RESOURCE}/${id}`);
+  }
+
   create(data: Omit<Invoice, 'id'>): Observable<Invoice> {
     return this.http
       .post<Invoice>(RESOURCE, data)
       .pipe(tap((invoice) => this._invoices.update((invoices) => [...invoices, invoice])));
+  }
+
+  update(id: number, data: Omit<Invoice, 'id'>): Observable<Invoice> {
+    return this.http.put<Invoice>(`${RESOURCE}/${id}`, data).pipe(
+      tap((updated) =>
+        this._invoices.update((invoices) =>
+          invoices.map((invoice) => (invoice.id === updated.id ? updated : invoice))
+        )
+      )
+    );
   }
 }

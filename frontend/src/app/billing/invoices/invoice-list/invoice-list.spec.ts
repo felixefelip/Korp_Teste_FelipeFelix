@@ -70,7 +70,7 @@ describe('InvoiceList', () => {
     });
 
     it('shows the invoice columns in the expected order', () => {
-      expect(cells(rows()[0])).toEqual(['NF-0001', 'Aberta']);
+      expect(cells(rows()[0])).toEqual(['NF-0001', 'Aberta', 'Editar']);
     });
 
     it('translates the status of each invoice', () => {
@@ -87,6 +87,18 @@ describe('InvoiceList', () => {
       expect(text(element().querySelector('.page__subtitle'))).toBe(
         '3 nota(s) fiscal(is) encontrada(s)'
       );
+    });
+
+    it('offers an edit action per invoice pointing to its form', () => {
+      const links = rows().map((row) =>
+        row.querySelector('.table__action')?.getAttribute('href')
+      );
+
+      expect(links).toEqual([
+        '/billing/invoices/1/edit',
+        '/billing/invoices/2/edit',
+        '/billing/invoices/3/edit'
+      ]);
     });
 
     it('offers the create action pointing to the form', () => {

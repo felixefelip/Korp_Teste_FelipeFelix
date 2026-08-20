@@ -18,6 +18,19 @@ func (r createInvoiceRequest) toModel() model.Invoice {
 	}
 }
 
+type updateInvoiceRequest struct {
+	Number string `json:"number" binding:"required,max=30"`
+	Status string `json:"status" binding:"required,oneof=OPEN CLOSED"`
+}
+
+func (r updateInvoiceRequest) toModel(id int) model.Invoice {
+	return model.Invoice{
+		ID:     id,
+		Number: strings.ToUpper(strings.TrimSpace(r.Number)),
+		Status: r.Status,
+	}
+}
+
 type invoiceResponse struct {
 	ID     int    `json:"id"`
 	Number string `json:"number"`

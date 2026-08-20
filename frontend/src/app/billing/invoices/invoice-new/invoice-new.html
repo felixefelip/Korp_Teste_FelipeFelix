@@ -1,0 +1,15 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1 class="page__title">Cadastrar nota fiscal</h1>
+      <p class="page__subtitle">Faturamento &rsaquo; Notas Fiscais &rsaquo; Nova</p>
+    </div>
+  </header>
+
+  <app-invoice-form
+    submitLabel="Salvar nota fiscal"
+    [saving]="saving()"
+    [failure]="failure()"
+    (save)="create($event)"
+  />
+</section>
