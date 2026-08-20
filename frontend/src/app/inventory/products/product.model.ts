@@ -6,5 +6,3 @@ export interface Product {
   price: number;
   stock: number;
 }
-
-export type ServerErrors = Record<string, string>;
