@@ -1,0 +1,57 @@
+@if (primary(); as primary) {
+  <div class="menu-button" [class.menu-button--open]="open()">
+    <a class="menu-button__action" [routerLink]="primary.link">
+      {{ primaryLabel() }}
+    </a>
+
+    @if (rest().length) {
+      <button
+        #toggle
+        type="button"
+        class="menu-button__toggle"
+        [attr.aria-expanded]="open()"
+        [attr.aria-label]="'Mais ações de ' + primaryLabel()"
+        aria-haspopup="true"
+        (click)="toggleMenu()"
+        (keydown)="onToggleKeydown($event)"
+      >
+        <svg
+          class="menu-button__chevron"
+          viewBox="0 0 16 16"
+          width="16"
+          height="16"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M3 6l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.5" />
+        </svg>
+      </button>
+    }
+  </div>
+}
+
+@if (open()) {
+  <ul
+    class="menu-button__menu"
+    role="menu"
+    [style.top.px]="placement().top"
+    [style.bottom.px]="placement().bottom"
+    [style.right.px]="placement().right"
+  >
+    @for (item of rest(); track item.label; let index = $index) {
+      <li role="none">
+        <a
+          #menuItem
+          role="menuitem"
+          class="menu-button__item"
+          [class.menu-button__item--active]="activeIndex() === index"
+          [routerLink]="item.link"
+          (keydown)="onMenuKeydown($event, index)"
+          (click)="close()"
+        >
+          {{ item.label }}
+        </a>
+      </li>
+    }
+  </ul>
+}
