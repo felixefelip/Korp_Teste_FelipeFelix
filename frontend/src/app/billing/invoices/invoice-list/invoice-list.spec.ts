@@ -46,7 +46,9 @@ describe('InvoiceList', () => {
 
   const mount = async (
     response: () => Observable<Invoice[]>,
-    remove: () => Observable<void> = () => of(undefined)
+    remove: () => Observable<void> = () => of(undefined),
+    close: () => Observable<Invoice> = () => of({ ...INVOICES[0], status: 'CLOSED' }),
+    reopen: () => Observable<Invoice> = () => of({ ...INVOICES[1], status: 'OPEN' })
   ) => {
     TestBed.resetTestingModule();
 
@@ -59,6 +61,20 @@ describe('InvoiceList', () => {
       list: vi.fn(() => response().pipe(tap((list) => invoices.set(list)))),
       remove: vi.fn((id: number) =>
         remove().pipe(tap(() => invoices.update((list) => list.filter((i) => i.id !== id))))
+      ),
+      close: vi.fn(() =>
+        close().pipe(
+          tap((closed) =>
+            invoices.update((list) => list.map((i) => (i.id === closed.id ? closed : i)))
+          )
+        )
+      ),
+      reopen: vi.fn(() =>
+        reopen().pipe(
+          tap((opened) =>
+            invoices.update((list) => list.map((i) => (i.id === opened.id ? opened : i)))
+          )
+        )
       )
     };
 
@@ -224,14 +240,14 @@ describe('InvoiceList', () => {
     });
   });
 
+  const menuLabels = () =>
+    Array.from(element().querySelectorAll('.menu-button__item')).map(text);
+
   describe('deleting an invoice', () => {
     const openMenuOf = async (index: number) => {
       rows()[index].querySelector<HTMLButtonElement>('.menu-button__toggle')?.click();
       await fixture.whenStable();
     };
-
-    const menuLabels = () =>
-      Array.from(element().querySelectorAll('.menu-button__item')).map(text);
 
     const openDelete = async (index: number) => {
       await openMenuOf(index);
@@ -253,15 +269,14 @@ describe('InvoiceList', () => {
       await mount(() => of(INVOICES));
       await openMenuOf(0);
 
-      expect(menuLabels()).toEqual(['Excluir']);
+      expect(menuLabels()).toEqual(['Imprimir', 'Excluir']);
     });
 
     it('never offers it on a closed invoice', async () => {
       await mount(() => of(INVOICES));
       await openMenuOf(1);
 
-      expect(element().querySelector('.menu-button__menu')).toBeNull();
-      expect(rows()[1].querySelector('.menu-button__toggle')).toBeNull();
+      expect(menuLabels()).toEqual(['Reabrir']);
     });
 
     it('asks before deleting anything', async () => {
@@ -330,6 +345,194 @@ describe('InvoiceList', () => {
 
       expect(flash.error).toHaveBeenCalledWith(
         'Não foi possível excluir a nota fiscal. Tente novamente.'
+      );
+    });
+  });
+
+  describe('printing an invoice', () => {
+    const openMenuOf = async (index: number) => {
+      rows()[index].querySelector<HTMLButtonElement>('.menu-button__toggle')?.click();
+      await fixture.whenStable();
+    };
+
+    const openPrint = async (index: number) => {
+      await openMenuOf(index);
+
+      Array.from(element().querySelectorAll<HTMLButtonElement>('button.menu-button__item'))
+        .find((item) => text(item) === 'Imprimir')!
+        .click();
+      await fixture.whenStable();
+    };
+
+    const dialog = () => element().querySelector('.confirm');
+
+    const dialogButton = (label: string) =>
+      Array.from(element().querySelectorAll<HTMLButtonElement>('.confirm__actions .btn')).find(
+        (button) => text(button).startsWith(label)
+      )!;
+
+    it('warns that it settles the invoice', async () => {
+      const service = await mount(() => of(INVOICES));
+      await openPrint(0);
+
+      expect(text(dialog())).toContain('NF-0001');
+      expect(text(dialog())).toContain('fechada');
+      expect(service.close).not.toHaveBeenCalled();
+    });
+
+    it('closes the invoice that was chosen', async () => {
+      const service = await mount(() => of(INVOICES));
+      await openPrint(0);
+
+      dialogButton('Imprimir').click();
+      await fixture.whenStable();
+
+      expect(service.close).toHaveBeenCalledWith(1);
+      expect(flash.success).toHaveBeenCalledWith('Nota fiscal NF-0001 fechada.');
+    });
+
+    it('shows the new status on the row', async () => {
+      await mount(() => of(INVOICES));
+      await openPrint(0);
+
+      dialogButton('Imprimir').click();
+      await fixture.whenStable();
+
+      expect(cells(rows()[0])[2]).toBe('Fechada');
+    });
+
+    it('leaves the row offering to reopen afterwards', async () => {
+      await mount(() => of(INVOICES));
+      await openPrint(0);
+
+      dialogButton('Imprimir').click();
+      await fixture.whenStable();
+
+      await openMenuOf(0);
+
+      expect(menuLabels()).toEqual(['Reabrir']);
+    });
+
+    it('closes nothing when it is cancelled', async () => {
+      const service = await mount(() => of(INVOICES));
+      await openPrint(0);
+
+      dialogButton('Cancelar').click();
+      await fixture.whenStable();
+
+      expect(service.close).not.toHaveBeenCalled();
+      expect(dialog()).toBeNull();
+    });
+
+    it('shows what the API said when it refuses', async () => {
+      await mount(
+        () => of(INVOICES),
+        () => of(undefined),
+        () =>
+          throwError(
+            () =>
+              new HttpErrorResponse({
+                status: 409,
+                error: { message: 'Esta nota fiscal já está fechada.' }
+              })
+          )
+      );
+      await openPrint(0);
+
+      dialogButton('Imprimir').click();
+      await fixture.whenStable();
+
+      expect(flash.error).toHaveBeenCalledWith('Esta nota fiscal já está fechada.');
+      expect(cells(rows()[0])[2]).toBe('Aberta');
+    });
+
+    it('falls back to its own message when the API names none', async () => {
+      await mount(
+        () => of(INVOICES),
+        () => of(undefined),
+        () => throwError(() => new HttpErrorResponse({ status: 500 }))
+      );
+      await openPrint(0);
+
+      dialogButton('Imprimir').click();
+      await fixture.whenStable();
+
+      expect(flash.error).toHaveBeenCalledWith(
+        'Não foi possível imprimir a nota fiscal. Tente novamente.'
+      );
+    });
+  });
+
+  describe('reopening an invoice', () => {
+    const openMenuOf = async (index: number) => {
+      rows()[index].querySelector<HTMLButtonElement>('.menu-button__toggle')?.click();
+      await fixture.whenStable();
+    };
+
+    const chooseReopen = async (index: number) => {
+      await openMenuOf(index);
+
+      Array.from(element().querySelectorAll<HTMLButtonElement>('button.menu-button__item'))
+        .find((item) => text(item) === 'Reabrir')!
+        .click();
+      await fixture.whenStable();
+    };
+
+    const mountWith = (reopen: () => Observable<Invoice>) =>
+      mount(
+        () => of(INVOICES),
+        () => of(undefined),
+        () => of({ ...INVOICES[0], status: 'CLOSED' as const }),
+        reopen
+      );
+
+    it('reopens without asking, since it settles nothing', async () => {
+      const service = await mount(() => of(INVOICES));
+      await chooseReopen(1);
+
+      expect(element().querySelector('.confirm')).toBeNull();
+      expect(service.reopen).toHaveBeenCalledWith(2);
+      expect(flash.success).toHaveBeenCalledWith('Nota fiscal NF-0002 reaberta.');
+    });
+
+    it('shows the new status on the row', async () => {
+      await mount(() => of(INVOICES));
+      await chooseReopen(1);
+
+      expect(cells(rows()[1])[2]).toBe('Aberta');
+    });
+
+    it('gives the row its full menu back', async () => {
+      await mount(() => of(INVOICES));
+      await chooseReopen(1);
+
+      await openMenuOf(1);
+
+      expect(menuLabels()).toEqual(['Imprimir', 'Excluir']);
+    });
+
+    it('shows what the API said when it refuses', async () => {
+      await mountWith(() =>
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 409,
+              error: { message: 'Esta nota fiscal já está aberta.' }
+            })
+        )
+      );
+      await chooseReopen(1);
+
+      expect(flash.error).toHaveBeenCalledWith('Esta nota fiscal já está aberta.');
+      expect(cells(rows()[1])[2]).toBe('Fechada');
+    });
+
+    it('falls back to its own message when the API names none', async () => {
+      await mountWith(() => throwError(() => new HttpErrorResponse({ status: 500 })));
+      await chooseReopen(1);
+
+      expect(flash.error).toHaveBeenCalledWith(
+        'Não foi possível reabrir a nota fiscal. Tente novamente.'
       );
     });
   });

@@ -143,7 +143,7 @@ func TestUpdateInvoiceChangesEveryEditableField(t *testing.T) {
 	require.NoError(t, err)
 
 	err = repository.UpdateInvoice(model.Invoice{
-		ID: id, Number: "NF-0002", Status: "CLOSED",
+		ID: id, Number: "NF-0002", Status: model.InvoiceStatusClosed,
 	})
 	require.NoError(t, err)
 
@@ -151,8 +151,11 @@ func TestUpdateInvoiceChangesEveryEditableField(t *testing.T) {
 	require.NoError(t, testConnection.First(&saved, id).Error)
 
 	assert.Equal(t, model.Invoice{
-		ID: id, Number: "NF-0002", Type: model.InvoiceTypeOut, Status: "CLOSED",
-	}, saved)
+		ID:     id,
+		Number: "NF-0002",
+		Type:   model.InvoiceTypeOut,
+		Status: model.InvoiceStatusOpen,
+	}, saved, "only CloseInvoice moves the status")
 }
 
 func TestUpdateInvoiceWhenMissingReturnsErrRecordNotFound(t *testing.T) {
@@ -372,13 +375,13 @@ func TestUpdateInvoiceWithoutAListKeepsTheItemsAlreadyThere(t *testing.T) {
 	id, err := repository.CreateInvoice(invoiceWithItems(itemOf(11, "PRD-0001", "Camiseta", 2, 30.99)))
 	require.NoError(t, err)
 
-	err = repository.UpdateInvoice(model.Invoice{ID: id, Number: "NF-0001", Status: "CLOSED"})
+	err = repository.UpdateInvoice(model.Invoice{ID: id, Number: "NF-0009"})
 	require.NoError(t, err)
 
 	invoice, err := repository.GetInvoiceByID(id)
 	require.NoError(t, err)
 
-	assert.Equal(t, "CLOSED", invoice.Status)
+	assert.Equal(t, "NF-0009", invoice.Number)
 	require.Len(t, invoice.Items, 1, "an update that says nothing about the items must not erase them")
 	assert.Equal(t, "Camiseta", invoice.Items[0].ProductName)
 }
@@ -550,6 +553,89 @@ func TestDeleteInvoiceWhenMissingReturnsErrRecordNotFound(t *testing.T) {
 	repository := newRepository(t)
 
 	err := repository.DeleteInvoice(9999)
+
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+}
+
+func TestCloseInvoiceMovesTheStatus(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(model.Invoice{
+		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, repository.CloseInvoice(id))
+
+	var saved model.Invoice
+	require.NoError(t, testConnection.First(&saved, id).Error)
+
+	assert.Equal(t, model.InvoiceStatusClosed, saved.Status)
+	assert.Equal(t, "NF-0001", saved.Number, "closing touches the status and nothing else")
+}
+
+func TestCloseInvoiceKeepsTheItems(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(invoiceWithItems(
+		itemOf(11, "PRD-0001", "Camiseta", 2, 30.99),
+	))
+	require.NoError(t, err)
+
+	require.NoError(t, repository.CloseInvoice(id))
+
+	invoice, err := repository.GetInvoiceByID(id)
+	require.NoError(t, err)
+
+	assert.Len(t, invoice.Items, 1)
+}
+
+func TestCloseInvoiceWhenMissingReturnsErrRecordNotFound(t *testing.T) {
+	repository := newRepository(t)
+
+	err := repository.CloseInvoice(9999)
+
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+}
+
+func TestReopenInvoiceMovesTheStatusBack(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(model.Invoice{
+		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: model.InvoiceStatusClosed,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, repository.ReopenInvoice(id))
+
+	var saved model.Invoice
+	require.NoError(t, testConnection.First(&saved, id).Error)
+
+	assert.Equal(t, model.InvoiceStatusOpen, saved.Status)
+	assert.Equal(t, "NF-0001", saved.Number, "reopening touches the status and nothing else")
+}
+
+func TestReopenInvoiceKeepsTheItems(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(invoiceWithItems(
+		itemOf(11, "PRD-0001", "Camiseta", 2, 30.99),
+	))
+	require.NoError(t, err)
+
+	require.NoError(t, repository.CloseInvoice(id))
+	require.NoError(t, repository.ReopenInvoice(id))
+
+	invoice, err := repository.GetInvoiceByID(id)
+	require.NoError(t, err)
+
+	assert.Len(t, invoice.Items, 1)
+}
+
+func TestReopenInvoiceWhenMissingReturnsErrRecordNotFound(t *testing.T) {
+	repository := newRepository(t)
+
+	err := repository.ReopenInvoice(9999)
 
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }

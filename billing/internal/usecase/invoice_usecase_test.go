@@ -19,6 +19,8 @@ type fakeRepository struct {
 
 	receivedID      int
 	receivedInvoice model.Invoice
+	closedID        int
+	reopenedID      int
 	deletedID       int
 	calls           int
 }
@@ -43,6 +45,18 @@ func (f *fakeRepository) CreateInvoice(invoice model.Invoice) (int, error) {
 func (f *fakeRepository) UpdateInvoice(invoice model.Invoice) error {
 	f.calls++
 	f.receivedInvoice = invoice
+	return f.err
+}
+
+func (f *fakeRepository) CloseInvoice(id int) error {
+	f.calls++
+	f.closedID = id
+	return f.err
+}
+
+func (f *fakeRepository) ReopenInvoice(id int) error {
+	f.calls++
+	f.reopenedID = id
 	return f.err
 }
 
@@ -212,4 +226,81 @@ func TestDeleteInvoiceWhenMissingPropagatesTheError(t *testing.T) {
 
 	require.ErrorIs(t, err, errRepository)
 	assert.Zero(t, repository.deletedID)
+}
+
+func TestCloseInvoiceClosesAnOpenOne(t *testing.T) {
+	repository := &fakeRepository{
+		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen},
+	}
+	invoiceUsecase := newUsecase(repository)
+
+	_, err := invoiceUsecase.CloseInvoice(7)
+
+	require.NoError(t, err)
+	assert.Equal(t, 7, repository.closedID)
+}
+
+func TestCloseInvoiceRefusesOneAlreadyClosed(t *testing.T) {
+	repository := &fakeRepository{
+		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusClosed},
+	}
+	invoiceUsecase := newUsecase(repository)
+
+	_, err := invoiceUsecase.CloseInvoice(7)
+
+	require.ErrorIs(t, err, model.ErrInvoiceClosed)
+	assert.Zero(t, repository.closedID, "it stops at the read, without writing")
+	assert.Equal(t, 1, repository.calls)
+}
+
+func TestCloseInvoiceReturnsTheInvoiceAsItEndedUp(t *testing.T) {
+	stored := model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen}
+	repository := &fakeRepository{invoice: stored}
+	invoiceUsecase := newUsecase(repository)
+
+	closed, err := invoiceUsecase.CloseInvoice(7)
+
+	require.NoError(t, err)
+	assert.Equal(t, stored, closed, "it re-reads instead of guessing the new state")
+}
+
+func TestCloseInvoiceWhenMissingPropagatesTheError(t *testing.T) {
+	invoiceUsecase := newUsecase(&fakeRepository{err: errRepository})
+
+	_, err := invoiceUsecase.CloseInvoice(7)
+
+	require.ErrorIs(t, err, errRepository)
+}
+
+func TestReopenInvoiceReopensAClosedOne(t *testing.T) {
+	repository := &fakeRepository{
+		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusClosed},
+	}
+	invoiceUsecase := newUsecase(repository)
+
+	_, err := invoiceUsecase.ReopenInvoice(7)
+
+	require.NoError(t, err)
+	assert.Equal(t, 7, repository.reopenedID)
+}
+
+func TestReopenInvoiceRefusesOneAlreadyOpen(t *testing.T) {
+	repository := &fakeRepository{
+		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen},
+	}
+	invoiceUsecase := newUsecase(repository)
+
+	_, err := invoiceUsecase.ReopenInvoice(7)
+
+	require.ErrorIs(t, err, model.ErrInvoiceOpen)
+	assert.Zero(t, repository.reopenedID, "it stops at the read, without writing")
+	assert.Equal(t, 1, repository.calls)
+}
+
+func TestReopenInvoiceWhenMissingPropagatesTheError(t *testing.T) {
+	invoiceUsecase := newUsecase(&fakeRepository{err: errRepository})
+
+	_, err := invoiceUsecase.ReopenInvoice(7)
+
+	require.ErrorIs(t, err, errRepository)
 }

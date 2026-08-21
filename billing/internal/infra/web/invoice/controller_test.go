@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"billing/internal/model"
@@ -215,15 +216,6 @@ func TestCreateInvoicePersistsToTheDatabase(t *testing.T) {
 	assert.Equal(t, "OPEN", saved[0].Status)
 }
 
-func TestCreateInvoiceAcceptsTheClosedStatus(t *testing.T) {
-	server := newServer(t)
-
-	response := webtest.Post(t, server, "/invoices", `{"number":"NF-0002","type":"OUT","status":"CLOSED"}`)
-
-	require.Equal(t, http.StatusCreated, response.Code)
-	assert.Equal(t, "CLOSED", decodeInvoice(t, response.Body.Bytes()).Status)
-}
-
 func TestCreateInvoiceUppercasesTheNumber(t *testing.T) {
 	server := newServer(t)
 
@@ -244,29 +236,11 @@ func TestCreateInvoiceWithoutTheRequiredFieldsReturns400(t *testing.T) {
 
 	assert.Equal(t, "Campo obrigatório.", fieldErrors["number"])
 	assert.Equal(t, "Campo obrigatório.", fieldErrors["type"])
-	assert.Equal(t, "Campo obrigatório.", fieldErrors["status"])
+	assert.NotContains(t, fieldErrors, "status", "the status is not the caller's to pick")
 
 	var saved []model.Invoice
 	require.NoError(t, testConnection.Find(&saved).Error)
 	assert.Empty(t, saved, "nothing should have been stored")
-}
-
-func TestCreateInvoiceWithAnUnknownStatusReturns400(t *testing.T) {
-	server := newServer(t)
-
-	response := webtest.Post(t, server, "/invoices", `{"number":"NF-0001","type":"OUT","status":"CANCELADA"}`)
-
-	require.Equal(t, http.StatusBadRequest, response.Code)
-	assert.Equal(t, "Valor inválido.", decodeErrors(t, response.Body.Bytes())["status"])
-}
-
-func TestCreateInvoiceWithALowercaseStatusReturns400(t *testing.T) {
-	server := newServer(t)
-
-	response := webtest.Post(t, server, "/invoices", `{"number":"NF-0001","type":"OUT","status":"open"}`)
-
-	require.Equal(t, http.StatusBadRequest, response.Code)
-	assert.Equal(t, "Valor inválido.", decodeErrors(t, response.Body.Bytes())["status"])
 }
 
 func TestCreateInvoiceWithALongNumberReturns400(t *testing.T) {
@@ -316,7 +290,7 @@ func TestCreateInvoiceWithTheDatabaseDownReturns500(t *testing.T) {
 	assert.NotEmpty(t, body["message"])
 }
 
-const updatedInvoice = `{"number":"NF-0002","type":"OUT","status":"CLOSED"}`
+const updatedInvoice = `{"number":"NF-0002"}`
 
 func createInvoice(t *testing.T, server *gin.Engine, body string) int {
 	t.Helper()
@@ -339,7 +313,7 @@ func TestUpdateInvoiceReturns200WithTheUpdatedInvoice(t *testing.T) {
 
 	assert.Equal(t, id, updated.ID, "the id must survive the update")
 	assert.Equal(t, "NF-0002", updated.Number)
-	assert.Equal(t, "CLOSED", updated.Status)
+	assert.Equal(t, "OPEN", updated.Status, "only the close action moves the status")
 }
 
 func TestUpdateInvoicePersistsToTheDatabase(t *testing.T) {
@@ -353,14 +327,14 @@ func TestUpdateInvoicePersistsToTheDatabase(t *testing.T) {
 
 	require.Len(t, saved, 1, "the update must not create a second row")
 	assert.Equal(t, "NF-0002", saved[0].Number)
-	assert.Equal(t, "CLOSED", saved[0].Status)
+	assert.Equal(t, "OPEN", saved[0].Status)
 }
 
 func TestUpdateInvoiceUppercasesTheNumber(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), `{"number":"  nf-0009  ","type":"OUT","status":"OPEN"}`)
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), `{"number":"  nf-0009  "}`)
 
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Equal(t, "NF-0009", decodeInvoice(t, response.Body.Bytes()).Number)
@@ -420,22 +394,24 @@ func TestUpdateInvoiceWithoutTheRequiredFieldsReturns400(t *testing.T) {
 	fieldErrors := decodeErrors(t, response.Body.Bytes())
 
 	assert.Equal(t, "Campo obrigatório.", fieldErrors["number"])
-	assert.Equal(t, "Campo obrigatório.", fieldErrors["status"])
 	assert.NotContains(t, fieldErrors, "type", "the update does not take a type at all")
+	assert.NotContains(t, fieldErrors, "status", "nor a status")
 
 	var saved model.Invoice
 	require.NoError(t, testConnection.First(&saved, id).Error)
 	assert.Equal(t, "NF-0001", saved.Number, "a rejected update must leave the invoice untouched")
 }
 
-func TestUpdateInvoiceWithAnUnknownStatusReturns400(t *testing.T) {
+func TestUpdateInvoiceIgnoresTheStatusSentInTheBody(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), `{"number":"NF-0001","type":"OUT","status":"CANCELADA"}`)
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
+		`{"number":"NF-0001","status":"CLOSED"}`)
 
-	require.Equal(t, http.StatusBadRequest, response.Code)
-	assert.Equal(t, "Valor inválido.", decodeErrors(t, response.Body.Bytes())["status"])
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, "OPEN", decodeInvoice(t, response.Body.Bytes()).Status,
+		"closing is an action of its own, not a field of the update")
 }
 
 func TestUpdateInvoiceWithALongNumberReturns400(t *testing.T) {
@@ -836,7 +812,7 @@ func TestUpdateInvoiceIgnoresTheTypeSentInTheBody(t *testing.T) {
 
 func TestUpdateInvoiceWithoutATypeIsAccepted(t *testing.T) {
 	server := newServer(t)
-	id := createInvoice(t, server, `{"number":"NF-0009","type":"IN","status":"OPEN"}`)
+	id := createInvoice(t, server, `{"number":"NF-0009","type":"IN"}`)
 
 	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
 		`{"number":"NF-0009","status":"CLOSED"}`)
@@ -925,7 +901,8 @@ func TestDeleteInvoiceRemovesItsItems(t *testing.T) {
 
 func TestDeleteAClosedInvoiceReturns409(t *testing.T) {
 	server := newServer(t)
-	id := createInvoice(t, server, `{"number":"NF-0002","type":"OUT","status":"CLOSED"}`)
+	id := createInvoice(t, server, validInvoice)
+	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
 
 	response := webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "")
 
@@ -935,23 +912,13 @@ func TestDeleteAClosedInvoiceReturns409(t *testing.T) {
 
 func TestDeleteAClosedInvoiceKeepsItStored(t *testing.T) {
 	server := newServer(t)
-	id := createInvoice(t, server, `{"number":"NF-0002","type":"OUT","status":"CLOSED"}`)
+	id := createInvoice(t, server, validInvoice)
+	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
 
 	require.Equal(t, http.StatusConflict,
 		webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "").Code)
 
 	assert.Equal(t, http.StatusOK, webtest.Get(t, server, fmt.Sprintf("/invoices/%d", id)).Code)
-}
-
-func TestDeleteAnInvoiceReopenedFirstIsAllowed(t *testing.T) {
-	server := newServer(t)
-	id := createInvoice(t, server, `{"number":"NF-0002","type":"OUT","status":"CLOSED"}`)
-
-	require.Equal(t, http.StatusOK, webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
-		`{"number":"NF-0002","status":"OPEN"}`).Code)
-
-	assert.Equal(t, http.StatusNoContent,
-		webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "").Code)
 }
 
 func TestDeleteInvoiceWhenMissingReturns404(t *testing.T) {
@@ -968,4 +935,166 @@ func TestDeleteInvoiceWithANonNumericIDReturns400(t *testing.T) {
 	response := webtest.Do(t, server, http.MethodDelete, "/invoices/abc", "")
 
 	assert.Equal(t, http.StatusBadRequest, response.Code)
+}
+
+func closeInvoice(t *testing.T, server *gin.Engine, id int) *httptest.ResponseRecorder {
+	t.Helper()
+
+	return webtest.Post(t, server, fmt.Sprintf("/invoices/%d/close", id), "")
+}
+
+func TestCloseInvoiceReturns200WithTheClosedInvoice(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	response := closeInvoice(t, server, id)
+
+	require.Equal(t, http.StatusOK, response.Code)
+
+	closed := decodeInvoice(t, response.Body.Bytes())
+
+	assert.Equal(t, id, closed.ID)
+	assert.Equal(t, "CLOSED", closed.Status)
+	assert.Equal(t, "NF-0001", closed.Number, "closing changes the status and nothing else")
+}
+
+func TestCloseInvoicePersistsToTheDatabase(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+
+	var saved model.Invoice
+	require.NoError(t, testConnection.First(&saved, id).Error)
+
+	assert.Equal(t, "CLOSED", saved.Status)
+}
+
+func TestCloseInvoiceKeepsTheItemsAndTheTotal(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, invoiceWithItems)
+
+	response := closeInvoice(t, server, id)
+
+	require.Equal(t, http.StatusOK, response.Code)
+
+	closed := decodeInvoice(t, response.Body.Bytes())
+
+	assert.Len(t, closed.Items, 2)
+	assert.Equal(t, 81.88, closed.Total)
+}
+
+func TestCloseAnAlreadyClosedInvoiceReturns409(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+
+	response := closeInvoice(t, server, id)
+
+	require.Equal(t, http.StatusConflict, response.Code)
+	assert.Contains(t, response.Body.String(), "já está fechada")
+}
+
+func TestCloseInvoiceWhenMissingReturns404(t *testing.T) {
+	server := newServer(t)
+
+	response := closeInvoice(t, server, 9999)
+
+	assert.Equal(t, http.StatusNotFound, response.Code)
+}
+
+func TestCloseInvoiceWithANonNumericIDReturns400(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices/abc/close", "")
+
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+}
+
+func TestAClosedInvoiceCannotBeDeleted(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+
+	assert.Equal(t, http.StatusConflict,
+		webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "").Code)
+}
+
+func reopenInvoice(t *testing.T, server *gin.Engine, id int) *httptest.ResponseRecorder {
+	t.Helper()
+
+	return webtest.Post(t, server, fmt.Sprintf("/invoices/%d/reopen", id), "")
+}
+
+func TestReopenInvoiceReturns200WithTheOpenInvoice(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+
+	response := reopenInvoice(t, server, id)
+
+	require.Equal(t, http.StatusOK, response.Code)
+
+	reopened := decodeInvoice(t, response.Body.Bytes())
+
+	assert.Equal(t, id, reopened.ID)
+	assert.Equal(t, "OPEN", reopened.Status)
+	assert.Equal(t, "NF-0001", reopened.Number)
+}
+
+func TestReopenAnAlreadyOpenInvoiceReturns409(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	response := reopenInvoice(t, server, id)
+
+	require.Equal(t, http.StatusConflict, response.Code)
+	assert.Contains(t, response.Body.String(), "já está aberta")
+}
+
+func TestReopenInvoiceWhenMissingReturns404(t *testing.T) {
+	server := newServer(t)
+
+	response := reopenInvoice(t, server, 9999)
+
+	assert.Equal(t, http.StatusNotFound, response.Code)
+}
+
+func TestReopenInvoiceWithANonNumericIDReturns400(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices/abc/reopen", "")
+
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+}
+
+func TestAReopenedInvoiceCanBeDeletedAgain(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+	require.Equal(t, http.StatusOK, reopenInvoice(t, server, id).Code)
+
+	assert.Equal(t, http.StatusNoContent,
+		webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "").Code)
+}
+
+func TestCreateInvoiceAlwaysStartsOpen(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices",
+		`{"number":"NF-0005","type":"OUT","status":"CLOSED"}`)
+
+	require.Equal(t, http.StatusCreated, response.Code)
+	assert.Equal(t, "OPEN", decodeInvoice(t, response.Body.Bytes()).Status,
+		"a brand new invoice is open, whatever the body says")
+
+	var saved []model.Invoice
+	require.NoError(t, testConnection.Find(&saved).Error)
+
+	require.Len(t, saved, 1)
+	assert.Equal(t, model.InvoiceStatusOpen, saved[0].Status)
 }

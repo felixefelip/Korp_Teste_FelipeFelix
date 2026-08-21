@@ -61,8 +61,8 @@ func (ir *InvoiceRepository) UpdateInvoice(invoice model.Invoice) error {
 	return ir.connection.Transaction(func(tx *gorm.DB) error {
 		result := tx.
 			Model(&model.Invoice{ID: invoice.ID}).
-			Select("number", "status").
-			Updates(model.Invoice{Number: invoice.Number, Status: invoice.Status})
+			Select("number").
+			Updates(model.Invoice{Number: invoice.Number})
 		if result.Error != nil {
 			return result.Error
 		}
@@ -86,6 +86,29 @@ func (ir *InvoiceRepository) UpdateInvoice(invoice model.Invoice) error {
 
 		return saveItems(tx, invoice.ID, invoice.Items, stored.Type)
 	})
+}
+
+func (ir *InvoiceRepository) CloseInvoice(id int) error {
+	return ir.setStatus(id, model.InvoiceStatusClosed)
+}
+
+func (ir *InvoiceRepository) ReopenInvoice(id int) error {
+	return ir.setStatus(id, model.InvoiceStatusOpen)
+}
+
+func (ir *InvoiceRepository) setStatus(id int, status string) error {
+	result := ir.connection.
+		Model(&model.Invoice{ID: id}).
+		Update("status", status)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
 }
 
 func (ir *InvoiceRepository) DeleteInvoice(id int) error {

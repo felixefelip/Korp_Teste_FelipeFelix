@@ -10,7 +10,10 @@ const (
 	InvoiceStatusClosed = "CLOSED"
 )
 
-var ErrInvoiceClosed = errors.New("closed invoice")
+var (
+	ErrInvoiceClosed = errors.New("closed invoice")
+	ErrInvoiceOpen   = errors.New("open invoice")
+)
 
 type Invoice struct {
 	ID     int           `json:"id"     gorm:"primaryKey"`

@@ -154,12 +154,15 @@ describe('InvoiceEdit', () => {
 
     it('fills every field with what came back', () => {
       expect(field<HTMLInputElement>('number').value).toBe('NF-0007');
-      expect(field<HTMLSelectElement>('status').value).toBe('OPEN');
     });
 
-    it('shows the direction without letting it be changed', () => {
+    it('shows the direction and the status without letting them be changed', () => {
       expect(element().querySelector('select#type')).toBeNull();
-      expect(text(element().querySelector('.field-static'))).toBe('Saída');
+      expect(element().querySelector('select#status')).toBeNull();
+
+      expect(
+        Array.from(element().querySelectorAll('.field-static')).map(text)
+      ).toEqual(['Saída', 'Aberta']);
     });
 
     it('announces that it is editing, not creating', () => {
@@ -189,20 +192,25 @@ describe('InvoiceEdit', () => {
   describe('saving the changes', () => {
     it('sends the edited data to the update of that id', async () => {
       await fill('number', 'NF-0042');
-      await fill('status', 'CLOSED');
       await submit();
 
       expect(service.update).toHaveBeenCalledWith(7, {
         number: 'NF-0042',
-        status: 'CLOSED',
         items: [EXISTING_ITEM]
       });
     });
 
-    it('never sends the type, which the issue settled', async () => {
+    it('never sends the type nor the status, which the edit does not own', async () => {
       await submit();
 
-      expect(service.update).toHaveBeenCalledWith(7, expect.not.objectContaining({ type: 'OUT' }));
+      expect(service.update).toHaveBeenCalledWith(
+        7,
+        expect.not.objectContaining({ type: 'OUT' })
+      );
+      expect(service.update).toHaveBeenCalledWith(
+        7,
+        expect.not.objectContaining({ status: 'OPEN' })
+      );
     });
 
     it('never creates a second invoice', async () => {
@@ -290,7 +298,6 @@ describe('InvoiceEdit', () => {
 
       expect(service.update).toHaveBeenCalledWith(7, {
         number: 'NF-0007',
-        status: 'OPEN',
         items: [
           EXISTING_ITEM,
           {

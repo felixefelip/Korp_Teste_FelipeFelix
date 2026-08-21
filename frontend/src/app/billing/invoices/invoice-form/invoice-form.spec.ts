@@ -123,7 +123,6 @@ describe('InvoiceForm', () => {
 
   const fillValidForm = async () => {
     await fill('number', 'NF-0006');
-    await fill('status', 'CLOSED');
   };
 
   const addValidItem = async (row = 0, productIndex = 0, quantity = '2') => {
@@ -154,8 +153,11 @@ describe('InvoiceForm', () => {
       expect(field<HTMLInputElement>('number').value).toBe('');
     });
 
-    it('starts with the invoice open', () => {
-      expect(field<HTMLSelectElement>('status').value).toBe('OPEN');
+    it('shows no status at all, since a new invoice is always open', () => {
+      expect(element().querySelector('#status')).toBeNull();
+      expect(
+        Array.from(element().querySelectorAll('.field-label')).map(text)
+      ).not.toContain('Status');
     });
 
     it('starts as an outbound invoice, the common case', () => {
@@ -170,17 +172,6 @@ describe('InvoiceForm', () => {
       expect(options).toEqual([
         ['OUT', 'Saída'],
         ['IN', 'Entrada']
-      ]);
-    });
-
-    it('lists the available statuses in Portuguese', () => {
-      const options = Array.from(field<HTMLSelectElement>('status').options).map(
-        (option) => [option.value, text(option)]
-      );
-
-      expect(options).toEqual([
-        ['OPEN', 'Aberta'],
-        ['CLOSED', 'Fechada']
       ]);
     });
 
@@ -209,7 +200,6 @@ describe('InvoiceForm', () => {
 
       expect(saved).toEqual([]);
       expect(errorOf('number')).toBe('Campo obrigatório.');
-      expect(errorOf('status')).toBe('');
     });
 
     it('demands the number once the field is emptied', async () => {
@@ -261,7 +251,7 @@ describe('InvoiceForm', () => {
       await fillValidForm();
       await submit();
 
-      expect(saved).toEqual([{ number: 'NF-0006', type: 'OUT', status: 'CLOSED', items: [] }]);
+      expect(saved).toEqual([{ number: 'NF-0006', type: 'OUT', items: [] }]);
     });
 
     it('trims surrounding spaces from the number', async () => {
@@ -284,13 +274,6 @@ describe('InvoiceForm', () => {
       await submit();
 
       expect(saved).toEqual([expect.objectContaining({ type: 'OUT' })]);
-    });
-
-    it('hands over the open status when it is untouched', async () => {
-      await fill('number', 'NF-0006');
-      await submit();
-
-      expect(saved).toEqual([expect.objectContaining({ status: 'OPEN' })]);
     });
 
     it('emits only once per submit', async () => {
@@ -326,7 +309,7 @@ describe('InvoiceForm', () => {
       await submit();
 
       expect(saved).toEqual([
-        { number: 'NF-0006', type: 'OUT', status: 'CLOSED', items: [EXISTING_ITEM] }
+        { number: 'NF-0006', type: 'OUT', items: [EXISTING_ITEM] }
       ]);
     });
 
@@ -408,7 +391,7 @@ describe('InvoiceForm', () => {
       await setInput('value', EXISTING);
 
       expect(field<HTMLInputElement>('number').value).toBe('NF-0007');
-      expect(field<HTMLSelectElement>('status').value).toBe('CLOSED');
+      expect(text(element().querySelector('.field-static'))).toBe('Fechada');
       expect(field<HTMLSelectElement>('type').value).toBe('OUT');
     });
 
@@ -433,11 +416,10 @@ describe('InvoiceForm', () => {
     it('hands over the edited data', async () => {
       await setInput('value', EXISTING);
       await fill('number', 'NF-0042');
-      await fill('status', 'OPEN');
       await submit();
 
       expect(saved).toEqual([
-        { number: 'NF-0042', type: 'OUT', status: 'OPEN', items: [EXISTING_ITEM] }
+        { number: 'NF-0042', type: 'OUT', items: [EXISTING_ITEM] }
       ]);
     });
 
@@ -516,9 +498,10 @@ describe('InvoiceForm', () => {
 
     it('shows a phrase the frontend has no copy for', async () => {
       await fillValidForm();
-      await rejectWith({ status: 'Esta nota já foi transmitida.' });
+      await fill('type', 'OUT');
+      await rejectWith({ type: 'Esta natureza de operação não está liberada.' });
 
-      expect(errorOf('status')).toBe('Esta nota já foi transmitida.');
+      expect(errorOf('type')).toBe('Esta natureza de operação não está liberada.');
     });
 
     it('drops the server error as soon as the field is fixed', async () => {

@@ -133,3 +133,59 @@ func (i *Controller) DeleteInvoice(ctx *gin.Context) {
 
 	ctx.Status(http.StatusNoContent)
 }
+
+func (i *Controller) CloseInvoice(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "o id da nota fiscal precisa ser um numero inteiro"})
+		return
+	}
+
+	closedInvoice, err := i.invoiceUsecase.CloseInvoice(id)
+	if err != nil {
+		if errors.Is(err, model.ErrInvoiceClosed) {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"message": "Esta nota fiscal já está fechada.",
+			})
+			return
+		}
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"message": "nota fiscal nao encontrada"})
+			return
+		}
+
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao fechar a nota fiscal"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, newResponse(closedInvoice))
+}
+
+func (i *Controller) ReopenInvoice(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "o id da nota fiscal precisa ser um numero inteiro"})
+		return
+	}
+
+	reopenedInvoice, err := i.invoiceUsecase.ReopenInvoice(id)
+	if err != nil {
+		if errors.Is(err, model.ErrInvoiceOpen) {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"message": "Esta nota fiscal já está aberta.",
+			})
+			return
+		}
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"message": "nota fiscal nao encontrada"})
+			return
+		}
+
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao reabrir a nota fiscal"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, newResponse(reopenedInvoice))
+}

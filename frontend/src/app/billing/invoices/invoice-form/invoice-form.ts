@@ -7,7 +7,6 @@ import { CustomFormValidation } from '../../../shared/forms/custom-form-validati
 import { ApiFailure } from '../../../shared/forms/http-errors';
 import { InvoiceItemsForm, newItemArray } from '../invoice-items-form/invoice-items-form';
 import {
-  INVOICE_STATUSES,
   INVOICE_STATUS_LABELS,
   INVOICE_TYPES,
   INVOICE_TYPE_LABELS,
@@ -39,7 +38,6 @@ export class InvoiceForm {
 
   readonly save = output<InvoicePayload>();
 
-  protected readonly statuses = INVOICE_STATUSES;
   protected readonly types = INVOICE_TYPES;
   protected readonly typeLabels = INVOICE_TYPE_LABELS;
   protected readonly submitted = signal(false);
@@ -52,10 +50,6 @@ export class InvoiceForm {
     ]),
     type: this.fb.nonNullable.control<InvoiceType>(
       INVOICE_TYPES[0],
-      Validators.required
-    ),
-    status: this.fb.nonNullable.control<InvoiceStatus>(
-      INVOICE_STATUSES[0],
       Validators.required
     ),
     items: newItemArray()
@@ -75,11 +69,7 @@ export class InvoiceForm {
       }
 
       this.form.setControl('items', newItemArray(invoice.items ?? []));
-      this.form.patchValue({
-        number: invoice.number,
-        type: invoice.type,
-        status: invoice.status
-      });
+      this.form.patchValue({ number: invoice.number, type: invoice.type });
     });
 
     effect(() => {
@@ -125,12 +115,11 @@ export class InvoiceForm {
       return;
     }
 
-    const { number, type, status, items } = this.form.getRawValue();
+    const { number, type, items } = this.form.getRawValue();
 
     this.save.emit({
       number: number.trim(),
       ...(this.typeEditable() ? { type } : {}),
-      status,
       items: items.map((item) => ({
         inventoryId: item.inventoryId!,
         code: item.code,
