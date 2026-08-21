@@ -5,4 +5,5 @@ type ProductRepository interface {
 	GetProductByID(id int) (Product, error)
 	CreateProduct(product Product) (int, error)
 	UpdateProduct(product Product) error
+	DeleteProduct(id int) error
 }

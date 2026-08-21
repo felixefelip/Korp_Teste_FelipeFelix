@@ -3,6 +3,7 @@ package db_test
 import (
 	"testing"
 
+	"inventory/internal/infra/db"
 	"inventory/internal/model"
 
 	"github.com/stretchr/testify/assert"
@@ -225,4 +226,71 @@ func TestUpdateProductLeavesTheOtherProductsAlone(t *testing.T) {
 
 	assert.Equal(t, "Caneca", untouched.Name)
 	assert.Equal(t, 20.0, untouched.Price)
+}
+
+func TestDeleteProductRemovesTheRow(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateProduct(model.Product{Code: "PRD-0001", Name: "Camiseta"})
+	require.NoError(t, err)
+
+	require.NoError(t, repository.DeleteProduct(id))
+
+	var saved []model.Product
+	require.NoError(t, testConnection.Find(&saved).Error)
+	assert.Empty(t, saved)
+}
+
+func TestDeleteProductTakesItsLedgerWithIt(t *testing.T) {
+	repository := newRepository(t)
+	movements := db.NewStockMovementRepository(testConnection)
+
+	id, err := repository.CreateProduct(model.Product{Code: "PRD-0001", Name: "Camiseta"})
+	require.NoError(t, err)
+
+	_, err = movements.CreateMovement(model.StockMovement{
+		ProductID: id, Type: model.MovementIn, Quantity: 10, Confirmed: true,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, repository.DeleteProduct(id))
+
+	var left []model.StockMovement
+	require.NoError(t, testConnection.Find(&left).Error)
+	assert.Empty(t, left, "a ledger without its product is an orphan")
+}
+
+func TestDeleteProductLeavesTheOtherProductsAndLedgersAlone(t *testing.T) {
+	repository := newRepository(t)
+	movements := db.NewStockMovementRepository(testConnection)
+
+	first, err := repository.CreateProduct(model.Product{Code: "PRD-0001", Name: "Camiseta"})
+	require.NoError(t, err)
+
+	second, err := repository.CreateProduct(model.Product{Code: "PRD-0002", Name: "Caneca"})
+	require.NoError(t, err)
+
+	_, err = movements.CreateMovement(model.StockMovement{
+		ProductID: second, Type: model.MovementIn, Quantity: 3, Confirmed: true,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, repository.DeleteProduct(first))
+
+	var saved []model.Product
+	require.NoError(t, testConnection.Find(&saved).Error)
+	require.Len(t, saved, 1)
+	assert.Equal(t, second, saved[0].ID)
+
+	var left []model.StockMovement
+	require.NoError(t, testConnection.Find(&left).Error)
+	assert.Len(t, left, 1)
+}
+
+func TestDeleteProductWhenMissingReturnsErrRecordNotFound(t *testing.T) {
+	repository := newRepository(t)
+
+	err := repository.DeleteProduct(9999)
+
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }

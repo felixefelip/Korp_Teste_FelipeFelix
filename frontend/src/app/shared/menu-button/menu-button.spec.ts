@@ -259,4 +259,76 @@ describe('MenuButton', () => {
       expect(menu()).toBeNull();
     });
   });
+
+  describe('items that act instead of navigating', () => {
+    let ran: string[];
+
+    beforeEach(async () => {
+      ran = [];
+
+      await setInput('items', [
+        ITEMS[0],
+        { label: 'Excluir', action: () => ran.push('Excluir') }
+      ]);
+    });
+
+    it('renders them as buttons, not links', async () => {
+      await click();
+
+      const item = items()[0] as unknown as HTMLElement;
+
+      expect(item.tagName).toBe('BUTTON');
+      expect(item.getAttribute('role')).toBe('menuitem');
+      expect(item.getAttribute('href')).toBeNull();
+    });
+
+    it('runs the action when chosen', async () => {
+      await click();
+
+      (items()[0] as unknown as HTMLElement).click();
+      await fixture.whenStable();
+
+      expect(ran).toEqual(['Excluir']);
+    });
+
+    it('closes the menu before the action runs', async () => {
+      await click();
+
+      (items()[0] as unknown as HTMLElement).click();
+      await fixture.whenStable();
+
+      expect(menu()).toBeNull();
+    });
+
+    it('looks like any other item in the menu', async () => {
+      await click();
+
+      expect(items()[0].className).toBe('menu-button__item');
+    });
+
+    it('reaches them by keyboard like any other item', async () => {
+      await press('ArrowDown');
+
+      expect(focused()).toBe('Excluir');
+    });
+  });
+
+  describe('a first item that acts instead of navigating', () => {
+    it('renders the button itself as a button', async () => {
+      const ran: string[] = [];
+
+      await setInput('items', [
+        { label: 'Excluir', action: () => ran.push('Excluir') },
+        ITEMS[1]
+      ]);
+
+      expect(action().tagName).toBe('BUTTON');
+      expect(text(action())).toBe('Excluir');
+
+      (action() as unknown as HTMLElement).click();
+      await fixture.whenStable();
+
+      expect(ran).toEqual(['Excluir']);
+    });
+  });
 });

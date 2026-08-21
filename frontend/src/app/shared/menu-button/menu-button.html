@@ -1,8 +1,18 @@
 @if (primary(); as primary) {
   <div class="menu-button" [class.menu-button--open]="open()">
-    <a class="menu-button__action" [routerLink]="primary.link">
-      {{ primaryLabel() }}
-    </a>
+    @if (primary.link; as link) {
+      <a class="menu-button__action" [routerLink]="link">
+        {{ primaryLabel() }}
+      </a>
+    } @else {
+      <button
+        type="button"
+        class="menu-button__action"
+        (click)="run(primary)"
+      >
+        {{ primaryLabel() }}
+      </button>
+    }
 
     @if (rest().length) {
       <button
@@ -40,17 +50,31 @@
   >
     @for (item of rest(); track item.label; let index = $index) {
       <li role="none">
-        <a
-          #menuItem
-          role="menuitem"
-          class="menu-button__item"
-          [class.menu-button__item--active]="activeIndex() === index"
-          [routerLink]="item.link"
-          (keydown)="onMenuKeydown($event, index)"
-          (click)="close()"
-        >
-          {{ item.label }}
-        </a>
+        @if (item.link; as link) {
+          <a
+            #menuItem
+            role="menuitem"
+            class="menu-button__item"
+            [class.menu-button__item--active]="activeIndex() === index"
+            [routerLink]="link"
+            (keydown)="onMenuKeydown($event, index)"
+            (click)="close()"
+          >
+            {{ item.label }}
+          </a>
+        } @else {
+          <button
+            #menuItem
+            type="button"
+            role="menuitem"
+            class="menu-button__item"
+            [class.menu-button__item--active]="activeIndex() === index"
+            (keydown)="onMenuKeydown($event, index)"
+            (click)="run(item)"
+          >
+            {{ item.label }}
+          </button>
+        }
       </li>
     }
   </ul>

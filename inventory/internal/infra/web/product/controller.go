@@ -105,3 +105,23 @@ func (p *Controller) CreateProduct(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusCreated, newResponse(insertedProduct))
 }
+
+func (p *Controller) DeleteProduct(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "o id do produto precisa ser um numero inteiro"})
+		return
+	}
+
+	if err := p.productUsecase.DeleteProduct(id); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"message": "produto nao encontrado"})
+			return
+		}
+
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao excluir o produto"})
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}

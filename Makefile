@@ -4,10 +4,10 @@ up:
 down:
 	docker compose down
 
-invoice-run:
+inventory-run:
 	docker compose exec -e GO_ENV=development inventory go run cmd/main.go
 
-invoice-test:
+inventory-test:
 	docker compose exec -e GO_ENV=test inventory go test -count=1 -p 1 ./...
 
 billing-run:

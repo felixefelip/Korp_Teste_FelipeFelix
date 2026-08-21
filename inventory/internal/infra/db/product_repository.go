@@ -62,3 +62,22 @@ func (pr *ProductRepository) UpdateProduct(product model.Product) error {
 
 	return nil
 }
+
+func (pr *ProductRepository) DeleteProduct(id int) error {
+	return pr.connection.Transaction(func(tx *gorm.DB) error {
+		if err := deleteStockMovementsByProductID(tx, id); err != nil {
+			return err
+		}
+
+		result := tx.Delete(&model.Product{}, id)
+		if result.Error != nil {
+			return result.Error
+		}
+
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+
+		return nil
+	})
+}

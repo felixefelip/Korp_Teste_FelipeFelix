@@ -74,6 +74,10 @@ func (sr *StockMovementRepository) UpdateMovement(movement model.StockMovement) 
 	})
 }
 
+func deleteStockMovementsByProductID(tx *gorm.DB, productID int) error {
+	return tx.Where("product_id = ?", productID).Delete(&model.StockMovement{}).Error
+}
+
 func refreshStock(tx *gorm.DB, productID int) error {
 	return tx.Exec(`
 		UPDATE product

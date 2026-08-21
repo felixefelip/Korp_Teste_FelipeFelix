@@ -13,6 +13,10 @@
 
 .menu-button__action {
   padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
   color: var(--text-900);
   font-size: 0.875rem;
   font-weight: 600;
@@ -75,6 +79,11 @@
 
 .menu-button__item {
   display: flex;
+  width: 100%;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
   align-items: center;
   height: 40px;
   padding: 0 0.75rem;

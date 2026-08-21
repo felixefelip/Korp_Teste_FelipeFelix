@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { registerLocaleData } from '@angular/common';
 import localePt from '@angular/common/locales/pt';
 import { LOCALE_ID, signal } from '@angular/core';
@@ -6,6 +7,7 @@ import { provideRouter } from '@angular/router';
 import { Observable, of, tap, throwError } from 'rxjs';
 
 import { Product } from '../product.model';
+import { FlashService } from '../../../shared/flash/flash.service';
 import { ProductService } from '../product.service';
 import { ProductList } from './product-list';
 
@@ -40,6 +42,7 @@ const PRODUCTS: Product[] = [
 
 describe('ProductList', () => {
   let fixture: ComponentFixture<ProductList>;
+  let flash: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
 
   const text = (el: Element | null | undefined) =>
     (el?.textContent ?? '').replace(/[\u00A0\u202F]/g, ' ').trim();
@@ -60,10 +63,25 @@ describe('ProductList', () => {
     await fixture.whenStable();
   };
 
+  const menuLabels = () =>
+    Array.from(element().querySelectorAll('.menu-button__item')).map(text);
+
   const menuLinks = () =>
-    Array.from(element().querySelectorAll<HTMLAnchorElement>('.menu-button__item')).map(
+    Array.from(element().querySelectorAll<HTMLAnchorElement>('a.menu-button__item')).map(
       (item) => [text(item), item.getAttribute('href')]
     );
+
+  const menuAction = (label: string) =>
+    Array.from(element().querySelectorAll<HTMLButtonElement>('button.menu-button__item')).find(
+      (item) => text(item) === label
+    )!;
+
+  const dialog = () => element().querySelector('.confirm');
+
+  const dialogButton = (label: string) =>
+    Array.from(element().querySelectorAll<HTMLButtonElement>('.confirm__actions .btn')).find(
+      (button) => text(button).startsWith(label)
+    )!;
 
   const typeInFilter = async (term: string) => {
     const field = element().querySelector<HTMLInputElement>('input[type="search"]')!;
@@ -72,12 +90,22 @@ describe('ProductList', () => {
     await fixture.whenStable();
   };
 
-  const mount = async (response: () => Observable<Product[]>) => {
+  const mount = async (
+    response: () => Observable<Product[]>,
+    remove: () => Observable<void> = () => of(undefined)
+  ) => {
+    TestBed.resetTestingModule();
+
     const products = signal<Product[]>([]);
+
+    flash = { error: vi.fn(), success: vi.fn() };
 
     const service = {
       products,
-      list: vi.fn(() => response().pipe(tap((list) => products.set(list))))
+      list: vi.fn(() => response().pipe(tap((list) => products.set(list)))),
+      remove: vi.fn((id: number) =>
+        remove().pipe(tap(() => products.update((list) => list.filter((p) => p.id !== id))))
+      )
     };
 
     await TestBed.configureTestingModule({
@@ -85,6 +113,7 @@ describe('ProductList', () => {
       providers: [
         provideRouter([]),
         { provide: ProductService, useValue: service },
+        { provide: FlashService, useValue: flash },
         { provide: LOCALE_ID, useValue: 'pt-BR' }
       ]
     }).compileComponents();
@@ -155,6 +184,7 @@ describe('ProductList', () => {
     it('opens the extra actions of the row that was clicked', async () => {
       await openActionsOf(0);
 
+      expect(menuLabels()).toEqual(['Movimentações', 'Excluir']);
       expect(menuLinks()).toEqual([
         ['Movimentações', '/inventory/products/1/movements']
       ]);
@@ -262,6 +292,87 @@ describe('ProductList', () => {
       await typeInFilter('');
 
       expect(names()).toHaveLength(3);
+    });
+  });
+
+  describe('deleting a product', () => {
+    const openDelete = async (index: number) => {
+      await openActionsOf(index);
+      menuAction('Excluir').click();
+      await fixture.whenStable();
+    };
+
+    it('asks before deleting anything', async () => {
+      const service = await mount(() => of(PRODUCTS));
+      await openDelete(0);
+
+      expect(dialog()).not.toBeNull();
+      expect(text(dialog())).toContain('PRD-0001');
+      expect(service.remove).not.toHaveBeenCalled();
+    });
+
+    it('warns that the ledger goes with it', async () => {
+      await mount(() => of(PRODUCTS));
+      await openDelete(0);
+
+      expect(text(dialog())).toContain('movimentações');
+    });
+
+    it('deletes the product that was chosen', async () => {
+      const service = await mount(() => of(PRODUCTS));
+      await openDelete(1);
+
+      dialogButton('Excluir').click();
+      await fixture.whenStable();
+
+      expect(service.remove).toHaveBeenCalledWith(2);
+    });
+
+    it('takes the row out of the listing and says so', async () => {
+      await mount(() => of(PRODUCTS));
+      await openDelete(0);
+
+      dialogButton('Excluir').click();
+      await fixture.whenStable();
+
+      expect(names()).toEqual(['Monitor LG 24" Full HD', 'Papel Sulfite A4']);
+      expect(dialog()).toBeNull();
+      expect(flash.success).toHaveBeenCalledWith('Produto PRD-0001 excluído.');
+    });
+
+    it('deletes nothing when it is cancelled', async () => {
+      const service = await mount(() => of(PRODUCTS));
+      await openDelete(0);
+
+      dialogButton('Cancelar').click();
+      await fixture.whenStable();
+
+      expect(service.remove).not.toHaveBeenCalled();
+      expect(dialog()).toBeNull();
+      expect(rows()).toHaveLength(3);
+    });
+
+    it('keeps the row and flashes when the API refuses', async () => {
+      await mount(
+        () => of(PRODUCTS),
+        () => throwError(() => new HttpErrorResponse({ status: 500 }))
+      );
+      await openDelete(0);
+
+      dialogButton('Excluir').click();
+      await fixture.whenStable();
+
+      expect(rows()).toHaveLength(3);
+      expect(flash.error).toHaveBeenCalledWith(
+        'Não foi possível excluir o produto. Tente novamente.'
+      );
+    });
+
+    it('closes the menu once the dialog is up', async () => {
+      await mount(() => of(PRODUCTS));
+      await openDelete(0);
+
+      expect(element().querySelector('.menu-button__menu')).toBeNull();
     });
   });
 });
