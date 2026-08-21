@@ -1,4 +1,6 @@
-import { signal } from '@angular/core';
+import { registerLocaleData } from '@angular/common';
+import localePt from '@angular/common/locales/pt';
+import { LOCALE_ID, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Observable, of, tap, throwError } from 'rxjs';
@@ -7,9 +9,11 @@ import { Invoice } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 import { InvoiceList } from './invoice-list';
 
+registerLocaleData(localePt, 'pt-BR');
+
 const INVOICES: Invoice[] = [
-  { id: 1, number: 'NF-0001', type: 'OUT', status: 'OPEN', items: [], total: 0 },
-  { id: 2, number: 'NF-0002', type: 'OUT', status: 'CLOSED', items: [], total: 0 },
+  { id: 1, number: 'NF-0001', type: 'OUT', status: 'OPEN', items: [], total: 4299.9 },
+  { id: 2, number: 'NF-0002', type: 'OUT', status: 'CLOSED', items: [], total: 899 },
   { id: 3, number: 'ABC-9999', type: 'IN', status: 'OPEN', items: [], total: 0 }
 ];
 
@@ -47,7 +51,11 @@ describe('InvoiceList', () => {
 
     await TestBed.configureTestingModule({
       imports: [InvoiceList],
-      providers: [provideRouter([]), { provide: InvoiceService, useValue: service }]
+      providers: [
+        provideRouter([]),
+        { provide: InvoiceService, useValue: service },
+        { provide: LOCALE_ID, useValue: 'pt-BR' }
+      ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(InvoiceList);
@@ -70,7 +78,19 @@ describe('InvoiceList', () => {
     });
 
     it('shows the invoice columns in the expected order', () => {
-      expect(cells(rows()[0])).toEqual(['NF-0001', 'Saída', 'Aberta', 'Editar']);
+      expect(cells(rows()[0])).toEqual([
+        'NF-0001',
+        'Saída',
+        'Aberta',
+        'R$ 4.299,90',
+        'Editar'
+      ]);
+    });
+
+    it('formats the total of each invoice in reais', () => {
+      const totals = rows().map((row) => cells(row)[3]);
+
+      expect(totals).toEqual(['R$ 4.299,90', 'R$ 899,00', 'R$ 0,00']);
     });
 
     it('translates the direction of each invoice', () => {
