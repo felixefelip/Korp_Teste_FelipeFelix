@@ -41,6 +41,141 @@
         }
       </div>
     </div>
+
+    <section class="items">
+      <header class="items__header">
+        <div>
+          <h2 class="items__title">Itens</h2>
+          @if (productsFailed()) {
+            <p class="items__note" role="alert">
+              Não foi possível carregar os produtos do estoque.
+            </p>
+          } @else {
+            <p class="items__subtitle">{{ items.length }} item(ns) na nota fiscal</p>
+          }
+        </div>
+
+        <button
+          type="button"
+          class="btn btn--ghost"
+          [disabled]="products().length === 0"
+          (click)="addItem()"
+        >
+          <span aria-hidden="true">+</span>
+          Adicionar item
+        </button>
+      </header>
+
+      @if (items.length === 0) {
+        <p class="items__empty">
+          @if (products().length === 0 && !productsFailed()) {
+            Cadastre um produto no estoque antes de adicionar itens.
+          } @else {
+            Nenhum item adicionado.
+          }
+        </p>
+      } @else {
+        <div class="table-wrapper">
+          <table class="items__table" formArrayName="items">
+            <thead>
+              <tr>
+                <th scope="col" class="items__product">Produto</th>
+                <th scope="col">Unidade</th>
+                <th scope="col" class="items__num">Quantidade</th>
+                <th scope="col" class="items__num">Preço unitário</th>
+                <th scope="col" class="items__num">Total</th>
+                <th scope="col" class="items__actions">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of items.controls; track item) {
+                <tr [formGroupName]="$index">
+                  <td class="items__product">
+                    <select
+                      class="field"
+                      [id]="'item-' + $index + '-product'"
+                      [attr.aria-label]="'Produto do item ' + ($index + 1)"
+                      formControlName="inventoryId"
+                      [class.field--error]="itemError($index, 'inventoryId')"
+                      (change)="fillFromProduct($index)"
+                    >
+                      <option [ngValue]="null" disabled>Selecione o produto</option>
+                      @for (product of products(); track product.id) {
+                        <option [ngValue]="product.id">
+                          {{ product.code }} · {{ product.name }}
+                        </option>
+                      }
+                    </select>
+                    @if (itemError($index, 'inventoryId'); as message) {
+                      <p class="field-error">{{ message }}</p>
+                    }
+                  </td>
+
+                  <td class="items__unit">{{ item.controls.unit.value || '—' }}</td>
+
+                  <td class="items__num">
+                    <input
+                      type="number"
+                      class="field field--num"
+                      [id]="'item-' + $index + '-quantity'"
+                      [attr.aria-label]="'Quantidade do item ' + ($index + 1)"
+                      formControlName="quantity"
+                      step="1"
+                      min="1"
+                      [class.field--error]="itemError($index, 'quantity')"
+                    />
+                    @if (itemError($index, 'quantity'); as message) {
+                      <p class="field-error">{{ message }}</p>
+                    }
+                  </td>
+
+                  <td class="items__num">
+                    <input
+                      type="number"
+                      class="field field--num"
+                      [id]="'item-' + $index + '-unitPrice'"
+                      [attr.aria-label]="'Preço unitário do item ' + ($index + 1)"
+                      formControlName="unitPrice"
+                      step="0.01"
+                      min="0"
+                      placeholder="0,00"
+                      [class.field--error]="itemError($index, 'unitPrice')"
+                    />
+                    @if (itemError($index, 'unitPrice'); as message) {
+                      <p class="field-error">{{ message }}</p>
+                    }
+                  </td>
+
+                  <td class="items__num items__row-total">
+                    {{ itemTotal($index) | currency: 'BRL' : 'symbol' : '1.2-2' }}
+                  </td>
+
+                  <td class="items__actions">
+                    <button
+                      type="button"
+                      class="items__remove"
+                      [attr.aria-label]="'Remover item ' + ($index + 1)"
+                      (click)="removeItem($index)"
+                    >
+                      Remover
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="4" class="items__total-label">Total da nota</td>
+                <td class="items__num items__total">
+                  {{ invoiceTotal() | currency: 'BRL' : 'symbol' : '1.2-2' }}
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      }
+    </section>
   }
 
   <footer class="form__actions">

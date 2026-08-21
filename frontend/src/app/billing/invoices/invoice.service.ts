@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 
-import { Invoice } from './invoice.model';
+import { Invoice, InvoicePayload } from './invoice.model';
 
 const RESOURCE = '/api/billing/invoices';
 
@@ -24,13 +24,13 @@ export class InvoiceService {
     return this.http.get<Invoice>(`${RESOURCE}/${id}`);
   }
 
-  create(data: Omit<Invoice, 'id'>): Observable<Invoice> {
+  create(data: InvoicePayload): Observable<Invoice> {
     return this.http
       .post<Invoice>(RESOURCE, data)
       .pipe(tap((invoice) => this._invoices.update((invoices) => [...invoices, invoice])));
   }
 
-  update(id: number, data: Omit<Invoice, 'id'>): Observable<Invoice> {
+  update(id: number, data: InvoicePayload): Observable<Invoice> {
     return this.http.put<Invoice>(`${RESOURCE}/${id}`, data).pipe(
       tap((updated) =>
         this._invoices.update((invoices) =>

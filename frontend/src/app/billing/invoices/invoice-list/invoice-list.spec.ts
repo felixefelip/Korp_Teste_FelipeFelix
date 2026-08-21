@@ -8,9 +8,9 @@ import { InvoiceService } from '../invoice.service';
 import { InvoiceList } from './invoice-list';
 
 const INVOICES: Invoice[] = [
-  { id: 1, number: 'NF-0001', status: 'OPEN' },
-  { id: 2, number: 'NF-0002', status: 'CLOSED' },
-  { id: 3, number: 'ABC-9999', status: 'OPEN' }
+  { id: 1, number: 'NF-0001', status: 'OPEN', items: [], total: 0 },
+  { id: 2, number: 'NF-0002', status: 'CLOSED', items: [], total: 0 },
+  { id: 3, number: 'ABC-9999', status: 'OPEN', items: [], total: 0 }
 ];
 
 describe('InvoiceList', () => {

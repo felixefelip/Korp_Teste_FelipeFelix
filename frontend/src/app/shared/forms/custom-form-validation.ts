@@ -45,13 +45,17 @@ export class CustomFormValidation {
     return message ? message(errors[key]) : FALLBACK;
   }
 
+  static controlPath(field: string): string {
+    return field.replace(/\[(\d+)\]/g, '.$1');
+  }
+
   static fieldErrorFor(
     form: FormGroup,
     submitted: Signal<boolean>,
     overrides: Record<string, ValidationMessage> = {}
   ): (field: string) => string | null {
     return (field) => {
-      const control = form.get(field);
+      const control = form.get(CustomFormValidation.controlPath(field));
 
       if (!control || !(control.touched || submitted())) {
         return null;
@@ -69,7 +73,7 @@ export class CustomFormValidation {
     let anyKnownField = false;
 
     for (const [field, message] of Object.entries(errors)) {
-      const control = form.get(field);
+      const control = form.get(CustomFormValidation.controlPath(field));
 
       if (control && typeof message === 'string') {
         control.setErrors({ [SERVER_ERROR_KEY]: message });

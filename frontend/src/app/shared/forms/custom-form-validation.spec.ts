@@ -1,5 +1,5 @@
 import { signal } from '@angular/core';
-import { FormControl, FormGroup, Validators } from '@angular/forms';
+import { FormArray, FormControl, FormGroup, Validators } from '@angular/forms';
 
 import { CustomFormValidation } from './custom-form-validation';
 
@@ -174,5 +174,56 @@ describe('CustomFormValidation.applyMessageErrorsToForm', () => {
     expect(applyMessageErrorsToForm(newForm(), undefined)).toBe(false);
     expect(applyMessageErrorsToForm(newForm(), null)).toBe(false);
     expect(applyMessageErrorsToForm(newForm(), '<html>502</html>')).toBe(false);
+  });
+
+  describe('errors the server points at inside a list', () => {
+    const newFormWithItems = () =>
+      new FormGroup({
+        code: new FormControl(''),
+        items: new FormArray([
+          new FormGroup({ quantity: new FormControl(1) }),
+          new FormGroup({ quantity: new FormControl(2) })
+        ])
+      });
+
+    it('marks the control of the position the server named', () => {
+      const form = newFormWithItems();
+
+      expect(
+        applyMessageErrorsToForm(form, {
+          'items[1].quantity': 'O valor precisa ser maior que zero.'
+        })
+      ).toBe(true);
+
+      expect(form.controls.items.at(0).get('quantity')!.errors).toBeNull();
+      expect(form.controls.items.at(1).get('quantity')!.errors).toEqual({
+        server: 'O valor precisa ser maior que zero.'
+      });
+    });
+
+    it('reports false when that position does not exist', () => {
+      const form = newFormWithItems();
+
+      expect(
+        applyMessageErrorsToForm(form, { 'items[7].quantity': 'Valor inválido.' })
+      ).toBe(false);
+      expect(form.valid).toBe(true);
+    });
+  });
+});
+
+describe('CustomFormValidation.controlPath', () => {
+  const { controlPath } = CustomFormValidation;
+
+  it('leaves a plain field alone', () => {
+    expect(controlPath('number')).toBe('number');
+  });
+
+  it('turns the index the API uses into the path the form uses', () => {
+    expect(controlPath('items[0].quantity')).toBe('items.0.quantity');
+  });
+
+  it('turns every index of a nested list', () => {
+    expect(controlPath('items[2].taxes[10].rate')).toBe('items.2.taxes.10.rate');
   });
 });

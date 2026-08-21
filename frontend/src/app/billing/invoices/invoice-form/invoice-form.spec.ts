@@ -1,10 +1,50 @@
+import { registerLocaleData } from '@angular/common';
+import localePt from '@angular/common/locales/pt';
+import { LOCALE_ID } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
-import { Invoice } from '../invoice.model';
-import { InvoiceForm, InvoicePayload } from './invoice-form';
+import { Product } from '../../../inventory/products/product.model';
+import { Invoice, InvoiceItemPayload, InvoicePayload } from '../invoice.model';
+import { InvoiceForm } from './invoice-form';
 
-const EXISTING: Invoice = { id: 7, number: 'NF-0007', status: 'CLOSED' };
+registerLocaleData(localePt, 'pt-BR');
+
+const PRODUCTS: Product[] = [
+  {
+    id: 3,
+    code: 'PRD-0003',
+    name: 'Cadeira Gamer',
+    unit: 'UN',
+    price: 150.5,
+    stock: 10
+  },
+  {
+    id: 5,
+    code: 'PRD-0005',
+    name: 'Mesa de Escritório',
+    unit: 'CX',
+    price: 899,
+    stock: 4
+  }
+];
+
+const EXISTING_ITEM: InvoiceItemPayload = {
+  inventoryId: 3,
+  code: 'PRD-0003',
+  name: 'Cadeira Gamer',
+  unit: 'UN',
+  quantity: 2,
+  unitPrice: 150.5
+};
+
+const EXISTING: Invoice = {
+  id: 7,
+  number: 'NF-0007',
+  status: 'CLOSED',
+  total: 301,
+  items: [{ ...EXISTING_ITEM, id: 1, productId: 11, total: 301 }]
+};
 
 describe('InvoiceForm', () => {
   let fixture: ComponentFixture<InvoiceForm>;
@@ -50,20 +90,57 @@ describe('InvoiceForm', () => {
   const submitButton = () =>
     element().querySelector<HTMLButtonElement>('button[type="submit"]')!;
 
+  const addButton = () =>
+    element().querySelector<HTMLButtonElement>('.items__header button')!;
+
+  const addItem = async () => {
+    addButton().click();
+    await fixture.whenStable();
+  };
+
+  const removeItem = async (row: number) => {
+    element().querySelectorAll<HTMLButtonElement>('.items__remove')[row].click();
+    await fixture.whenStable();
+  };
+
+  const chooseProduct = async (row: number, productIndex: number) => {
+    const select = field<HTMLSelectElement>(`item-${row}-product`);
+    select.selectedIndex = productIndex + 1;
+    select.dispatchEvent(new Event('change'));
+    select.dispatchEvent(new Event('blur'));
+    await fixture.whenStable();
+  };
+
+  const rows = () => Array.from(element().querySelectorAll('.items__table tbody tr'));
+
+  const rowTotals = () =>
+    Array.from(element().querySelectorAll('.items__row-total')).map(text);
+
+  const invoiceTotal = () => text(element().querySelector('.items__total'));
+
+  const unitOf = (row: number) => text(rows()[row].querySelector('.items__unit'));
+
   const fillValidForm = async () => {
     await fill('number', 'NF-0006');
     await fill('status', 'CLOSED');
   };
 
+  const addValidItem = async (row = 0, productIndex = 0, quantity = '2') => {
+    await addItem();
+    await chooseProduct(row, productIndex);
+    await fill(`item-${row}-quantity`, quantity);
+  };
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [InvoiceForm],
-      providers: [provideRouter([])]
+      providers: [provideRouter([]), { provide: LOCALE_ID, useValue: 'pt-BR' }]
     }).compileComponents();
 
     fixture = TestBed.createComponent(InvoiceForm);
     saved = [];
     fixture.componentInstance.save.subscribe((invoice) => saved.push(invoice));
+    fixture.componentRef.setInput('products', PRODUCTS);
     await fixture.whenStable();
   });
 
@@ -99,6 +176,13 @@ describe('InvoiceForm', () => {
     it('offers cancel going back to the listing', () => {
       expect(element().querySelector('a.btn--ghost')?.getAttribute('href')).toBe(
         '/billing/invoices'
+      );
+    });
+
+    it('starts with no item and says so', () => {
+      expect(rows()).toEqual([]);
+      expect(text(element().querySelector('.items__empty'))).toBe(
+        'Nenhum item adicionado.'
       );
     });
   });
@@ -161,7 +245,7 @@ describe('InvoiceForm', () => {
       await fillValidForm();
       await submit();
 
-      expect(saved).toEqual([{ number: 'NF-0006', status: 'CLOSED' }]);
+      expect(saved).toEqual([{ number: 'NF-0006', status: 'CLOSED', items: [] }]);
     });
 
     it('trims surrounding spaces from the number', async () => {
@@ -194,12 +278,244 @@ describe('InvoiceForm', () => {
     });
   });
 
+  describe('adding items', () => {
+    it('adds a row with the products it was given', async () => {
+      await addItem();
+
+      const options = Array.from(
+        field<HTMLSelectElement>('item-0-product').options
+      ).map(text);
+
+      expect(rows()).toHaveLength(1);
+      expect(options).toEqual([
+        'Selecione o produto',
+        'PRD-0003 · Cadeira Gamer',
+        'PRD-0005 · Mesa de Escritório'
+      ]);
+    });
+
+    it('starts the row with one unit and no product chosen', async () => {
+      await addItem();
+
+      expect(field<HTMLSelectElement>('item-0-product').selectedIndex).toBe(0);
+      expect(field<HTMLInputElement>('item-0-quantity').value).toBe('1');
+      expect(field<HTMLInputElement>('item-0-unitPrice').value).toBe('');
+    });
+
+    it('takes unit and price from the product that was chosen', async () => {
+      await addItem();
+      await chooseProduct(0, 1);
+
+      expect(unitOf(0)).toBe('CX');
+      expect(field<HTMLInputElement>('item-0-unitPrice').value).toBe('899');
+    });
+
+    it('replaces unit and price when the product changes', async () => {
+      await addItem();
+      await chooseProduct(0, 1);
+      await chooseProduct(0, 0);
+
+      expect(unitOf(0)).toBe('UN');
+      expect(field<HTMLInputElement>('item-0-unitPrice').value).toBe('150.5');
+    });
+
+    it('keeps a unit price typed over the one from the product', async () => {
+      await addValidItem();
+      await fill('item-0-unitPrice', '99.9');
+      await fill('number', 'NF-0006');
+      await submit();
+
+      expect(saved).toEqual([
+        expect.objectContaining({
+          items: [expect.objectContaining({ unitPrice: 99.9 })]
+        })
+      ]);
+    });
+
+    it('offers no adding while there is no product in the inventory', async () => {
+      await setInput('products', []);
+
+      expect(addButton().disabled).toBe(true);
+      expect(text(element().querySelector('.items__empty'))).toBe(
+        'Cadastre um produto no estoque antes de adicionar itens.'
+      );
+      expect(element().querySelector('.items__note')).toBeNull();
+    });
+
+    it('blames the inventory instead of the empty catalog when the load failed', async () => {
+      await setInput('products', []);
+      await setInput('productsFailed', true);
+
+      expect(addButton().disabled).toBe(true);
+      expect(text(element().querySelector('.items__note'))).toBe(
+        'Não foi possível carregar os produtos do estoque.'
+      );
+      expect(text(element().querySelector('.items__empty'))).toBe(
+        'Nenhum item adicionado.'
+      );
+    });
+
+    it('adds a second row without touching the first', async () => {
+      await addValidItem(0, 0, '2');
+      await addValidItem(1, 1, '3');
+
+      expect(rows()).toHaveLength(2);
+      expect(field<HTMLInputElement>('item-0-quantity').value).toBe('2');
+      expect(field<HTMLInputElement>('item-1-quantity').value).toBe('3');
+      expect(unitOf(0)).toBe('UN');
+      expect(unitOf(1)).toBe('CX');
+    });
+  });
+
+  describe('totals', () => {
+    it('multiplies quantity by unit price on the row', async () => {
+      await addValidItem(0, 0, '2');
+
+      expect(rowTotals()).toEqual(['R$ 301,00']);
+    });
+
+    it('sums every row into the invoice total', async () => {
+      await addValidItem(0, 0, '2');
+      await addValidItem(1, 1, '3');
+
+      expect(rowTotals()).toEqual(['R$ 301,00', 'R$ 2.697,00']);
+      expect(invoiceTotal()).toBe('R$ 2.998,00');
+    });
+
+    it('follows the quantity as it is typed', async () => {
+      await addValidItem(0, 0, '2');
+      await fill('item-0-quantity', '4');
+
+      expect(rowTotals()).toEqual(['R$ 602,00']);
+      expect(invoiceTotal()).toBe('R$ 602,00');
+    });
+
+    it('shows zero for a row with no product yet', async () => {
+      await addItem();
+
+      expect(rowTotals()).toEqual(['R$ 0,00']);
+      expect(invoiceTotal()).toBe('R$ 0,00');
+    });
+  });
+
+  describe('removing items', () => {
+    it('drops the row that was removed', async () => {
+      await addValidItem(0, 0, '2');
+      await addValidItem(1, 1, '3');
+      await removeItem(0);
+
+      expect(rows()).toHaveLength(1);
+      expect(unitOf(0)).toBe('CX');
+      expect(field<HTMLInputElement>('item-0-quantity').value).toBe('3');
+    });
+
+    it('goes back to the empty state when the last row leaves', async () => {
+      await addValidItem();
+      await removeItem(0);
+
+      expect(rows()).toEqual([]);
+      expect(text(element().querySelector('.items__empty'))).toBe(
+        'Nenhum item adicionado.'
+      );
+    });
+
+    it('emits an empty list so the API clears the items', async () => {
+      await setInput('value', EXISTING);
+      await removeItem(0);
+      await submit();
+
+      expect(saved).toEqual([expect.objectContaining({ items: [] })]);
+    });
+  });
+
+  describe('items that are emitted', () => {
+    it('hands over the snapshot of the chosen product', async () => {
+      await fillValidForm();
+      await addValidItem(0, 0, '2');
+      await submit();
+
+      expect(saved).toEqual([
+        { number: 'NF-0006', status: 'CLOSED', items: [EXISTING_ITEM] }
+      ]);
+    });
+
+    it('hands over every row in the order they were added', async () => {
+      await fillValidForm();
+      await addValidItem(0, 1, '3');
+      await addValidItem(1, 0, '2');
+      await submit();
+
+      expect(saved[0].items.map((item) => item.code)).toEqual([
+        'PRD-0005',
+        'PRD-0003'
+      ]);
+    });
+
+    it('blocks the submit while a row has no product', async () => {
+      await fillValidForm();
+      await addItem();
+      await submit();
+
+      expect(saved).toEqual([]);
+      expect(errorOf('item-0-product')).toBe('Campo obrigatório.');
+    });
+
+    it('blocks the submit on a quantity the API would reject', async () => {
+      await fillValidForm();
+      await addValidItem(0, 0, '0');
+      await submit();
+
+      expect(saved).toEqual([]);
+      expect(errorOf('item-0-quantity')).toBe('O valor mínimo é 1.');
+    });
+
+    it('blocks the submit on a fractional quantity', async () => {
+      await fillValidForm();
+      await addValidItem(0, 0, '1.5');
+      await submit();
+
+      expect(saved).toEqual([]);
+      expect(errorOf('item-0-quantity')).toBe('Informe um número inteiro.');
+    });
+
+    it('blocks the submit on a negative unit price', async () => {
+      await fillValidForm();
+      await addValidItem();
+      await fill('item-0-unitPrice', '-1');
+      await submit();
+
+      expect(saved).toEqual([]);
+      expect(errorOf('item-0-unitPrice')).toBe('O valor não pode ser negativo.');
+    });
+
+    it('points at the row that is wrong, not at the other one', async () => {
+      await fillValidForm();
+      await addValidItem(0, 0, '2');
+      await addValidItem(1, 1, '0');
+      await submit();
+
+      expect(errorOf('item-0-quantity')).toBe('');
+      expect(errorOf('item-1-quantity')).toBe('O valor mínimo é 1.');
+    });
+  });
+
   describe('the invoice being edited', () => {
     it('fills every field with the value it was given', async () => {
       await setInput('value', EXISTING);
 
       expect(field<HTMLInputElement>('number').value).toBe('NF-0007');
       expect(field<HTMLSelectElement>('status').value).toBe('CLOSED');
+    });
+
+    it('fills the rows with the items it was given', async () => {
+      await setInput('value', EXISTING);
+
+      expect(rows()).toHaveLength(1);
+      expect(field<HTMLSelectElement>('item-0-product').selectedIndex).toBe(1);
+      expect(field<HTMLInputElement>('item-0-quantity').value).toBe('2');
+      expect(field<HTMLInputElement>('item-0-unitPrice').value).toBe('150.5');
+      expect(unitOf(0)).toBe('UN');
+      expect(invoiceTotal()).toBe('R$ 301,00');
     });
 
     it('shows no error over an invoice that is still untouched', async () => {
@@ -215,7 +531,20 @@ describe('InvoiceForm', () => {
       await fill('status', 'OPEN');
       await submit();
 
-      expect(saved).toEqual([{ number: 'NF-0042', status: 'OPEN' }]);
+      expect(saved).toEqual([
+        { number: 'NF-0042', status: 'OPEN', items: [EXISTING_ITEM] }
+      ]);
+    });
+
+    it('keeps the item that was already there when another is added', async () => {
+      await setInput('value', EXISTING);
+      await addValidItem(1, 1, '3');
+      await submit();
+
+      expect(saved[0].items).toEqual([
+        EXISTING_ITEM,
+        expect.objectContaining({ code: 'PRD-0005', quantity: 3 })
+      ]);
     });
 
     it('still blocks the submit when a field was emptied', async () => {
@@ -249,6 +578,7 @@ describe('InvoiceForm', () => {
         'Carregando nota fiscal…'
       );
       expect(element().querySelector('#number')).toBeNull();
+      expect(element().querySelector('.items')).toBeNull();
       expect(submitButton().disabled).toBe(true);
     });
 
@@ -319,6 +649,39 @@ describe('InvoiceForm', () => {
       await setInput('failure', null);
 
       expect(banner()).toBe('');
+    });
+
+    it('shows on the row the error the server pointed at', async () => {
+      await fillValidForm();
+      await addValidItem();
+      await submit();
+      await rejectWith({
+        'items[0].quantity': 'O valor precisa ser maior que zero.'
+      });
+
+      expect(errorOf('item-0-quantity')).toBe('O valor precisa ser maior que zero.');
+      expect(banner()).toBe('');
+    });
+
+    it('points at the row the server named, not at the first one', async () => {
+      await fillValidForm();
+      await addValidItem(0, 0, '2');
+      await addValidItem(1, 1, '3');
+      await submit();
+      await rejectWith({ 'items[1].unitPrice': 'Preço acima do permitido.' });
+
+      expect(errorOf('item-0-unitPrice')).toBe('');
+      expect(errorOf('item-1-unitPrice')).toBe('Preço acima do permitido.');
+    });
+
+    it('shows a general warning when the row the server named is gone', async () => {
+      await fillValidForm();
+      await addValidItem();
+      await submit();
+      await rejectWith({ 'items[3].quantity': 'Valor inválido.' }, 'Dados inválidos.');
+
+      expect(banner()).toBe('Dados inválidos.');
+      expect(errors()).toEqual([]);
     });
   });
 });
