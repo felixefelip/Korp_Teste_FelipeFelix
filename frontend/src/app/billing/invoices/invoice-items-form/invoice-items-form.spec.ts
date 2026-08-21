@@ -6,7 +6,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { Product } from '../../../inventory/products/product.model';
 import { InvoiceItem } from '../invoice.model';
-import { InvoiceItems, ItemGroup, newItemArray } from './invoice-items';
+import { InvoiceItemsForm, ItemGroup, newItemArray } from './invoice-items-form';
 
 registerLocaleData(localePt, 'pt-BR');
 
@@ -41,8 +41,8 @@ const EXISTING_ITEM: InvoiceItem = {
   total: 301
 };
 
-describe('InvoiceItems', () => {
-  let fixture: ComponentFixture<InvoiceItems>;
+describe('InvoiceItemsForm', () => {
+  let fixture: ComponentFixture<InvoiceItemsForm>;
   let items: FormArray<ItemGroup>;
 
   const element = () => fixture.nativeElement as HTMLElement;
@@ -108,13 +108,13 @@ describe('InvoiceItems', () => {
     TestBed.resetTestingModule();
 
     await TestBed.configureTestingModule({
-      imports: [InvoiceItems],
+      imports: [InvoiceItemsForm],
       providers: [{ provide: LOCALE_ID, useValue: 'pt-BR' }]
     }).compileComponents();
 
     items = given;
 
-    fixture = TestBed.createComponent(InvoiceItems);
+    fixture = TestBed.createComponent(InvoiceItemsForm);
     fixture.componentRef.setInput('items', items);
     fixture.componentRef.setInput('products', PRODUCTS);
     await fixture.whenStable();

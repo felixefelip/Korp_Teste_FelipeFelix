@@ -48,12 +48,12 @@ export function newItemArray(items: InvoiceItem[] = []): FormArray<ItemGroup> {
 }
 
 @Component({
-  selector: 'app-invoice-items',
+  selector: 'app-invoice-items-form',
   imports: [CurrencyPipe, ReactiveFormsModule],
-  templateUrl: './invoice-items.html',
-  styleUrl: './invoice-items.scss'
+  templateUrl: './invoice-items-form.html',
+  styleUrl: './invoice-items-form.scss'
 })
-export class InvoiceItems {
+export class InvoiceItemsForm {
   readonly items = input.required<FormArray<ItemGroup>>();
   readonly products = input<Product[]>([]);
   readonly productsFailed = input(false);
