@@ -5,4 +5,5 @@ type InvoiceRepository interface {
 	GetInvoiceByID(id int) (Invoice, error)
 	CreateInvoice(invoice Invoice) (int, error)
 	UpdateInvoice(invoice Invoice) error
+	DeleteInvoice(id int) error
 }

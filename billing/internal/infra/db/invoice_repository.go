@@ -80,13 +80,35 @@ func (ir *InvoiceRepository) UpdateInvoice(invoice model.Invoice) error {
 			return err
 		}
 
-		err := tx.Where("invoice_id = ?", invoice.ID).Delete(&model.InvoiceItem{}).Error
-		if err != nil {
+		if err := deleteInvoiceItemsByInvoiceID(tx, invoice.ID); err != nil {
 			return err
 		}
 
 		return saveItems(tx, invoice.ID, invoice.Items, stored.Type)
 	})
+}
+
+func (ir *InvoiceRepository) DeleteInvoice(id int) error {
+	return ir.connection.Transaction(func(tx *gorm.DB) error {
+		if err := deleteInvoiceItemsByInvoiceID(tx, id); err != nil {
+			return err
+		}
+
+		result := tx.Delete(&model.Invoice{}, id)
+		if result.Error != nil {
+			return result.Error
+		}
+
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+
+		return nil
+	})
+}
+
+func deleteInvoiceItemsByInvoiceID(tx *gorm.DB, invoiceID int) error {
+	return tx.Where("invoice_id = ?", invoiceID).Delete(&model.InvoiceItem{}).Error
 }
 
 func withItems(connection *gorm.DB) *gorm.DB {

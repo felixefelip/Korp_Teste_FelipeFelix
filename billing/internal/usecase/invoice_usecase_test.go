@@ -19,6 +19,7 @@ type fakeRepository struct {
 
 	receivedID      int
 	receivedInvoice model.Invoice
+	deletedID       int
 	calls           int
 }
 
@@ -42,6 +43,12 @@ func (f *fakeRepository) CreateInvoice(invoice model.Invoice) (int, error) {
 func (f *fakeRepository) UpdateInvoice(invoice model.Invoice) error {
 	f.calls++
 	f.receivedInvoice = invoice
+	return f.err
+}
+
+func (f *fakeRepository) DeleteInvoice(id int) error {
+	f.calls++
+	f.deletedID = id
 	return f.err
 }
 
@@ -170,4 +177,39 @@ func TestUpdateInvoicePropagatesTheRepositoryError(t *testing.T) {
 
 	require.ErrorIs(t, err, errRepository)
 	assert.Zero(t, updated, "on failure nothing partially filled should leak out")
+}
+
+func TestDeleteInvoiceRemovesAnOpenOne(t *testing.T) {
+	repository := &fakeRepository{
+		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen},
+	}
+	invoiceUsecase := newUsecase(repository)
+
+	err := invoiceUsecase.DeleteInvoice(7)
+
+	require.NoError(t, err)
+	assert.Equal(t, 7, repository.deletedID)
+}
+
+func TestDeleteInvoiceRefusesAClosedOne(t *testing.T) {
+	repository := &fakeRepository{
+		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusClosed},
+	}
+	invoiceUsecase := newUsecase(repository)
+
+	err := invoiceUsecase.DeleteInvoice(7)
+
+	require.ErrorIs(t, err, model.ErrInvoiceClosed)
+	assert.Zero(t, repository.deletedID, "it stops at the read, without deleting")
+	assert.Equal(t, 1, repository.calls)
+}
+
+func TestDeleteInvoiceWhenMissingPropagatesTheError(t *testing.T) {
+	repository := &fakeRepository{err: errRepository}
+	invoiceUsecase := newUsecase(repository)
+
+	err := invoiceUsecase.DeleteInvoice(7)
+
+	require.ErrorIs(t, err, errRepository)
+	assert.Zero(t, repository.deletedID)
 }

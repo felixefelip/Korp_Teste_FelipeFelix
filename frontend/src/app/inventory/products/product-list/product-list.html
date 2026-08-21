@@ -81,37 +81,13 @@
 </section>
 
 @if (pendingDeletion(); as product) {
-  <div class="overlay" (click)="cancelDeletion()">
-    <div
-      class="confirm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-title"
-      (click)="$event.stopPropagation()"
-    >
-      <h2 class="confirm__title" id="confirm-title">Excluir produto</h2>
-      <p class="confirm__body">
-        O produto <strong>{{ product.code }} &middot; {{ product.name }}</strong>
-        e todas as suas movimentações serão apagados.
-      </p>
-      <footer class="confirm__actions">
-        <button
-          type="button"
-          class="btn btn--ghost"
-          [disabled]="deleting()"
-          (click)="cancelDeletion()"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          class="btn btn--danger"
-          [disabled]="deleting()"
-          (click)="confirmDeletion()"
-        >
-          {{ deleting() ? 'Excluindo…' : 'Excluir' }}
-        </button>
-      </footer>
-    </div>
-  </div>
+  <app-confirm-dialog
+    title="Excluir produto"
+    [busy]="deleting()"
+    (confirmed)="confirmDeletion()"
+    (cancelled)="cancelDeletion()"
+  >
+    O produto <strong>{{ product.code }} &middot; {{ product.name }}</strong>
+    e todas as suas movimentações serão apagados.
+  </app-confirm-dialog>
 }

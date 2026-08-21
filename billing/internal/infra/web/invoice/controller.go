@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"billing/internal/infra/web/apierr"
+	"billing/internal/model"
 	"billing/internal/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -104,4 +105,31 @@ func (i *Controller) CreateInvoice(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusCreated, newResponse(insertedInvoice))
+}
+
+func (i *Controller) DeleteInvoice(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "o id da nota fiscal precisa ser um numero inteiro"})
+		return
+	}
+
+	if err := i.invoiceUsecase.DeleteInvoice(id); err != nil {
+		if errors.Is(err, model.ErrInvoiceClosed) {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"message": "Notas fiscais fechadas não podem ser excluídas.",
+			})
+			return
+		}
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"message": "nota fiscal nao encontrada"})
+			return
+		}
+
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao excluir a nota fiscal"})
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
 }
