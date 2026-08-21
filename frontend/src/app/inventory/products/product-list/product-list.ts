@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
+import { ConfirmDialog } from '../../../shared/confirm-dialog/confirm-dialog';
 import { FlashService } from '../../../shared/flash/flash.service';
 import { MenuButton, MenuItem } from '../../../shared/menu-button/menu-button';
 import { Product } from '../product.model';
@@ -11,7 +12,7 @@ const DELETE_FAILURE = 'Não foi possível excluir o produto. Tente novamente.';
 
 @Component({
   selector: 'app-product-list',
-  imports: [CurrencyPipe, MenuButton, RouterLink],
+  imports: [ConfirmDialog, CurrencyPipe, MenuButton, RouterLink],
   templateUrl: './product-list.html',
   styleUrl: './product-list.scss'
 })

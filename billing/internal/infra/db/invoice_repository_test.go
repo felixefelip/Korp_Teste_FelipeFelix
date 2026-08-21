@@ -486,3 +486,70 @@ func TestUpdateInvoiceKeepsUsingTheStoredTypeForTheReplicaPrice(t *testing.T) {
 	assert.Equal(t, 45.5, product.Price,
 		"the request carries no type, so the update must read the stored one")
 }
+
+func TestDeleteInvoiceRemovesTheRowAndItsItems(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(invoiceWithItems(
+		itemOf(11, "PRD-0001", "Camiseta", 2, 30.99),
+	))
+	require.NoError(t, err)
+
+	require.NoError(t, repository.DeleteInvoice(id))
+
+	var invoices []model.Invoice
+	require.NoError(t, testConnection.Find(&invoices).Error)
+	assert.Empty(t, invoices)
+
+	var items []model.InvoiceItem
+	require.NoError(t, testConnection.Find(&items).Error)
+	assert.Empty(t, items, "an item without its invoice is an orphan")
+}
+
+func TestDeleteInvoiceKeepsTheProductReplica(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(invoiceWithItems(
+		itemOf(11, "PRD-0001", "Camiseta", 2, 30.99),
+	))
+	require.NoError(t, err)
+
+	require.NoError(t, repository.DeleteInvoice(id))
+
+	var products []model.Product
+	require.NoError(t, testConnection.Find(&products).Error)
+	assert.Len(t, products, 1, "the replica is shared by every invoice")
+}
+
+func TestDeleteInvoiceLeavesTheOtherInvoicesAlone(t *testing.T) {
+	repository := newRepository(t)
+
+	first, err := repository.CreateInvoice(invoiceWithItems(
+		itemOf(11, "PRD-0001", "Camiseta", 2, 30.99),
+	))
+	require.NoError(t, err)
+
+	second, err := repository.CreateInvoice(invoiceWithItems(
+		itemOf(12, "PRD-0002", "Caneca", 1, 19.9),
+	))
+	require.NoError(t, err)
+
+	require.NoError(t, repository.DeleteInvoice(first))
+
+	var invoices []model.Invoice
+	require.NoError(t, testConnection.Find(&invoices).Error)
+	require.Len(t, invoices, 1)
+	assert.Equal(t, second, invoices[0].ID)
+
+	var items []model.InvoiceItem
+	require.NoError(t, testConnection.Find(&items).Error)
+	assert.Len(t, items, 1)
+}
+
+func TestDeleteInvoiceWhenMissingReturnsErrRecordNotFound(t *testing.T) {
+	repository := newRepository(t)
+
+	err := repository.DeleteInvoice(9999)
+
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+}

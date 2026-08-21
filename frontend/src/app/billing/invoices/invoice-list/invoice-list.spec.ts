@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { registerLocaleData } from '@angular/common';
 import localePt from '@angular/common/locales/pt';
 import { LOCALE_ID, signal } from '@angular/core';
@@ -6,6 +7,7 @@ import { provideRouter } from '@angular/router';
 import { Observable, of, tap, throwError } from 'rxjs';
 
 import { Invoice } from '../invoice.model';
+import { FlashService } from '../../../shared/flash/flash.service';
 import { InvoiceService } from '../invoice.service';
 import { InvoiceList } from './invoice-list';
 
@@ -19,6 +21,7 @@ const INVOICES: Invoice[] = [
 
 describe('InvoiceList', () => {
   let fixture: ComponentFixture<InvoiceList>;
+  let flash: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
 
   const text = (el: Element | null | undefined) =>
     (el?.textContent ?? '').replace(/[  ]/g, ' ').trim();
@@ -41,12 +44,22 @@ describe('InvoiceList', () => {
     await fixture.whenStable();
   };
 
-  const mount = async (response: () => Observable<Invoice[]>) => {
+  const mount = async (
+    response: () => Observable<Invoice[]>,
+    remove: () => Observable<void> = () => of(undefined)
+  ) => {
+    TestBed.resetTestingModule();
+
     const invoices = signal<Invoice[]>([]);
+
+    flash = { error: vi.fn(), success: vi.fn() };
 
     const service = {
       invoices,
-      list: vi.fn(() => response().pipe(tap((list) => invoices.set(list))))
+      list: vi.fn(() => response().pipe(tap((list) => invoices.set(list)))),
+      remove: vi.fn((id: number) =>
+        remove().pipe(tap(() => invoices.update((list) => list.filter((i) => i.id !== id))))
+      )
     };
 
     await TestBed.configureTestingModule({
@@ -54,6 +67,7 @@ describe('InvoiceList', () => {
       providers: [
         provideRouter([]),
         { provide: InvoiceService, useValue: service },
+        { provide: FlashService, useValue: flash },
         { provide: LOCALE_ID, useValue: 'pt-BR' }
       ]
     }).compileComponents();
@@ -116,7 +130,7 @@ describe('InvoiceList', () => {
 
     it('offers an edit action per invoice pointing to its form', () => {
       const links = rows().map((row) =>
-        row.querySelector('.table__action')?.getAttribute('href')
+        row.querySelector('.menu-button__action')?.getAttribute('href')
       );
 
       expect(links).toEqual([
@@ -207,6 +221,116 @@ describe('InvoiceList', () => {
       await typeInFilter('');
 
       expect(numbers()).toHaveLength(3);
+    });
+  });
+
+  describe('deleting an invoice', () => {
+    const openMenuOf = async (index: number) => {
+      rows()[index].querySelector<HTMLButtonElement>('.menu-button__toggle')?.click();
+      await fixture.whenStable();
+    };
+
+    const menuLabels = () =>
+      Array.from(element().querySelectorAll('.menu-button__item')).map(text);
+
+    const openDelete = async (index: number) => {
+      await openMenuOf(index);
+
+      Array.from(element().querySelectorAll<HTMLButtonElement>('button.menu-button__item'))
+        .find((item) => text(item) === 'Excluir')!
+        .click();
+      await fixture.whenStable();
+    };
+
+    const dialog = () => element().querySelector('.confirm');
+
+    const dialogButton = (label: string) =>
+      Array.from(element().querySelectorAll<HTMLButtonElement>('.confirm__actions .btn')).find(
+        (button) => text(button).startsWith(label)
+      )!;
+
+    it('offers it on an open invoice', async () => {
+      await mount(() => of(INVOICES));
+      await openMenuOf(0);
+
+      expect(menuLabels()).toEqual(['Excluir']);
+    });
+
+    it('never offers it on a closed invoice', async () => {
+      await mount(() => of(INVOICES));
+      await openMenuOf(1);
+
+      expect(element().querySelector('.menu-button__menu')).toBeNull();
+      expect(rows()[1].querySelector('.menu-button__toggle')).toBeNull();
+    });
+
+    it('asks before deleting anything', async () => {
+      const service = await mount(() => of(INVOICES));
+      await openDelete(0);
+
+      expect(text(dialog())).toContain('NF-0001');
+      expect(service.remove).not.toHaveBeenCalled();
+    });
+
+    it('deletes the invoice that was chosen', async () => {
+      const service = await mount(() => of(INVOICES));
+      await openDelete(0);
+
+      dialogButton('Excluir').click();
+      await fixture.whenStable();
+
+      expect(service.remove).toHaveBeenCalledWith(1);
+      expect(rows()).toHaveLength(2);
+      expect(flash.success).toHaveBeenCalledWith('Nota fiscal NF-0001 excluída.');
+    });
+
+    it('deletes nothing when it is cancelled', async () => {
+      const service = await mount(() => of(INVOICES));
+      await openDelete(0);
+
+      dialogButton('Cancelar').click();
+      await fixture.whenStable();
+
+      expect(service.remove).not.toHaveBeenCalled();
+      expect(rows()).toHaveLength(3);
+    });
+
+    it('shows what the API said when it refuses', async () => {
+      await mount(
+        () => of(INVOICES),
+        () =>
+          throwError(
+            () =>
+              new HttpErrorResponse({
+                status: 409,
+                error: { message: 'Notas fiscais fechadas não podem ser excluídas.' }
+              })
+          )
+      );
+      await openDelete(0);
+
+      dialogButton('Excluir').click();
+      await fixture.whenStable();
+
+      expect(rows()).toHaveLength(3);
+      expect(flash.error).toHaveBeenCalledWith(
+        'Notas fiscais fechadas não podem ser excluídas.'
+      );
+    });
+
+    it('falls back to its own message when the API names none', async () => {
+      await mount(
+        () => of(INVOICES),
+        () => throwError(() => new HttpErrorResponse({ status: 500 }))
+      );
+      await openDelete(0);
+
+      dialogButton('Excluir').click();
+      await fixture.whenStable();
+
+      expect(flash.error).toHaveBeenCalledWith(
+        'Não foi possível excluir a nota fiscal. Tente novamente.'
+      );
     });
   });
 });

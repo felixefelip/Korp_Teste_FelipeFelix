@@ -51,7 +51,8 @@
               </td>
             </tr>
           } @else {
-            @for (invoice of invoices(); track invoice.id) {
+            @for (row of rows(); track row.invoice.id) {
+              @let invoice = row.invoice;
               <tr>
                 <td class="table__code">{{ invoice.number }}</td>
                 <td>{{ typeLabel(invoice.type) }}</td>
@@ -68,12 +69,7 @@
                   {{ invoice.total | currency: 'BRL' : 'symbol' : '1.2-2' }}
                 </td>
                 <td class="table__actions">
-                  <a
-                    class="table__action"
-                    [routerLink]="['/billing/invoices', invoice.id, 'edit']"
-                  >
-                    Editar
-                  </a>
+                  <app-menu-button [items]="row.actions" />
                 </td>
               </tr>
             } @empty {
@@ -89,3 +85,15 @@
     </div>
   </div>
 </section>
+
+@if (pendingDeletion(); as invoice) {
+  <app-confirm-dialog
+    title="Excluir nota fiscal"
+    [busy]="deleting()"
+    (confirmed)="confirmDeletion()"
+    (cancelled)="cancelDeletion()"
+  >
+    A nota fiscal <strong>{{ invoice.number }}</strong> e todos os seus itens
+    serão apagados.
+  </app-confirm-dialog>
+}

@@ -38,3 +38,16 @@ func (iu *InvoiceUsecase) CreateInvoice(invoice model.Invoice) (model.Invoice, e
 
 	return iu.repository.GetInvoiceByID(invoiceId)
 }
+
+func (iu *InvoiceUsecase) DeleteInvoice(id int) error {
+	invoice, err := iu.repository.GetInvoiceByID(id)
+	if err != nil {
+		return err
+	}
+
+	if invoice.Closed() {
+		return model.ErrInvoiceClosed
+	}
+
+	return iu.repository.DeleteInvoice(id)
+}

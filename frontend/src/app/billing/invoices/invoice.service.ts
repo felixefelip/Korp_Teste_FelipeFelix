@@ -39,4 +39,14 @@ export class InvoiceService {
       )
     );
   }
+
+  remove(id: number): Observable<void> {
+    return this.http
+      .delete<void>(`${RESOURCE}/${id}`)
+      .pipe(
+        tap(() =>
+          this._invoices.update((invoices) => invoices.filter((invoice) => invoice.id !== id))
+        )
+      );
+  }
 }

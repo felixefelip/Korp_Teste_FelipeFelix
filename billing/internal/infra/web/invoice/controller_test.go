@@ -897,3 +897,75 @@ func TestInboundInvoiceStillRefreshesTheRestOfTheReplica(t *testing.T) {
 	assert.Equal(t, "Camiseta polo", replica.Name)
 	assert.Equal(t, "CX", replica.Unit)
 }
+
+func TestDeleteInvoiceReturns204AndRemovesIt(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	response := webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "")
+
+	require.Equal(t, http.StatusNoContent, response.Code)
+	assert.Empty(t, response.Body.String(), "204 carries no body")
+
+	assert.Equal(t, http.StatusNotFound,
+		webtest.Get(t, server, fmt.Sprintf("/invoices/%d", id)).Code)
+}
+
+func TestDeleteInvoiceRemovesItsItems(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, invoiceWithItems)
+
+	require.Equal(t, http.StatusNoContent,
+		webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "").Code)
+
+	var items []model.InvoiceItem
+	require.NoError(t, testConnection.Find(&items).Error)
+	assert.Empty(t, items)
+}
+
+func TestDeleteAClosedInvoiceReturns409(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, `{"number":"NF-0002","type":"OUT","status":"CLOSED"}`)
+
+	response := webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "")
+
+	require.Equal(t, http.StatusConflict, response.Code)
+	assert.Contains(t, response.Body.String(), "fechadas")
+}
+
+func TestDeleteAClosedInvoiceKeepsItStored(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, `{"number":"NF-0002","type":"OUT","status":"CLOSED"}`)
+
+	require.Equal(t, http.StatusConflict,
+		webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "").Code)
+
+	assert.Equal(t, http.StatusOK, webtest.Get(t, server, fmt.Sprintf("/invoices/%d", id)).Code)
+}
+
+func TestDeleteAnInvoiceReopenedFirstIsAllowed(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, `{"number":"NF-0002","type":"OUT","status":"CLOSED"}`)
+
+	require.Equal(t, http.StatusOK, webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
+		`{"number":"NF-0002","status":"OPEN"}`).Code)
+
+	assert.Equal(t, http.StatusNoContent,
+		webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "").Code)
+}
+
+func TestDeleteInvoiceWhenMissingReturns404(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Do(t, server, http.MethodDelete, "/invoices/9999", "")
+
+	assert.Equal(t, http.StatusNotFound, response.Code)
+}
+
+func TestDeleteInvoiceWithANonNumericIDReturns400(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Do(t, server, http.MethodDelete, "/invoices/abc", "")
+
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+}

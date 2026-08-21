@@ -1,9 +1,16 @@
 package model
 
+import "errors"
+
 const (
 	InvoiceTypeIn  = "IN"
 	InvoiceTypeOut = "OUT"
+
+	InvoiceStatusOpen   = "OPEN"
+	InvoiceStatusClosed = "CLOSED"
 )
+
+var ErrInvoiceClosed = errors.New("closed invoice")
 
 type Invoice struct {
 	ID     int           `json:"id"     gorm:"primaryKey"`
@@ -11,6 +18,10 @@ type Invoice struct {
 	Type   string        `json:"type"   gorm:"type:varchar(3);not null;default:'OUT'"`
 	Status string        `json:"status" gorm:"type:varchar(10);not null"`
 	Items  []InvoiceItem `json:"items"  gorm:"foreignKey:InvoiceID"`
+}
+
+func (i Invoice) Closed() bool {
+	return i.Status == InvoiceStatusClosed
 }
 
 func (i Invoice) MovesStockOut() bool {
