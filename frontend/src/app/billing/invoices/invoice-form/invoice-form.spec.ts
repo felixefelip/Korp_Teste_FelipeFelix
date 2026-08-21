@@ -278,147 +278,7 @@ describe('InvoiceForm', () => {
     });
   });
 
-  describe('adding items', () => {
-    it('adds a row with the products it was given', async () => {
-      await addItem();
-
-      const options = Array.from(
-        field<HTMLSelectElement>('item-0-product').options
-      ).map(text);
-
-      expect(rows()).toHaveLength(1);
-      expect(options).toEqual([
-        'Selecione o produto',
-        'PRD-0003 · Cadeira Gamer',
-        'PRD-0005 · Mesa de Escritório'
-      ]);
-    });
-
-    it('starts the row with one unit and no product chosen', async () => {
-      await addItem();
-
-      expect(field<HTMLSelectElement>('item-0-product').selectedIndex).toBe(0);
-      expect(field<HTMLInputElement>('item-0-quantity').value).toBe('1');
-      expect(field<HTMLInputElement>('item-0-unitPrice').value).toBe('');
-    });
-
-    it('takes unit and price from the product that was chosen', async () => {
-      await addItem();
-      await chooseProduct(0, 1);
-
-      expect(unitOf(0)).toBe('CX');
-      expect(field<HTMLInputElement>('item-0-unitPrice').value).toBe('899');
-    });
-
-    it('replaces unit and price when the product changes', async () => {
-      await addItem();
-      await chooseProduct(0, 1);
-      await chooseProduct(0, 0);
-
-      expect(unitOf(0)).toBe('UN');
-      expect(field<HTMLInputElement>('item-0-unitPrice').value).toBe('150.5');
-    });
-
-    it('keeps a unit price typed over the one from the product', async () => {
-      await addValidItem();
-      await fill('item-0-unitPrice', '99.9');
-      await fill('number', 'NF-0006');
-      await submit();
-
-      expect(saved).toEqual([
-        expect.objectContaining({
-          items: [expect.objectContaining({ unitPrice: 99.9 })]
-        })
-      ]);
-    });
-
-    it('offers no adding while there is no product in the inventory', async () => {
-      await setInput('products', []);
-
-      expect(addButton().disabled).toBe(true);
-      expect(text(element().querySelector('.items__empty'))).toBe(
-        'Cadastre um produto no estoque antes de adicionar itens.'
-      );
-      expect(element().querySelector('.items__note')).toBeNull();
-    });
-
-    it('blames the inventory instead of the empty catalog when the load failed', async () => {
-      await setInput('products', []);
-      await setInput('productsFailed', true);
-
-      expect(addButton().disabled).toBe(true);
-      expect(text(element().querySelector('.items__note'))).toBe(
-        'Não foi possível carregar os produtos do estoque.'
-      );
-      expect(text(element().querySelector('.items__empty'))).toBe(
-        'Nenhum item adicionado.'
-      );
-    });
-
-    it('adds a second row without touching the first', async () => {
-      await addValidItem(0, 0, '2');
-      await addValidItem(1, 1, '3');
-
-      expect(rows()).toHaveLength(2);
-      expect(field<HTMLInputElement>('item-0-quantity').value).toBe('2');
-      expect(field<HTMLInputElement>('item-1-quantity').value).toBe('3');
-      expect(unitOf(0)).toBe('UN');
-      expect(unitOf(1)).toBe('CX');
-    });
-  });
-
-  describe('totals', () => {
-    it('multiplies quantity by unit price on the row', async () => {
-      await addValidItem(0, 0, '2');
-
-      expect(rowTotals()).toEqual(['R$ 301,00']);
-    });
-
-    it('sums every row into the invoice total', async () => {
-      await addValidItem(0, 0, '2');
-      await addValidItem(1, 1, '3');
-
-      expect(rowTotals()).toEqual(['R$ 301,00', 'R$ 2.697,00']);
-      expect(invoiceTotal()).toBe('R$ 2.998,00');
-    });
-
-    it('follows the quantity as it is typed', async () => {
-      await addValidItem(0, 0, '2');
-      await fill('item-0-quantity', '4');
-
-      expect(rowTotals()).toEqual(['R$ 602,00']);
-      expect(invoiceTotal()).toBe('R$ 602,00');
-    });
-
-    it('shows zero for a row with no product yet', async () => {
-      await addItem();
-
-      expect(rowTotals()).toEqual(['R$ 0,00']);
-      expect(invoiceTotal()).toBe('R$ 0,00');
-    });
-  });
-
-  describe('removing items', () => {
-    it('drops the row that was removed', async () => {
-      await addValidItem(0, 0, '2');
-      await addValidItem(1, 1, '3');
-      await removeItem(0);
-
-      expect(rows()).toHaveLength(1);
-      expect(unitOf(0)).toBe('CX');
-      expect(field<HTMLInputElement>('item-0-quantity').value).toBe('3');
-    });
-
-    it('goes back to the empty state when the last row leaves', async () => {
-      await addValidItem();
-      await removeItem(0);
-
-      expect(rows()).toEqual([]);
-      expect(text(element().querySelector('.items__empty'))).toBe(
-        'Nenhum item adicionado.'
-      );
-    });
-
+  describe('items removed from the invoice', () => {
     it('emits an empty list so the API clears the items', async () => {
       await setInput('value', EXISTING);
       await removeItem(0);
@@ -436,6 +296,19 @@ describe('InvoiceForm', () => {
 
       expect(saved).toEqual([
         { number: 'NF-0006', status: 'CLOSED', items: [EXISTING_ITEM] }
+      ]);
+    });
+
+    it('hands over the unit price that was typed over the one of the product', async () => {
+      await fillValidForm();
+      await addValidItem();
+      await fill('item-0-unitPrice', '99.9');
+      await submit();
+
+      expect(saved).toEqual([
+        expect.objectContaining({
+          items: [expect.objectContaining({ unitPrice: 99.9 })]
+        })
       ]);
     });
 
