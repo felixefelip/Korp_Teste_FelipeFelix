@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { Product } from '../../../inventory/products/product.model';
 import { CustomFormValidation } from '../../../shared/forms/custom-form-validation';
 import { ApiFailure } from '../../../shared/forms/http-errors';
-import { InvoiceItems, newItemArray } from '../invoice-items/invoice-items';
+import { InvoiceItemsForm, newItemArray } from '../invoice-items-form/invoice-items-form';
 import {
   INVOICE_STATUSES,
   INVOICE_STATUS_LABELS,
@@ -18,7 +18,7 @@ export const SAVE_FAILURE = 'Não foi possível salvar a nota fiscal. Tente nova
 
 @Component({
   selector: 'app-invoice-form',
-  imports: [InvoiceItems, ReactiveFormsModule, RouterLink],
+  imports: [InvoiceItemsForm, ReactiveFormsModule, RouterLink],
   templateUrl: './invoice-form.html',
   styleUrl: './invoice-form.scss'
 })
