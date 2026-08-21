@@ -144,16 +144,21 @@ describe('InvoiceList', () => {
       );
     });
 
-    it('offers an edit action per invoice pointing to its form', () => {
+    it('offers an edit action on each open invoice, pointing to its form', () => {
       const links = rows().map((row) =>
         row.querySelector('.menu-button__action')?.getAttribute('href')
       );
 
       expect(links).toEqual([
         '/billing/invoices/1/edit',
-        '/billing/invoices/2/edit',
+        null,
         '/billing/invoices/3/edit'
       ]);
+    });
+
+    it('never offers to edit a closed invoice', () => {
+      expect(text(rows()[1].querySelector('.menu-button__action'))).toBe('Reabrir');
+      expect(rows()[1].querySelector('.menu-button__toggle')).toBeNull();
     });
 
     it('offers the create action pointing to the form', () => {
@@ -274,9 +279,9 @@ describe('InvoiceList', () => {
 
     it('never offers it on a closed invoice', async () => {
       await mount(() => of(INVOICES));
-      await openMenuOf(1);
 
-      expect(menuLabels()).toEqual(['Reabrir']);
+      expect(text(rows()[1].querySelector('.menu-button__action'))).toBe('Reabrir');
+      expect(rows()[1].querySelector('.menu-button__toggle')).toBeNull();
     });
 
     it('asks before deleting anything', async () => {
@@ -401,16 +406,15 @@ describe('InvoiceList', () => {
       expect(cells(rows()[0])[2]).toBe('Fechada');
     });
 
-    it('leaves the row offering to reopen afterwards', async () => {
+    it('leaves the row offering nothing but to reopen afterwards', async () => {
       await mount(() => of(INVOICES));
       await openPrint(0);
 
       dialogButton('Imprimir').click();
       await fixture.whenStable();
 
-      await openMenuOf(0);
-
-      expect(menuLabels()).toEqual(['Reabrir']);
+      expect(text(rows()[0].querySelector('.menu-button__action'))).toBe('Reabrir');
+      expect(rows()[0].querySelector('.menu-button__toggle')).toBeNull();
     });
 
     it('closes nothing when it is cancelled', async () => {
@@ -470,11 +474,7 @@ describe('InvoiceList', () => {
     };
 
     const chooseReopen = async (index: number) => {
-      await openMenuOf(index);
-
-      Array.from(element().querySelectorAll<HTMLButtonElement>('button.menu-button__item'))
-        .find((item) => text(item) === 'Reabrir')!
-        .click();
+      rows()[index].querySelector<HTMLButtonElement>('.menu-button__action')!.click();
       await fixture.whenStable();
     };
 
@@ -505,6 +505,8 @@ describe('InvoiceList', () => {
     it('gives the row its full menu back', async () => {
       await mount(() => of(INVOICES));
       await chooseReopen(1);
+
+      expect(text(rows()[1].querySelector('.menu-button__action'))).toBe('Editar');
 
       await openMenuOf(1);
 

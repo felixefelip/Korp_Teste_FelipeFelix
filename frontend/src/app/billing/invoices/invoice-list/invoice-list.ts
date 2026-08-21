@@ -61,18 +61,15 @@ export class InvoiceList {
   }
 
   private actionsFor(invoice: Invoice): MenuItem[] {
-    const actions: MenuItem[] = [
-      { label: 'Editar', link: ['/billing/invoices', invoice.id, 'edit'] }
-    ];
-
     if (this.closed(invoice)) {
-      actions.push({ label: 'Reabrir', action: () => this.reopen(invoice) });
-    } else {
-      actions.push({ label: 'Imprimir', action: () => this.askToPrint(invoice) });
-      actions.push({ label: 'Excluir', action: () => this.askToDelete(invoice) });
+      return [{ label: 'Reabrir', action: () => this.reopen(invoice) }];
     }
 
-    return actions;
+    return [
+      { label: 'Editar', link: ['/billing/invoices', invoice.id, 'edit'] },
+      { label: 'Imprimir', action: () => this.askToPrint(invoice) },
+      { label: 'Excluir', action: () => this.askToDelete(invoice) }
+    ];
   }
 
   private closed(invoice: Invoice): boolean {

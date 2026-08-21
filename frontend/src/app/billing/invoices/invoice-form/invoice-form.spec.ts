@@ -391,8 +391,8 @@ describe('InvoiceForm', () => {
       await setInput('value', EXISTING);
 
       expect(field<HTMLInputElement>('number').value).toBe('NF-0007');
-      expect(text(element().querySelector('.field-static'))).toBe('Fechada');
       expect(field<HTMLSelectElement>('type').value).toBe('OUT');
+      expect(element().querySelector('#status')).toBeNull();
     });
 
     it('fills the rows with the items it was given', async () => {

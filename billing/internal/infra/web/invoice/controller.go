@@ -74,6 +74,13 @@ func (i *Controller) UpdateInvoice(ctx *gin.Context) {
 
 	updatedInvoice, err := i.invoiceUsecase.UpdateInvoice(request.toModel(id))
 	if err != nil {
+		if errors.Is(err, model.ErrInvoiceClosed) {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"message": "Notas fiscais fechadas não podem ser alteradas.",
+			})
+			return
+		}
+
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.JSON(http.StatusNotFound, gin.H{"message": "nota fiscal nao encontrada"})
 			return

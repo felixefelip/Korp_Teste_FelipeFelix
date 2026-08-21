@@ -1098,3 +1098,42 @@ func TestCreateInvoiceAlwaysStartsOpen(t *testing.T) {
 	require.Len(t, saved, 1)
 	assert.Equal(t, model.InvoiceStatusOpen, saved[0].Status)
 }
+
+func TestUpdateAClosedInvoiceReturns409(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), updatedInvoice)
+
+	require.Equal(t, http.StatusConflict, response.Code)
+	assert.Contains(t, response.Body.String(), "alteradas")
+}
+
+func TestUpdateAClosedInvoiceKeepsItAsItWas(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, invoiceWithItems)
+
+	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+
+	require.Equal(t, http.StatusConflict,
+		webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
+			`{"number":"NF-9999","items":[]}`).Code)
+
+	invoice := decodeInvoice(t, webtest.Get(t, server, fmt.Sprintf("/invoices/%d", id)).Body.Bytes())
+
+	assert.Equal(t, "NF-0001", invoice.Number)
+	assert.Len(t, invoice.Items, 2, "a refused update must not have erased the items")
+}
+
+func TestAReopenedInvoiceCanBeUpdatedAgain(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+	require.Equal(t, http.StatusOK, reopenInvoice(t, server, id).Code)
+
+	assert.Equal(t, http.StatusOK,
+		webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), updatedInvoice).Code)
+}

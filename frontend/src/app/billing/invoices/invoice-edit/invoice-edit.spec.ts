@@ -156,13 +156,13 @@ describe('InvoiceEdit', () => {
       expect(field<HTMLInputElement>('number').value).toBe('NF-0007');
     });
 
-    it('shows the direction and the status without letting them be changed', () => {
+    it('shows the direction without letting it be changed, and no status at all', () => {
       expect(element().querySelector('select#type')).toBeNull();
-      expect(element().querySelector('select#status')).toBeNull();
+      expect(element().querySelector('#status')).toBeNull();
 
       expect(
         Array.from(element().querySelectorAll('.field-static')).map(text)
-      ).toEqual(['Saída', 'Aberta']);
+      ).toEqual(['Saída']);
     });
 
     it('announces that it is editing, not creating', () => {
@@ -406,6 +406,28 @@ describe('InvoiceEdit', () => {
 
       expect(service.update).not.toHaveBeenCalled();
       expect(service.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('a closed invoice reached by its url', () => {
+    beforeEach(async () => {
+      await mount(() => of({ ...EXISTING, status: 'CLOSED' as const }));
+    });
+
+    it('never shows the fields', () => {
+      expect(element().querySelector('#number')).toBeNull();
+      expect(element().querySelector('#type')).toBeNull();
+    });
+
+    it('says why and goes back to the listing', () => {
+      expect(flash.error).toHaveBeenCalledWith(
+        'Notas fiscais fechadas não podem ser alteradas.'
+      );
+      expect(navigate).toHaveBeenCalledWith(['/billing/invoices']);
+    });
+
+    it('never saves anything', () => {
+      expect(service.update).not.toHaveBeenCalled();
     });
   });
 });
