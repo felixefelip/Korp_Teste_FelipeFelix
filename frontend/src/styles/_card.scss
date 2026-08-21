@@ -1,0 +1,13 @@
+/* Card styles */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.card__filter {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}

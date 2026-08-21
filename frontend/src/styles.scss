@@ -1,7 +1,11 @@
 /* Global styles and ERP design tokens */
 
 @use 'styles/button';
+@use 'styles/card';
 @use 'styles/field';
+@use 'styles/form';
+@use 'styles/page';
+@use 'styles/table';
 
 :root {
   --brand-900: #0b2545;

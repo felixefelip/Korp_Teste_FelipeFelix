@@ -1,0 +1,76 @@
+/* Listing table styles */
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.table thead th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-700);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.table tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-700);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover td {
+  background: var(--surface-alt);
+}
+
+.table__code {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-900);
+  font-weight: 600;
+}
+
+.table__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.table__actions {
+  text-align: right;
+}
+
+.table__action {
+  color: var(--brand-500);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.table__action:hover {
+  text-decoration: underline;
+}
+
+.table__empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-500);
+}
+
+.table__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}

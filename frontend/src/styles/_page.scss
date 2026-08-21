@@ -1,0 +1,30 @@
+/* Page header styles */
+
+.page__header {
+  margin-bottom: 1.5rem;
+}
+
+.page__header--split {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.page__title {
+  font-size: 1.5rem;
+  color: var(--brand-900);
+}
+
+.page__subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--text-500);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 640px) {
+  .page__header--split {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
