@@ -50,7 +50,7 @@ func (pr *ProductRepository) CreateProduct(product model.Product) (int, error) {
 func (pr *ProductRepository) UpdateProduct(product model.Product) error {
 	result := pr.connection.
 		Model(&model.Product{ID: product.ID}).
-		Select("code", "name", "unit", "price", "stock").
+		Select("code", "name", "unit", "price").
 		Updates(product)
 	if result.Error != nil {
 		return result.Error
