@@ -1,14 +1,37 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { Observable, Subject, of, throwError } from 'rxjs';
+import { Observable, Subject, of, tap, throwError } from 'rxjs';
 
+import { Product } from '../../../inventory/products/product.model';
+import { ProductService } from '../../../inventory/products/product.service';
 import { FlashService } from '../../../shared/flash/flash.service';
-import { Invoice } from '../invoice.model';
+import { Invoice, InvoiceItemPayload, InvoicePayload } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 import { InvoiceEdit } from './invoice-edit';
 
-const EXISTING: Invoice = { id: 7, number: 'NF-0007', status: 'OPEN' };
+const PRODUCTS: Product[] = [
+  { id: 3, code: 'PRD-0003', name: 'Cadeira Gamer', unit: 'UN', price: 150.5, stock: 10 },
+  { id: 5, code: 'PRD-0005', name: 'Mesa de Escritório', unit: 'CX', price: 899, stock: 4 }
+];
+
+const EXISTING_ITEM: InvoiceItemPayload = {
+  inventoryId: 3,
+  code: 'PRD-0003',
+  name: 'Cadeira Gamer',
+  unit: 'UN',
+  quantity: 2,
+  unitPrice: 150.5
+};
+
+const EXISTING: Invoice = {
+  id: 7,
+  number: 'NF-0007',
+  status: 'OPEN',
+  total: 301,
+  items: [{ ...EXISTING_ITEM, id: 1, productId: 11, total: 301 }]
+};
 
 describe('InvoiceEdit', () => {
   let fixture: ComponentFixture<InvoiceEdit>;
@@ -17,6 +40,7 @@ describe('InvoiceEdit', () => {
     get: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
+  let productService: { products: ReturnType<typeof signal<Product[]>>; list: ReturnType<typeof vi.fn> };
   let navigate: ReturnType<typeof vi.spyOn>;
   let flash: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
 
@@ -55,17 +79,40 @@ describe('InvoiceEdit', () => {
   const submitButton = () =>
     element().querySelector<HTMLButtonElement>('button[type="submit"]')!;
 
+  const rows = () => Array.from(element().querySelectorAll('.items__table tbody tr'));
+
+  const addItem = async () => {
+    element().querySelector<HTMLButtonElement>('.items__header button')!.click();
+    await fixture.whenStable();
+  };
+
+  const chooseProduct = async (row: number, productIndex: number) => {
+    const select = field<HTMLSelectElement>(`item-${row}-product`);
+    select.selectedIndex = productIndex + 1;
+    select.dispatchEvent(new Event('change'));
+    select.dispatchEvent(new Event('blur'));
+    await fixture.whenStable();
+  };
+
   const mount = async (
     load: () => Observable<Invoice> = () => of(EXISTING),
-    id = '7'
+    id = '7',
+    loadProducts: () => Observable<Product[]> = () => of(PRODUCTS)
   ) => {
     TestBed.resetTestingModule();
 
     service = {
       create: vi.fn(),
       get: vi.fn(load),
-      update: vi.fn((invoiceId: number, data: Omit<Invoice, 'id'>) =>
-        of({ ...data, id: invoiceId })
+      update: vi.fn((invoiceId: number, data: InvoicePayload) =>
+        of({ ...data, id: invoiceId, total: 0 })
+      )
+    };
+
+    productService = {
+      products: signal<Product[]>([]),
+      list: vi.fn(() =>
+        loadProducts().pipe(tap((products) => productService.products.set(products)))
       )
     };
 
@@ -76,6 +123,7 @@ describe('InvoiceEdit', () => {
       providers: [
         provideRouter([]),
         { provide: InvoiceService, useValue: service },
+        { provide: ProductService, useValue: productService },
         { provide: FlashService, useValue: flash },
         {
           provide: ActivatedRoute,
@@ -140,7 +188,8 @@ describe('InvoiceEdit', () => {
 
       expect(service.update).toHaveBeenCalledWith(7, {
         number: 'NF-0042',
-        status: 'CLOSED'
+        status: 'CLOSED',
+        items: [EXISTING_ITEM]
       });
     });
 
@@ -207,6 +256,82 @@ describe('InvoiceEdit', () => {
 
       expect(failure()).toBe('Não foi possível salvar a nota fiscal. Tente novamente.');
       expect(navigate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('items of the invoice', () => {
+    it('shows the item that came with the invoice', () => {
+      expect(rows()).toHaveLength(1);
+      expect(field<HTMLSelectElement>('item-0-product').selectedIndex).toBe(1);
+      expect(field<HTMLInputElement>('item-0-quantity').value).toBe('2');
+    });
+
+    it('asks the inventory for the products it can offer', () => {
+      expect(productService.list).toHaveBeenCalledTimes(1);
+    });
+
+    it('sends the item that was added on top of the existing one', async () => {
+      await addItem();
+      await chooseProduct(1, 1);
+      await fill('item-1-quantity', '3');
+      await submit();
+
+      expect(service.update).toHaveBeenCalledWith(7, {
+        number: 'NF-0007',
+        status: 'OPEN',
+        items: [
+          EXISTING_ITEM,
+          {
+            inventoryId: 5,
+            code: 'PRD-0005',
+            name: 'Mesa de Escritório',
+            unit: 'CX',
+            quantity: 3,
+            unitPrice: 899
+          }
+        ]
+      });
+    });
+
+    it('sends an empty list when every item was removed', async () => {
+      element().querySelector<HTMLButtonElement>('.items__remove')!.click();
+      await fixture.whenStable();
+      await submit();
+
+      expect(service.update).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ items: [] })
+      );
+    });
+
+    it('shows on the row the error the server pointed at', async () => {
+      service.update.mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 400,
+              error: { errors: { 'items[0].quantity': 'O valor precisa ser maior que zero.' } }
+            })
+        )
+      );
+
+      await submit();
+
+      expect(errorOf('item-0-quantity')).toBe('O valor precisa ser maior que zero.');
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('warns when the inventory cannot be reached', async () => {
+      await mount(undefined, '7', () =>
+        throwError(() => new HttpErrorResponse({ status: 500 }))
+      );
+
+      expect(flash.error).toHaveBeenCalledWith(
+        'Não foi possível carregar os produtos. Tente novamente.'
+      );
+      expect(text(element().querySelector('.items__note'))).toBe(
+        'Não foi possível carregar os produtos do estoque.'
+      );
     });
   });
 

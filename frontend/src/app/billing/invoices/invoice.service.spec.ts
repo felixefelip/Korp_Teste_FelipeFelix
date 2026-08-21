@@ -5,18 +5,33 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { Invoice } from './invoice.model';
+import { Invoice, InvoicePayload } from './invoice.model';
 import { InvoiceService } from './invoice.service';
 
 describe('InvoiceService', () => {
   let service: InvoiceService;
   let http: HttpTestingController;
 
-  const newInvoice: Omit<Invoice, 'id'> = { number: 'NF-0100', status: 'OPEN' };
+  const newInvoice: InvoicePayload = { number: 'NF-0100', status: 'OPEN', items: [] };
+
+  const withItem: InvoicePayload = {
+    number: 'NF-0101',
+    status: 'OPEN',
+    items: [
+      {
+        inventoryId: 3,
+        code: 'PRD-0003',
+        name: 'Cadeira',
+        unit: 'UN',
+        quantity: 2,
+        unitPrice: 150.5
+      }
+    ]
+  };
 
   const invoices: Invoice[] = [
-    { id: 1, number: 'NF-0001', status: 'OPEN' },
-    { id: 2, number: 'NF-0002', status: 'CLOSED' }
+    { id: 1, number: 'NF-0001', status: 'OPEN', items: [], total: 0 },
+    { id: 2, number: 'NF-0002', status: 'CLOSED', items: [], total: 0 }
   ];
 
   const load = (list: Invoice[] = invoices) => {
@@ -91,6 +106,15 @@ describe('InvoiceService', () => {
       expect(received).toEqual(created);
     });
 
+    it('posts the items exactly as they were handed over', () => {
+      service.create(withItem).subscribe();
+
+      const request = http.expectOne('/api/billing/invoices');
+      expect(request.request.body).toEqual(withItem);
+
+      request.flush({ ...withItem, id: 8, total: 301 });
+    });
+
     it('appends to the listing the invoice returned by the API', () => {
       load();
 
@@ -140,9 +164,45 @@ describe('InvoiceService', () => {
       const request = http.expectOne('/api/billing/invoices/7');
       expect(request.request.method).toBe('GET');
 
-      request.flush({ id: 7, number: 'NF-0007', status: 'CLOSED' });
+      request.flush({ id: 7, number: 'NF-0007', status: 'CLOSED', items: [], total: 0 });
 
-      expect(received).toEqual({ id: 7, number: 'NF-0007', status: 'CLOSED' });
+      expect(received).toEqual({
+        id: 7,
+        number: 'NF-0007',
+        status: 'CLOSED',
+        items: [],
+        total: 0
+      });
+    });
+
+    it('returns the items the API attached to the invoice', () => {
+      let received: Invoice | undefined;
+
+      service.get(7).subscribe((invoice) => (received = invoice));
+
+      http.expectOne('/api/billing/invoices/7').flush({
+        id: 7,
+        number: 'NF-0007',
+        status: 'OPEN',
+        total: 301,
+        items: [
+          {
+            id: 1,
+            productId: 4,
+            inventoryId: 3,
+            code: 'PRD-0003',
+            name: 'Cadeira',
+            unit: 'UN',
+            quantity: 2,
+            unitPrice: 150.5,
+            total: 301
+          }
+        ]
+      });
+
+      expect(received?.items).toHaveLength(1);
+      expect(received?.items[0]).toMatchObject({ code: 'PRD-0003', quantity: 2 });
+      expect(received?.total).toBe(301);
     });
 
     it('propagates the failure of an invoice that does not exist', () => {
@@ -180,6 +240,15 @@ describe('InvoiceService', () => {
       request.flush(updated);
 
       expect(received).toEqual(updated);
+    });
+
+    it('puts the items exactly as they were handed over', () => {
+      service.update(1, withItem).subscribe();
+
+      const request = http.expectOne('/api/billing/invoices/1');
+      expect(request.request.body).toEqual(withItem);
+
+      request.flush({ ...withItem, id: 1, total: 301 });
     });
 
     it('replaces in the listing the invoice the API returned', () => {

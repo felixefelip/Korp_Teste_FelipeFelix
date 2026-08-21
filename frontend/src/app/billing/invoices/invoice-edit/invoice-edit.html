@@ -9,6 +9,8 @@
   <app-invoice-form
     submitLabel="Salvar alterações"
     [value]="invoice()"
+    [products]="products()"
+    [productsFailed]="productsFailed()"
     [loading]="loading()"
     [saving]="saving()"
     [failure]="failure()"

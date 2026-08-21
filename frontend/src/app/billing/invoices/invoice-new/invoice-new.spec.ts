@@ -1,11 +1,19 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { Subject, of, throwError } from 'rxjs';
+import { Observable, Subject, of, tap, throwError } from 'rxjs';
 
-import { Invoice } from '../invoice.model';
+import { Product } from '../../../inventory/products/product.model';
+import { ProductService } from '../../../inventory/products/product.service';
+import { FlashService } from '../../../shared/flash/flash.service';
+import { Invoice, InvoicePayload } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 import { InvoiceNew } from './invoice-new';
+
+const PRODUCTS: Product[] = [
+  { id: 3, code: 'PRD-0003', name: 'Cadeira Gamer', unit: 'UN', price: 150.5, stock: 10 }
+];
 
 describe('InvoiceNew', () => {
   let fixture: ComponentFixture<InvoiceNew>;
@@ -14,6 +22,8 @@ describe('InvoiceNew', () => {
     get: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
+  let productService: { products: ReturnType<typeof signal<Product[]>>; list: ReturnType<typeof vi.fn> };
+  let flash: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
   let navigate: ReturnType<typeof vi.spyOn>;
 
   const element = () => fixture.nativeElement as HTMLElement;
@@ -53,27 +63,62 @@ describe('InvoiceNew', () => {
       throwError(() => new HttpErrorResponse({ status, error: body }))
     );
 
+  const addItem = async () => {
+    element().querySelector<HTMLButtonElement>('.items__header button')!.click();
+    await fixture.whenStable();
+  };
+
+  const chooseProduct = async (row: number, productIndex: number) => {
+    const select = field<HTMLSelectElement>(`item-${row}-product`);
+    select.selectedIndex = productIndex + 1;
+    select.dispatchEvent(new Event('change'));
+    select.dispatchEvent(new Event('blur'));
+    await fixture.whenStable();
+  };
+
   const fillValidForm = async () => {
     await fill('number', 'NF-0006');
     await fill('status', 'CLOSED');
   };
 
-  beforeEach(async () => {
+  const mount = async (
+    loadProducts: () => Observable<Product[]> = () => of(PRODUCTS)
+  ) => {
+    TestBed.resetTestingModule();
+
     service = {
-      create: vi.fn((data: Omit<Invoice, 'id'>) => of({ ...data, id: 6 })),
+      create: vi.fn((data: InvoicePayload) => of({ ...data, id: 6, total: 0 })),
       get: vi.fn(),
       update: vi.fn()
     };
 
+    productService = {
+      products: signal<Product[]>([]),
+      list: vi.fn(() =>
+        loadProducts().pipe(tap((products) => productService.products.set(products)))
+      )
+    };
+
+    flash = { error: vi.fn(), success: vi.fn() };
+
     await TestBed.configureTestingModule({
       imports: [InvoiceNew],
-      providers: [provideRouter([]), { provide: InvoiceService, useValue: service }]
+      providers: [
+        provideRouter([]),
+        { provide: InvoiceService, useValue: service },
+        { provide: ProductService, useValue: productService },
+        { provide: FlashService, useValue: flash }
+      ]
     }).compileComponents();
 
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
 
     fixture = TestBed.createComponent(InvoiceNew);
     await fixture.whenStable();
+  };
+
+  beforeEach(async () => {
+    await mount();
   });
 
   it('should be created', () => {
@@ -94,7 +139,8 @@ describe('InvoiceNew', () => {
 
       expect(service.create).toHaveBeenCalledWith({
         number: 'NF-0006',
-        status: 'CLOSED'
+        status: 'CLOSED',
+        items: []
       });
     });
 
@@ -128,6 +174,71 @@ describe('InvoiceNew', () => {
 
       expect(service.create).toHaveBeenCalledTimes(1);
       expect(text(submitButton())).toBe('Salvando…');
+    });
+  });
+
+  describe('products of the inventory', () => {
+    it('asks the inventory for the products it can offer', () => {
+      expect(productService.list).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers in the item row the products that came back', async () => {
+      await addItem();
+
+      const options = Array.from(
+        field<HTMLSelectElement>('item-0-product').options
+      ).map(text);
+
+      expect(options).toEqual(['Selecione o produto', 'PRD-0003 · Cadeira Gamer']);
+    });
+
+    it('sends the item with the snapshot of the chosen product', async () => {
+      await fillValidForm();
+      await addItem();
+      await chooseProduct(0, 0);
+      await fill('item-0-quantity', '2');
+      await submit();
+
+      expect(service.create).toHaveBeenCalledWith({
+        number: 'NF-0006',
+        status: 'CLOSED',
+        items: [
+          {
+            inventoryId: 3,
+            code: 'PRD-0003',
+            name: 'Cadeira Gamer',
+            unit: 'UN',
+            quantity: 2,
+            unitPrice: 150.5
+          }
+        ]
+      });
+    });
+
+    it('warns when the inventory cannot be reached', async () => {
+      await mount(() => throwError(() => new HttpErrorResponse({ status: 500 })));
+
+      expect(flash.error).toHaveBeenCalledWith(
+        'Não foi possível carregar os produtos. Tente novamente.'
+      );
+    });
+
+    it('says on the form that the products are the ones missing', async () => {
+      await mount(() => throwError(() => new HttpErrorResponse({ status: 500 })));
+
+      expect(text(element().querySelector('.items__note'))).toBe(
+        'Não foi possível carregar os produtos do estoque.'
+      );
+    });
+
+    it('still lets the invoice be saved without items', async () => {
+      await mount(() => throwError(() => new HttpErrorResponse({ status: 500 })));
+
+      await fillValidForm();
+      await submit();
+
+      expect(service.create).toHaveBeenCalledTimes(1);
+      expect(navigate).toHaveBeenCalledWith(['/billing/invoices']);
     });
   });
 

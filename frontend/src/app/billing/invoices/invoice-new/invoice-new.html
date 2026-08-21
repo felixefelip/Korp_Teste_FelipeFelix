@@ -8,6 +8,8 @@
 
   <app-invoice-form
     submitLabel="Salvar nota fiscal"
+    [products]="products()"
+    [productsFailed]="productsFailed()"
     [saving]="saving()"
     [failure]="failure()"
     (save)="create($event)"
