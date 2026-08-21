@@ -55,6 +55,16 @@ describe('ProductList', () => {
 
   const names = () => rows().map((row) => cells(row)[1]);
 
+  const openActionsOf = async (index: number) => {
+    rows()[index].querySelector<HTMLButtonElement>('.menu-button__toggle')!.click();
+    await fixture.whenStable();
+  };
+
+  const menuLinks = () =>
+    Array.from(element().querySelectorAll<HTMLAnchorElement>('.menu-button__item')).map(
+      (item) => [text(item), item.getAttribute('href')]
+    );
+
   const typeInFilter = async (term: string) => {
     const field = element().querySelector<HTMLInputElement>('input[type="search"]')!;
     field.value = term;
@@ -124,15 +134,37 @@ describe('ProductList', () => {
       );
     });
 
-    it('offers an edit action per product pointing to its form', () => {
-      const links = rows().map((row) =>
-        row.querySelector('.table__action')?.getAttribute('href')
-      );
+    it('offers the edit of each product without opening anything', () => {
+      const edits = rows().map((row) => [
+        text(row.querySelector('.menu-button__action')),
+        row.querySelector('.menu-button__action')!.getAttribute('href')
+      ]);
 
-      expect(links).toEqual([
-        '/inventory/products/1/edit',
-        '/inventory/products/2/edit',
-        '/inventory/products/3/edit'
+      expect(edits).toEqual([
+        ['Editar', '/inventory/products/1/edit'],
+        ['Editar', '/inventory/products/2/edit'],
+        ['Editar', '/inventory/products/3/edit']
+      ]);
+    });
+
+    it('keeps the extra actions of every row closed until one is opened', () => {
+      expect(element().querySelectorAll('.menu-button__toggle')).toHaveLength(3);
+      expect(element().querySelector('.menu-button__menu')).toBeNull();
+    });
+
+    it('opens the extra actions of the row that was clicked', async () => {
+      await openActionsOf(0);
+
+      expect(menuLinks()).toEqual([
+        ['Movimentações', '/inventory/products/1/movements']
+      ]);
+    });
+
+    it('points each row at its own product', async () => {
+      await openActionsOf(2);
+
+      expect(menuLinks()).toEqual([
+        ['Movimentações', '/inventory/products/3/movements']
       ]);
     });
 

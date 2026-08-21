@@ -1,11 +1,13 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
+
+import { MenuButton, MenuItem } from '../../../shared/menu-button/menu-button';
 import { ProductService } from '../product.service';
 
 @Component({
   selector: 'app-product-list',
-  imports: [CurrencyPipe, RouterLink],
+  imports: [CurrencyPipe, MenuButton, RouterLink],
   templateUrl: './product-list.html',
   styleUrl: './product-list.scss'
 })
@@ -30,6 +32,16 @@ export class ProductList {
         product.code.toLowerCase().includes(term)
     );
   });
+
+  protected readonly rows = computed(() =>
+    this.products().map((product) => ({
+      product,
+      actions: [
+        { label: 'Editar', link: ['/inventory/products', product.id, 'edit'] },
+        { label: 'Movimentações', link: ['/inventory/products', product.id, 'movements'] }
+      ] as MenuItem[]
+    }))
+  );
 
   constructor() {
     this.load();

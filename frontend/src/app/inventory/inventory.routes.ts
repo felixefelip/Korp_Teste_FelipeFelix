@@ -19,5 +19,23 @@ export const inventoryRoutes: Routes = [
     title: 'Editar produto | Korp ERP',
     loadComponent: () =>
       import('./products/product-edit/product-edit').then((m) => m.ProductEdit)
+  },
+  {
+    path: 'products/:id/movements',
+    title: 'Movimentações | Korp ERP',
+    loadComponent: () =>
+      import('./movements/movement-list/movement-list').then((m) => m.MovementList)
+  },
+  {
+    path: 'products/:id/movements/new',
+    title: 'Nova movimentação | Korp ERP',
+    loadComponent: () =>
+      import('./movements/movement-new/movement-new').then((m) => m.MovementNew)
+  },
+  {
+    path: 'products/:id/movements/:movementId/edit',
+    title: 'Editar movimentação | Korp ERP',
+    loadComponent: () =>
+      import('./movements/movement-edit/movement-edit').then((m) => m.MovementEdit)
   }
 ];

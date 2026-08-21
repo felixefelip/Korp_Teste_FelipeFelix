@@ -1,0 +1,113 @@
+<section class="page">
+  <header class="page__header page__header--split">
+    <div>
+      <h1 class="page__title">Movimentações</h1>
+      <p class="page__subtitle">
+        @if (product(); as product) {
+          {{ product.code }} &middot; {{ product.name }}
+        } @else {
+          Estoque &rsaquo; Produtos &rsaquo; Movimentações
+        }
+      </p>
+    </div>
+
+    <a
+      class="btn btn--primary"
+      [routerLink]="['/inventory/products', productId, 'movements', 'new']"
+    >
+      <span aria-hidden="true">+</span>
+      Nova movimentação
+    </a>
+  </header>
+
+  @if (product(); as product) {
+    <ul class="balance">
+      <li class="balance__item">
+        <span class="balance__label">Em estoque</span>
+        <strong class="balance__value">{{ product.stock }}</strong>
+      </li>
+      <li class="balance__item">
+        <span class="balance__label">Reservado</span>
+        <strong class="balance__value">{{ reserved() }}</strong>
+      </li>
+      <li class="balance__item">
+        <span class="balance__label">Disponível</span>
+        <strong class="balance__value">{{ available() }}</strong>
+      </li>
+    </ul>
+  }
+
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Tipo</th>
+            <th scope="col">Origem</th>
+            <th scope="col" class="table__num">Quantidade</th>
+            <th scope="col">Situação</th>
+            <th scope="col" class="table__actions">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            <tr>
+              <td colspan="5" class="table__empty">Carregando movimentações…</td>
+            </tr>
+          } @else if (failed()) {
+            <tr>
+              <td colspan="5" class="table__empty table__error">
+                Não foi possível carregar as movimentações.
+                <button type="button" class="btn btn--ghost" (click)="load()">
+                  Tentar novamente
+                </button>
+              </td>
+            </tr>
+          } @else {
+            @for (movement of movements(); track movement.id) {
+              <tr>
+                <td>{{ typeLabel(movement.type) }}</td>
+                <td>{{ originLabel(movement.origin) }}</td>
+                <td class="table__num">{{ movement.quantity }}</td>
+                <td>
+                  <span
+                    class="badge"
+                    [class.badge--confirmed]="movement.confirmed"
+                  >
+                    {{ movement.confirmed ? 'Confirmada' : 'Não confirmada' }}
+                  </span>
+                </td>
+                <td class="table__actions">
+                  @if (editable(movement)) {
+                    <a
+                      class="table__action"
+                      [routerLink]="[
+                        '/inventory/products',
+                        productId,
+                        'movements',
+                        movement.id,
+                        'edit'
+                      ]"
+                    >
+                      Editar
+                    </a>
+                  } @else {
+                    <span class="table__action table__action--off">
+                      Gerada por nota
+                    </span>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="table__empty">
+                  Nenhuma movimentação registrada para este produto.
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

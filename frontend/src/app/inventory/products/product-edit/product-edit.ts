@@ -4,8 +4,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 
 import { FlashService } from '../../../shared/flash/flash.service';
 import { ApiFailure, readApiFailure } from '../../../shared/forms/http-errors';
-import { ProductForm, ProductPayload, SAVE_FAILURE } from '../product-form/product-form';
-import { Product } from '../product.model';
+import { ProductForm, SAVE_FAILURE } from '../product-form/product-form';
+import { Product, ProductPayload } from '../product.model';
 import { ProductService } from '../product.service';
 
 const NOT_FOUND_FAILURE = 'Produto não encontrado.';

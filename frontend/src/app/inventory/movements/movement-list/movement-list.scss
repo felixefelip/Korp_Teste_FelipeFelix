@@ -1,0 +1,47 @@
+.balance {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.balance__item {
+  flex: 1 1 140px;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.balance__label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-500);
+}
+
+.balance__value {
+  font-size: 1.4rem;
+  color: var(--brand-900);
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--text-700);
+}
+
+.badge--confirmed {
+  background: rgba(30, 135, 75, 0.12);
+  color: var(--success-500);
+}
+
+.table__action--off {
+  color: var(--text-500);
+  cursor: default;
+}

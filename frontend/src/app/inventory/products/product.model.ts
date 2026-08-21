@@ -6,3 +6,5 @@ export interface Product {
   price: number;
   stock: number;
 }
+
+export type ProductPayload = Omit<Product, 'id' | 'stock'> & { stock?: number };

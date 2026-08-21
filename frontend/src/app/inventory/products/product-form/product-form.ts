@@ -5,13 +5,11 @@ import { RouterLink } from '@angular/router';
 import { CustomFormValidation } from '../../../shared/forms/custom-form-validation';
 import { ApiFailure } from '../../../shared/forms/http-errors';
 import { CustomValidators } from '../../../shared/forms/validators';
-import { Product } from '../product.model';
+import { Product, ProductPayload } from '../product.model';
 
 export const UNITS = ['UN', 'CX', 'PC', 'KG', 'L', 'M'];
 
 export const SAVE_FAILURE = 'Não foi possível salvar o produto. Tente novamente.';
-
-export type ProductPayload = Omit<Product, 'id'>;
 
 @Component({
   selector: 'app-product-form',
@@ -26,6 +24,7 @@ export class ProductForm {
   readonly loading = input(false);
   readonly saving = input(false);
   readonly failure = input<ApiFailure | null>(null);
+  readonly showStock = input(true);
   readonly stockLabel = input('Estoque');
   readonly submitLabel = input('Salvar produto');
 
@@ -60,6 +59,16 @@ export class ProductForm {
   );
 
   constructor() {
+    effect(() => {
+      const stock = this.form.controls.stock;
+
+      if (this.showStock()) {
+        stock.enable();
+      } else {
+        stock.disable();
+      }
+    });
+
     effect(() => {
       const product = this.value();
 
@@ -107,6 +116,8 @@ export class ProductForm {
 
     const { code, name, unit, price, stock } = this.form.getRawValue();
 
-    this.save.emit({ code, name: name.trim(), unit, price: price!, stock: stock! });
+    const product: ProductPayload = { code, name: name.trim(), unit, price: price! };
+
+    this.save.emit(this.showStock() ? { ...product, stock: stock! } : product);
   }
 }

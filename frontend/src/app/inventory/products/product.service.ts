@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 
-import { Product } from './product.model';
+import { Product, ProductPayload } from './product.model';
 
 const RESOURCE = '/api/inventory/products';
 
@@ -24,13 +24,13 @@ export class ProductService {
     return this.http.get<Product>(`${RESOURCE}/${id}`);
   }
 
-  create(data: Omit<Product, 'id'>): Observable<Product> {
+  create(data: ProductPayload): Observable<Product> {
     return this.http
       .post<Product>(RESOURCE, data)
       .pipe(tap((product) => this._products.update((products) => [...products, product])));
   }
 
-  update(id: number, data: Omit<Product, 'id'>): Observable<Product> {
+  update(id: number, data: ProductPayload): Observable<Product> {
     return this.http.put<Product>(`${RESOURCE}/${id}`, data).pipe(
       tap((updated) =>
         this._products.update((products) =>

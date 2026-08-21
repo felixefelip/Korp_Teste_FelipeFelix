@@ -1,0 +1,65 @@
+<form class="card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  @if (banner(); as message) {
+    <p class="form__failure" role="alert">{{ message }}</p>
+  }
+
+  @if (loading()) {
+    <p class="form__status">Carregando movimentação…</p>
+  } @else {
+    <div class="form__grid">
+      <div class="field-group">
+        <label class="field-label" for="type">Tipo</label>
+        <select
+          id="type"
+          class="field"
+          formControlName="type"
+          [class.field--error]="fieldError('type')"
+        >
+          @for (type of types; track type) {
+            <option [value]="type">{{ typeLabels[type] }}</option>
+          }
+        </select>
+        @if (fieldError('type'); as message) {
+          <p class="field-error">{{ message }}</p>
+        }
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="quantity">Quantidade</label>
+        <input
+          id="quantity"
+          type="number"
+          class="field"
+          formControlName="quantity"
+          step="1"
+          min="1"
+          [class.field--error]="fieldError('quantity')"
+        />
+        @if (fieldError('quantity'); as message) {
+          <p class="field-error">{{ message }}</p>
+        }
+      </div>
+
+      <div class="field-group field-group--check">
+        <label class="check">
+          <input id="confirmed" type="checkbox" formControlName="confirmed" />
+          <span>Confirmada</span>
+        </label>
+        <p class="field-hint">
+          Só as movimentações confirmadas entram no saldo do estoque.
+        </p>
+      </div>
+    </div>
+  }
+
+  <footer class="form__actions">
+    <a class="btn btn--ghost" [routerLink]="backLink()">Cancelar</a>
+    <button
+      type="submit"
+      class="btn btn--primary"
+      [disabled]="saving() || loading()"
+    >
+      {{ saving() ? 'Salvando…' : submitLabel() }}
+    </button>
+  </footer>
+</form>

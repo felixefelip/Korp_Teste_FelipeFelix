@@ -1,15 +1,15 @@
 <section class="page">
   <header class="page__header">
     <div>
-      <h1 class="page__title">Editar produto</h1>
-      <p class="page__subtitle">Estoque &rsaquo; Produtos &rsaquo; Edição</p>
+      <h1 class="page__title">Editar movimentação</h1>
+      <p class="page__subtitle">Estoque &rsaquo; Produtos &rsaquo; Movimentações</p>
     </div>
   </header>
 
-  <app-product-form
+  <app-movement-form
     submitLabel="Salvar alterações"
-    [showStock]="false"
-    [value]="product()"
+    [backLink]="backLink"
+    [value]="movement()"
     [loading]="loading()"
     [saving]="saving()"
     [failure]="failure()"
