@@ -32,7 +32,9 @@ func TestGetInvoicesReturnsEverythingStored(t *testing.T) {
 func TestGetInvoicesReturnsTheStoredFields(t *testing.T) {
 	repository := newRepository(t)
 
-	id, err := repository.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "CLOSED"})
+	id, err := repository.CreateInvoice(model.Invoice{
+		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: "CLOSED",
+	})
 	require.NoError(t, err)
 
 	invoices, err := repository.GetInvoices()
@@ -40,7 +42,11 @@ func TestGetInvoicesReturnsTheStoredFields(t *testing.T) {
 
 	require.Len(t, invoices, 1)
 	assert.Equal(t, model.Invoice{
-		ID: id, Number: "NF-0001", Status: "CLOSED", Items: []model.InvoiceItem{},
+		ID:     id,
+		Number: "NF-0001",
+		Type:   model.InvoiceTypeOut,
+		Status: "CLOSED",
+		Items:  []model.InvoiceItem{},
 	}, invoices[0])
 }
 
@@ -63,7 +69,11 @@ func TestGetInvoiceByIDReturnsTheInvoice(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, model.Invoice{
-		ID: id, Number: "NF-0001", Status: "OPEN", Items: []model.InvoiceItem{},
+		ID:     id,
+		Number: "NF-0001",
+		Type:   model.InvoiceTypeOut,
+		Status: "OPEN",
+		Items:  []model.InvoiceItem{},
 	}, invoice)
 }
 
@@ -124,19 +134,25 @@ func TestCreateInvoiceAcceptsADuplicateNumber(t *testing.T) {
 	require.NoError(t, err, "a duplicate number must be accepted")
 }
 
-func TestUpdateInvoiceChangesEveryField(t *testing.T) {
+func TestUpdateInvoiceChangesEveryEditableField(t *testing.T) {
 	repository := newRepository(t)
 
-	id, err := repository.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "OPEN"})
+	id, err := repository.CreateInvoice(model.Invoice{
+		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: "OPEN",
+	})
 	require.NoError(t, err)
 
-	err = repository.UpdateInvoice(model.Invoice{ID: id, Number: "NF-0002", Status: "CLOSED"})
+	err = repository.UpdateInvoice(model.Invoice{
+		ID: id, Number: "NF-0002", Status: "CLOSED",
+	})
 	require.NoError(t, err)
 
 	var saved model.Invoice
 	require.NoError(t, testConnection.First(&saved, id).Error)
 
-	assert.Equal(t, model.Invoice{ID: id, Number: "NF-0002", Status: "CLOSED"}, saved)
+	assert.Equal(t, model.Invoice{
+		ID: id, Number: "NF-0002", Type: model.InvoiceTypeOut, Status: "CLOSED",
+	}, saved)
 }
 
 func TestUpdateInvoiceWhenMissingReturnsErrRecordNotFound(t *testing.T) {
@@ -183,7 +199,9 @@ func itemOf(inventoryID int, code, name string, quantity int, price float64) mod
 }
 
 func invoiceWithItems(items ...model.InvoiceItem) model.Invoice {
-	return model.Invoice{Number: "NF-0001", Status: "OPEN", Items: items}
+	return model.Invoice{
+		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: "OPEN", Items: items,
+	}
 }
 
 func TestCreateInvoiceStoresTheItems(t *testing.T) {
@@ -424,4 +442,47 @@ func TestUpdateInvoiceLeavesTheItemsOfTheOtherInvoicesAlone(t *testing.T) {
 
 	require.Len(t, untouched.Items, 1)
 	assert.Equal(t, "Caneca", untouched.Items[0].ProductName)
+}
+
+func TestUpdateInvoiceNeverFlipsTheDirection(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(model.Invoice{
+		Number: "NF-0001", Type: model.InvoiceTypeIn, Status: "OPEN",
+	})
+	require.NoError(t, err)
+
+	err = repository.UpdateInvoice(model.Invoice{
+		ID: id, Number: "NF-0001", Type: model.InvoiceTypeOut, Status: "CLOSED",
+	})
+	require.NoError(t, err)
+
+	var saved model.Invoice
+	require.NoError(t, testConnection.First(&saved, id).Error)
+
+	assert.Equal(t, model.InvoiceTypeIn, saved.Type,
+		"the direction is settled at issue; it is not a field an edit can swing")
+}
+
+func TestUpdateInvoiceKeepsUsingTheStoredTypeForTheReplicaPrice(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(invoiceWithItems(
+		itemOf(11, "PRD-0001", "Camiseta", 1, 30.99),
+	))
+	require.NoError(t, err)
+
+	err = repository.UpdateInvoice(model.Invoice{
+		ID:     id,
+		Number: "NF-0001",
+		Status: "OPEN",
+		Items:  []model.InvoiceItem{itemOf(11, "PRD-0001", "Camiseta", 1, 45.5)},
+	})
+	require.NoError(t, err)
+
+	var product model.Product
+	require.NoError(t, testConnection.Where("inventory_id = ?", 11).First(&product).Error)
+
+	assert.Equal(t, 45.5, product.Price,
+		"the request carries no type, so the update must read the stored one")
 }

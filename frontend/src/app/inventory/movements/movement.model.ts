@@ -1,5 +1,5 @@
 export type MovementType = 'in' | 'out';
-export type MovementOrigin = 'adjustment' | 'sale';
+export type MovementOrigin = 'adjustment' | 'invoice';
 
 export interface Movement {
   id: number;
@@ -24,7 +24,7 @@ export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
 
 export const MOVEMENT_ORIGIN_LABELS: Record<MovementOrigin, string> = {
   adjustment: 'Ajuste',
-  sale: 'Venda'
+  invoice: 'Nota fiscal'
 };
 
 export function isFromInvoice(movement: Movement): boolean {

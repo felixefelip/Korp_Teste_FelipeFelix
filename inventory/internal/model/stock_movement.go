@@ -7,7 +7,7 @@ const (
 	MovementOut = "out"
 
 	MovementOriginAdjustment = "adjustment"
-	MovementOriginSale       = "sale"
+	MovementOriginInvoice    = "invoice"
 )
 
 var ErrMovementFromInvoice = errors.New("stock movement originated from an invoice")

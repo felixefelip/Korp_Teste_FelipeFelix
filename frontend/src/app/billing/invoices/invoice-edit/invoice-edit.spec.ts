@@ -28,6 +28,7 @@ const EXISTING_ITEM: InvoiceItemPayload = {
 const EXISTING: Invoice = {
   id: 7,
   number: 'NF-0007',
+  type: 'OUT',
   status: 'OPEN',
   total: 301,
   items: [{ ...EXISTING_ITEM, id: 1, productId: 11, total: 301 }]
@@ -156,6 +157,11 @@ describe('InvoiceEdit', () => {
       expect(field<HTMLSelectElement>('status').value).toBe('OPEN');
     });
 
+    it('shows the direction without letting it be changed', () => {
+      expect(element().querySelector('select#type')).toBeNull();
+      expect(text(element().querySelector('.field-static'))).toBe('Saída');
+    });
+
     it('announces that it is editing, not creating', () => {
       expect(text(element().querySelector('.page__title'))).toBe(
         'Editar nota fiscal'
@@ -191,6 +197,12 @@ describe('InvoiceEdit', () => {
         status: 'CLOSED',
         items: [EXISTING_ITEM]
       });
+    });
+
+    it('never sends the type, which the issue settled', async () => {
+      await submit();
+
+      expect(service.update).toHaveBeenCalledWith(7, expect.not.objectContaining({ type: 'OUT' }));
     });
 
     it('never creates a second invoice', async () => {

@@ -13,3 +13,10 @@
     grid-column: 1 / -1;
   }
 }
+
+.field-static {
+  margin: 0;
+  padding: 0.5rem 0;
+  color: var(--text-900);
+  font-weight: 600;
+}
