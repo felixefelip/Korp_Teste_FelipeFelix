@@ -45,13 +45,6 @@
           <p class="field-static">{{ currentTypeLabel() }}</p>
         }
       </div>
-
-      @if (value(); as invoice) {
-        <div class="field-group">
-          <span class="field-label">Status</span>
-          <p class="field-static">{{ statusLabel(invoice.status) }}</p>
-        </div>
-      }
     </div>
 
     <app-invoice-items-form

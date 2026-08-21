@@ -12,6 +12,7 @@ import { InvoiceService } from '../invoice.service';
 const NOT_FOUND_FAILURE = 'Nota fiscal não encontrada.';
 const LOAD_FAILURE = 'Não foi possível carregar a nota fiscal. Tente novamente.';
 const PRODUCTS_FAILURE = 'Não foi possível carregar os produtos. Tente novamente.';
+const CLOSED_FAILURE = 'Notas fiscais fechadas não podem ser alteradas.';
 
 @Component({
   selector: 'app-invoice-edit',
@@ -59,6 +60,12 @@ export class InvoiceEdit {
   private load(): void {
     this.invoiceService.get(this.invoiceId).subscribe({
       next: (invoice) => {
+        if (invoice.status === 'CLOSED') {
+          this.flash.error(CLOSED_FAILURE);
+          this.router.navigate(['/billing/invoices']);
+          return;
+        }
+
         this.invoice.set(invoice);
         this.loading.set(false);
       },

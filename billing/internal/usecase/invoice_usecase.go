@@ -23,6 +23,15 @@ func (iu *InvoiceUsecase) GetInvoiceByID(id int) (model.Invoice, error) {
 }
 
 func (iu *InvoiceUsecase) UpdateInvoice(invoice model.Invoice) (model.Invoice, error) {
+	stored, err := iu.repository.GetInvoiceByID(invoice.ID)
+	if err != nil {
+		return model.Invoice{}, err
+	}
+
+	if stored.Closed() {
+		return model.Invoice{}, model.ErrInvoiceClosed
+	}
+
 	if err := iu.repository.UpdateInvoice(invoice); err != nil {
 		return model.Invoice{}, err
 	}

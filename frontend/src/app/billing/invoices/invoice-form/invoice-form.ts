@@ -7,12 +7,10 @@ import { CustomFormValidation } from '../../../shared/forms/custom-form-validati
 import { ApiFailure } from '../../../shared/forms/http-errors';
 import { InvoiceItemsForm, newItemArray } from '../invoice-items-form/invoice-items-form';
 import {
-  INVOICE_STATUS_LABELS,
   INVOICE_TYPES,
   INVOICE_TYPE_LABELS,
   Invoice,
   InvoicePayload,
-  InvoiceStatus,
   InvoiceType
 } from '../invoice.model';
 
@@ -97,10 +95,6 @@ export class InvoiceForm {
     const type = this.form.controls.type.value;
 
     return INVOICE_TYPE_LABELS[type] ?? type ?? '';
-  }
-
-  protected statusLabel(status: InvoiceStatus): string {
-    return INVOICE_STATUS_LABELS[status] ?? status;
   }
 
   protected submit(): void {

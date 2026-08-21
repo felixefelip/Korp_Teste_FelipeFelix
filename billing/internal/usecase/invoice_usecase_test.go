@@ -156,11 +156,11 @@ func TestCreateInvoicePropagatesTheRepositoryError(t *testing.T) {
 }
 
 func TestUpdateInvoiceReturnsWhatWasStored(t *testing.T) {
-	stored := model.Invoice{ID: 7, Number: "NF-0007", Status: "CLOSED"}
+	stored := model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen}
 	repository := &fakeRepository{invoice: stored}
 	invoiceUsecase := newUsecase(repository)
 
-	invoice := model.Invoice{ID: 7, Number: "NF-0007", Status: "CLOSED"}
+	invoice := model.Invoice{ID: 7, Number: "NF-0007"}
 	updated, err := invoiceUsecase.UpdateInvoice(invoice)
 
 	require.NoError(t, err)
@@ -303,4 +303,17 @@ func TestReopenInvoiceWhenMissingPropagatesTheError(t *testing.T) {
 	_, err := invoiceUsecase.ReopenInvoice(7)
 
 	require.ErrorIs(t, err, errRepository)
+}
+
+func TestUpdateInvoiceRefusesAClosedOne(t *testing.T) {
+	repository := &fakeRepository{
+		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusClosed},
+	}
+	invoiceUsecase := newUsecase(repository)
+
+	_, err := invoiceUsecase.UpdateInvoice(model.Invoice{ID: 7, Number: "NF-0009"})
+
+	require.ErrorIs(t, err, model.ErrInvoiceClosed)
+	assert.Zero(t, repository.receivedInvoice, "it stops at the read, without writing")
+	assert.Equal(t, 1, repository.calls)
 }
