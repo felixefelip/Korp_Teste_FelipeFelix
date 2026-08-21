@@ -17,6 +17,8 @@ import { Invoice } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 
 const DELETE_FAILURE = 'Não foi possível excluir a nota fiscal. Tente novamente.';
+const CLOSE_FAILURE = 'Não foi possível imprimir a nota fiscal. Tente novamente.';
+const REOPEN_FAILURE = 'Não foi possível reabrir a nota fiscal. Tente novamente.';
 
 @Component({
   selector: 'app-invoice-list',
@@ -33,6 +35,8 @@ export class InvoiceList {
   protected readonly failed = signal(false);
   protected readonly pendingDeletion = signal<Invoice | null>(null);
   protected readonly deleting = signal(false);
+  protected readonly pendingPrint = signal<Invoice | null>(null);
+  protected readonly printing = signal(false);
 
   protected readonly invoices = computed(() => {
     const term = this.filter().trim().toLowerCase();
@@ -61,7 +65,10 @@ export class InvoiceList {
       { label: 'Editar', link: ['/billing/invoices', invoice.id, 'edit'] }
     ];
 
-    if (!this.closed(invoice)) {
+    if (this.closed(invoice)) {
+      actions.push({ label: 'Reabrir', action: () => this.reopen(invoice) });
+    } else {
+      actions.push({ label: 'Imprimir', action: () => this.askToPrint(invoice) });
       actions.push({ label: 'Excluir', action: () => this.askToDelete(invoice) });
     }
 
@@ -70,6 +77,49 @@ export class InvoiceList {
 
   private closed(invoice: Invoice): boolean {
     return invoice.status === 'CLOSED';
+  }
+
+  protected reopen(invoice: Invoice): void {
+    this.invoiceService.reopen(invoice.id).subscribe({
+      next: () => this.flash.success(`Nota fiscal ${invoice.number} reaberta.`),
+      error: (response: HttpErrorResponse) =>
+        this.flash.error(response.error?.message ?? REOPEN_FAILURE)
+    });
+  }
+
+  protected askToPrint(invoice: Invoice): void {
+    this.pendingPrint.set(invoice);
+  }
+
+  protected cancelPrint(): void {
+    if (this.printing()) {
+      return;
+    }
+
+    this.pendingPrint.set(null);
+  }
+
+  protected confirmPrint(): void {
+    const invoice = this.pendingPrint();
+
+    if (!invoice || this.printing()) {
+      return;
+    }
+
+    this.printing.set(true);
+
+    this.invoiceService.close(invoice.id).subscribe({
+      next: () => {
+        this.printing.set(false);
+        this.pendingPrint.set(null);
+        this.flash.success(`Nota fiscal ${invoice.number} fechada.`);
+      },
+      error: (response: HttpErrorResponse) => {
+        this.printing.set(false);
+        this.pendingPrint.set(null);
+        this.flash.error(response.error?.message ?? CLOSE_FAILURE);
+      }
+    });
   }
 
   protected askToDelete(invoice: Invoice): void {

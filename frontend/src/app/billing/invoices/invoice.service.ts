@@ -49,4 +49,22 @@ export class InvoiceService {
         )
       );
   }
+
+  close(id: number): Observable<Invoice> {
+    return this.transition(id, 'close');
+  }
+
+  reopen(id: number): Observable<Invoice> {
+    return this.transition(id, 'reopen');
+  }
+
+  private transition(id: number, action: 'close' | 'reopen'): Observable<Invoice> {
+    return this.http.post<Invoice>(`${RESOURCE}/${id}/${action}`, {}).pipe(
+      tap((moved) =>
+        this._invoices.update((invoices) =>
+          invoices.map((invoice) => (invoice.id === moved.id ? moved : invoice))
+        )
+      )
+    );
+  }
 }

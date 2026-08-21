@@ -39,6 +39,40 @@ func (iu *InvoiceUsecase) CreateInvoice(invoice model.Invoice) (model.Invoice, e
 	return iu.repository.GetInvoiceByID(invoiceId)
 }
 
+func (iu *InvoiceUsecase) CloseInvoice(id int) (model.Invoice, error) {
+	invoice, err := iu.repository.GetInvoiceByID(id)
+	if err != nil {
+		return model.Invoice{}, err
+	}
+
+	if invoice.Closed() {
+		return model.Invoice{}, model.ErrInvoiceClosed
+	}
+
+	if err := iu.repository.CloseInvoice(id); err != nil {
+		return model.Invoice{}, err
+	}
+
+	return iu.repository.GetInvoiceByID(id)
+}
+
+func (iu *InvoiceUsecase) ReopenInvoice(id int) (model.Invoice, error) {
+	invoice, err := iu.repository.GetInvoiceByID(id)
+	if err != nil {
+		return model.Invoice{}, err
+	}
+
+	if !invoice.Closed() {
+		return model.Invoice{}, model.ErrInvoiceOpen
+	}
+
+	if err := iu.repository.ReopenInvoice(id); err != nil {
+		return model.Invoice{}, err
+	}
+
+	return iu.repository.GetInvoiceByID(id)
+}
+
 func (iu *InvoiceUsecase) DeleteInvoice(id int) error {
 	invoice, err := iu.repository.GetInvoiceByID(id)
 	if err != nil {

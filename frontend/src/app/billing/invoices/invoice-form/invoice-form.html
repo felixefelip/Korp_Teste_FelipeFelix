@@ -46,22 +46,12 @@
         }
       </div>
 
-      <div class="field-group">
-        <label class="field-label" for="status">Status</label>
-        <select
-          id="status"
-          class="field"
-          formControlName="status"
-          [class.field--error]="fieldError('status')"
-        >
-          @for (status of statuses; track status) {
-            <option [value]="status">{{ statusLabel(status) }}</option>
-          }
-        </select>
-        @if (fieldError('status'); as message) {
-          <p class="field-error">{{ message }}</p>
-        }
-      </div>
+      @if (value(); as invoice) {
+        <div class="field-group">
+          <span class="field-label">Status</span>
+          <p class="field-static">{{ statusLabel(invoice.status) }}</p>
+        </div>
+      }
     </div>
 
     <app-invoice-items-form

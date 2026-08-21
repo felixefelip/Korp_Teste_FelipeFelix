@@ -12,12 +12,11 @@ describe('InvoiceService', () => {
   let service: InvoiceService;
   let http: HttpTestingController;
 
-  const newInvoice: InvoicePayload = { number: 'NF-0100', type: 'OUT', status: 'OPEN', items: [] };
+  const newInvoice: InvoicePayload = { number: 'NF-0100', type: 'OUT', items: [] };
 
   const withItem: InvoicePayload = {
     number: 'NF-0101',
     type: 'OUT',
-    status: 'OPEN',
     items: [
       {
         inventoryId: 3,
@@ -298,6 +297,93 @@ describe('InvoiceService', () => {
 
       expect(failed).toBe(true);
       expect(service.invoices()).toEqual(invoices);
+    });
+  });
+
+  describe('remove', () => {
+    it('deletes that invoice', () => {
+      service.remove(7).subscribe();
+
+      const request = http.expectOne('/api/billing/invoices/7');
+
+      expect(request.request.method).toBe('DELETE');
+      request.flush(null);
+    });
+
+    it('takes it out of the listing', () => {
+      load();
+
+      service.remove(1).subscribe();
+      http.expectOne('/api/billing/invoices/1').flush(null);
+
+      expect(service.invoices().map((invoice) => invoice.id)).toEqual([2]);
+    });
+
+    it('leaves the listing alone when the API refuses', () => {
+      load();
+
+      service.remove(1).subscribe({ error: () => undefined });
+      http.expectOne('/api/billing/invoices/1').flush('', { status: 409, statusText: 'Conflict' });
+
+      expect(service.invoices()).toHaveLength(2);
+    });
+  });
+
+  describe('close', () => {
+    it('posts to the close action of that invoice', () => {
+      service.close(7).subscribe();
+
+      const request = http.expectOne('/api/billing/invoices/7/close');
+
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({});
+      request.flush({ ...invoices[0], id: 7, status: 'CLOSED' });
+    });
+
+    it('swaps the invoice for the closed one', () => {
+      load();
+
+      service.close(1).subscribe();
+      http.expectOne('/api/billing/invoices/1/close').flush({ ...invoices[0], status: 'CLOSED' });
+
+      expect(service.invoices()[0].status).toBe('CLOSED');
+      expect(service.invoices()).toHaveLength(2);
+    });
+  });
+
+  describe('reopen', () => {
+    it('posts to the reopen action of that invoice', () => {
+      service.reopen(7).subscribe();
+
+      const request = http.expectOne('/api/billing/invoices/7/reopen');
+
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({});
+      request.flush({ ...invoices[1], id: 7, status: 'OPEN' });
+    });
+
+    it('swaps the invoice for the reopened one', () => {
+      load();
+
+      service.reopen(2).subscribe();
+      http.expectOne('/api/billing/invoices/2/reopen').flush({
+        ...invoices[1],
+        status: 'OPEN'
+      });
+
+      expect(service.invoices()[1].status).toBe('OPEN');
+      expect(service.invoices()).toHaveLength(2);
+    });
+
+    it('leaves the listing alone when the API refuses', () => {
+      load();
+
+      service.reopen(2).subscribe({ error: () => undefined });
+      http
+        .expectOne('/api/billing/invoices/2/reopen')
+        .flush('', { status: 409, statusText: 'Conflict' });
+
+      expect(service.invoices()[1].status).toBe('CLOSED');
     });
   });
 });

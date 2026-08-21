@@ -97,3 +97,17 @@
     serão apagados.
   </app-confirm-dialog>
 }
+
+@if (pendingPrint(); as invoice) {
+  <app-confirm-dialog
+    title="Imprimir nota fiscal"
+    confirmLabel="Imprimir"
+    busyLabel="Imprimindo…"
+    [busy]="printing()"
+    (confirmed)="confirmPrint()"
+    (cancelled)="cancelPrint()"
+  >
+    A nota fiscal <strong>{{ invoice.number }}</strong> será fechada e não poderá
+    mais ser alterada nem excluída.
+  </app-confirm-dialog>
+}

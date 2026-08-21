@@ -78,7 +78,6 @@ describe('InvoiceNew', () => {
 
   const fillValidForm = async () => {
     await fill('number', 'NF-0006');
-    await fill('status', 'CLOSED');
   };
 
   const mount = async (
@@ -140,7 +139,6 @@ describe('InvoiceNew', () => {
       expect(service.create).toHaveBeenCalledWith({
         number: 'NF-0006',
         type: 'OUT',
-        status: 'CLOSED',
         items: []
       });
     });
@@ -203,7 +201,6 @@ describe('InvoiceNew', () => {
       expect(service.create).toHaveBeenCalledWith({
         number: 'NF-0006',
         type: 'OUT',
-        status: 'CLOSED',
         items: [
           {
             inventoryId: 3,

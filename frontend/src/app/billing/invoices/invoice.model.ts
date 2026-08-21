@@ -34,7 +34,6 @@ export interface InvoiceItemPayload {
 export interface InvoicePayload {
   number: string;
   type?: InvoiceType;
-  status: InvoiceStatus;
   items: InvoiceItemPayload[];
 }
 
@@ -50,4 +49,3 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   CLOSED: 'Fechada'
 };
 
-export const INVOICE_STATUSES = Object.keys(INVOICE_STATUS_LABELS) as InvoiceStatus[];
