@@ -401,7 +401,7 @@ func TestCreateProductAcceptsDuplicateCode(t *testing.T) {
 	assert.Len(t, saved, 2)
 }
 
-const updatedProduct = `{"code":"PRD-0002","name":"Camiseta polo","unit":"CX","price":59.9,"stock":3}`
+const updatedProduct = `{"code":"PRD-0002","name":"Camiseta polo","unit":"CX","price":59.9}`
 
 func createProduct(t *testing.T, server *gin.Engine, body string) int {
 	t.Helper()
@@ -427,7 +427,7 @@ func TestUpdateProductReturns200WithTheUpdatedProduct(t *testing.T) {
 	assert.Equal(t, "Camiseta polo", updated.Name)
 	assert.Equal(t, "CX", updated.Unit)
 	assert.Equal(t, 59.9, updated.Price)
-	assert.Equal(t, 3, updated.Stock)
+	assert.Equal(t, 12, updated.Stock, "the stock is the ledger's, the update does not touch it")
 }
 
 func TestUpdateProductPersistsToTheDatabase(t *testing.T) {
@@ -442,7 +442,7 @@ func TestUpdateProductPersistsToTheDatabase(t *testing.T) {
 	require.Len(t, saved, 1, "the update must not create a second row")
 	assert.Equal(t, "Camiseta polo", saved[0].Name)
 	assert.Equal(t, 59.9, saved[0].Price)
-	assert.Equal(t, 3, saved[0].Stock)
+	assert.Equal(t, 12, saved[0].Stock)
 }
 
 func TestUpdateProductNormalizesCodeAndName(t *testing.T) {
@@ -460,19 +460,30 @@ func TestUpdateProductNormalizesCodeAndName(t *testing.T) {
 	assert.Equal(t, "Caneca", updated.Name)
 }
 
-func TestUpdateProductWithZeroPriceAndStockReturns200(t *testing.T) {
+func TestUpdateProductWithZeroPriceReturns200(t *testing.T) {
 	server := newServer(t)
 	id := createProduct(t, server, validProduct)
 
 	response := webtest.Put(t, server, fmt.Sprintf("/products/%d", id),
-		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":0,"stock":0}`)
+		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":0}`)
 
 	require.Equal(t, http.StatusOK, response.Code)
 
 	updated := decodeProduct(t, response.Body.Bytes())
 
 	assert.Zero(t, updated.Price)
-	assert.Zero(t, updated.Stock)
+}
+
+func TestUpdateProductIgnoresTheStockSentInTheBody(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, validProduct)
+
+	response := webtest.Put(t, server, fmt.Sprintf("/products/%d", id),
+		`{"code":"PRD-0001","name":"Camiseta","unit":"UN","price":30.99,"stock":999}`)
+
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, 12, decodeProduct(t, response.Body.Bytes()).Stock,
+		"only a stock movement moves the balance")
 }
 
 func TestUpdateProductIgnoresTheIDSentInTheBody(t *testing.T) {
@@ -583,4 +594,29 @@ func TestUpdateProductWithTheDatabaseDownReturns500(t *testing.T) {
 	var body map[string]string
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
 	assert.NotEmpty(t, body["message"])
+}
+
+func TestCreateProductRecordsTheInitialStockAsAMovement(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, validProduct)
+
+	var movements []model.StockMovement
+	require.NoError(t, testConnection.Where("product_id = ?", id).Find(&movements).Error)
+
+	require.Len(t, movements, 1)
+	assert.Equal(t, model.MovementIn, movements[0].Type)
+	assert.Equal(t, model.MovementOriginAdjustment, movements[0].Origin)
+	assert.Equal(t, 12, movements[0].Quantity)
+	assert.True(t, movements[0].Confirmed)
+	assert.Nil(t, movements[0].InvoiceItemID)
+}
+
+func TestCreateProductWithoutStockRecordsNoMovement(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, `{"code":"PRD-0003","name":"Caneca","unit":"UN","price":10}`)
+
+	var movements []model.StockMovement
+	require.NoError(t, testConnection.Where("product_id = ?", id).Find(&movements).Error)
+
+	assert.Empty(t, movements)
 }

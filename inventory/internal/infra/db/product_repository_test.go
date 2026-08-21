@@ -148,7 +148,7 @@ func TestCreateProductWithoutCodeAndUnitStoresEmpty(t *testing.T) {
 	assert.Empty(t, saved.Unit)
 }
 
-func TestUpdateProductChangesEveryField(t *testing.T) {
+func TestUpdateProductChangesEveryEditableField(t *testing.T) {
 	repository := newRepository(t)
 
 	id, err := repository.CreateProduct(model.Product{
@@ -157,7 +157,7 @@ func TestUpdateProductChangesEveryField(t *testing.T) {
 	require.NoError(t, err)
 
 	err = repository.UpdateProduct(model.Product{
-		ID: id, Code: "PRD-0002", Name: "Camiseta polo", Unit: "CX", Price: 59.9, Stock: 3,
+		ID: id, Code: "PRD-0002", Name: "Camiseta polo", Unit: "CX", Price: 59.9,
 	})
 	require.NoError(t, err)
 
@@ -165,24 +165,38 @@ func TestUpdateProductChangesEveryField(t *testing.T) {
 	require.NoError(t, testConnection.First(&saved, id).Error)
 
 	assert.Equal(t, model.Product{
-		ID: id, Code: "PRD-0002", Name: "Camiseta polo", Unit: "CX", Price: 59.9, Stock: 3,
+		ID: id, Code: "PRD-0002", Name: "Camiseta polo", Unit: "CX", Price: 59.9, Stock: 12,
 	}, saved)
 }
 
-func TestUpdateProductStoresZeroedPriceAndStock(t *testing.T) {
+func TestUpdateProductLeavesTheStockToTheLedger(t *testing.T) {
 	repository := newRepository(t)
 
 	id, err := repository.CreateProduct(model.Product{Name: "Camiseta", Price: 30.99, Stock: 12})
 	require.NoError(t, err)
 
-	err = repository.UpdateProduct(model.Product{ID: id, Name: "Camiseta", Price: 0, Stock: 0})
+	err = repository.UpdateProduct(model.Product{ID: id, Name: "Camiseta", Price: 30.99, Stock: 0})
+	require.NoError(t, err)
+
+	var saved model.Product
+	require.NoError(t, testConnection.First(&saved, id).Error)
+
+	assert.Equal(t, 12, saved.Stock, "only a stock movement moves the balance")
+}
+
+func TestUpdateProductStoresZeroedPrice(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateProduct(model.Product{Name: "Camiseta", Price: 30.99})
+	require.NoError(t, err)
+
+	err = repository.UpdateProduct(model.Product{ID: id, Name: "Camiseta", Price: 0})
 	require.NoError(t, err)
 
 	var saved model.Product
 	require.NoError(t, testConnection.First(&saved, id).Error)
 
 	assert.Zero(t, saved.Price, "zero is a value the user chose, not an absent field")
-	assert.Zero(t, saved.Stock)
 }
 
 func TestUpdateProductWhenMissingReturnsErrRecordNotFound(t *testing.T) {

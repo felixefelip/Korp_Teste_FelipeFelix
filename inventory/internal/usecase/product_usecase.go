@@ -5,12 +5,17 @@ import (
 )
 
 type ProductUsecase struct {
-	repository model.ProductRepository
+	repository         model.ProductRepository
+	movementRepository model.StockMovementRepository
 }
 
-func NewProductUsecase(repository model.ProductRepository) ProductUsecase {
+func NewProductUsecase(
+	repository model.ProductRepository,
+	movementRepository model.StockMovementRepository,
+) ProductUsecase {
 	return ProductUsecase{
-		repository: repository,
+		repository:         repository,
+		movementRepository: movementRepository,
 	}
 }
 
@@ -27,16 +32,37 @@ func (pu *ProductUsecase) UpdateProduct(product model.Product) (model.Product, e
 		return model.Product{}, err
 	}
 
-	return product, nil
+	return pu.repository.GetProductByID(product.ID)
 }
 
 func (pu *ProductUsecase) CreateProduct(product model.Product) (model.Product, error) {
+	initialStock := product.Stock
+	product.Stock = 0
+
 	productId, err := pu.repository.CreateProduct(product)
 	if err != nil {
 		return model.Product{}, err
 	}
 
 	product.ID = productId
+
+	if initialStock == 0 {
+		return product, nil
+	}
+
+	movement := model.StockMovement{
+		ProductID: productId,
+		Type:      model.MovementIn,
+		Origin:    model.MovementOriginAdjustment,
+		Quantity:  initialStock,
+		Confirmed: true,
+	}
+
+	if _, err := pu.movementRepository.CreateMovement(movement); err != nil {
+		return model.Product{}, err
+	}
+
+	product.Stock = initialStock
 
 	return product, nil
 }

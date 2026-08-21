@@ -16,7 +16,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := dbConnection.AutoMigrate(&model.Product{}); err != nil {
+	if err := dbConnection.AutoMigrate(&model.Product{}, &model.StockMovement{}); err != nil {
 		panic(err)
 	}
 
