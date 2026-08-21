@@ -1,41 +1,24 @@
-import { CurrencyPipe } from '@angular/common';
 import { Component, effect, inject, input, output, signal } from '@angular/core';
-import {
-  FormBuilder,
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  Validators
-} from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
 import { Product } from '../../../inventory/products/product.model';
 import { CustomFormValidation } from '../../../shared/forms/custom-form-validation';
 import { ApiFailure } from '../../../shared/forms/http-errors';
-import { CustomValidators } from '../../../shared/forms/validators';
+import { InvoiceItems, newItemArray } from '../invoice-items/invoice-items';
 import {
   INVOICE_STATUSES,
   INVOICE_STATUS_LABELS,
   Invoice,
-  InvoiceItem,
   InvoicePayload,
   InvoiceStatus
 } from '../invoice.model';
 
 export const SAVE_FAILURE = 'Não foi possível salvar a nota fiscal. Tente novamente.';
 
-type ItemGroup = FormGroup<{
-  inventoryId: FormControl<number | null>;
-  code: FormControl<string>;
-  name: FormControl<string>;
-  unit: FormControl<string>;
-  quantity: FormControl<number | null>;
-  unitPrice: FormControl<number | null>;
-}>;
-
 @Component({
   selector: 'app-invoice-form',
-  imports: [CurrencyPipe, ReactiveFormsModule, RouterLink],
+  imports: [InvoiceItems, ReactiveFormsModule, RouterLink],
   templateUrl: './invoice-form.html',
   styleUrl: './invoice-form.scss'
 })
@@ -65,7 +48,7 @@ export class InvoiceForm {
       INVOICE_STATUSES[0],
       Validators.required
     ),
-    items: this.fb.array<ItemGroup>([])
+    items: newItemArray()
   });
 
   protected readonly fieldError = CustomFormValidation.fieldErrorFor(
@@ -81,12 +64,7 @@ export class InvoiceForm {
         return;
       }
 
-      this.items.clear();
-
-      for (const item of invoice.items ?? []) {
-        this.items.push(this.itemGroup(item));
-      }
-
+      this.form.setControl('items', newItemArray(invoice.items ?? []));
       this.form.patchValue({ number: invoice.number, status: invoice.status });
     });
 
@@ -115,49 +93,6 @@ export class InvoiceForm {
     return INVOICE_STATUS_LABELS[status] ?? status;
   }
 
-  protected itemError(index: number, field: string): string | null {
-    return this.fieldError(`items.${index}.${field}`);
-  }
-
-  protected addItem(): void {
-    this.items.push(this.itemGroup());
-  }
-
-  protected removeItem(index: number): void {
-    this.items.removeAt(index);
-  }
-
-  protected fillFromProduct(index: number): void {
-    const group = this.items.at(index);
-    const product = this.products().find(
-      (candidate) => candidate.id === group.controls.inventoryId.value
-    );
-
-    if (!product) {
-      return;
-    }
-
-    group.patchValue({
-      code: product.code,
-      name: product.name,
-      unit: product.unit,
-      unitPrice: product.price
-    });
-  }
-
-  protected itemTotal(index: number): number {
-    const { quantity, unitPrice } = this.items.at(index).getRawValue();
-
-    return (quantity ?? 0) * (unitPrice ?? 0);
-  }
-
-  protected invoiceTotal(): number {
-    return this.items.controls.reduce(
-      (total, _item, index) => total + this.itemTotal(index),
-      0
-    );
-  }
-
   protected submit(): void {
     if (this.loading()) {
       return;
@@ -183,27 +118,6 @@ export class InvoiceForm {
         quantity: item.quantity!,
         unitPrice: item.unitPrice!
       }))
-    });
-  }
-
-  private itemGroup(item?: InvoiceItem): ItemGroup {
-    return this.fb.group({
-      inventoryId: this.fb.control<number | null>(
-        item?.inventoryId ?? null,
-        Validators.required
-      ),
-      code: this.fb.nonNullable.control(item?.code ?? ''),
-      name: this.fb.nonNullable.control(item?.name ?? ''),
-      unit: this.fb.nonNullable.control(item?.unit ?? ''),
-      quantity: this.fb.control<number | null>(item?.quantity ?? 1, [
-        Validators.required,
-        Validators.min(1),
-        CustomValidators.integer
-      ]),
-      unitPrice: this.fb.control<number | null>(item?.unitPrice ?? null, [
-        Validators.required,
-        Validators.min(0)
-      ])
     });
   }
 }
