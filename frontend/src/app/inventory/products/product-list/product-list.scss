@@ -31,21 +31,7 @@
 }
 
 .field {
-  width: 100%;
   max-width: 360px;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-family: inherit;
-  font-size: 0.875rem;
-  color: var(--text-900);
-  background: var(--surface);
-}
-
-.field:focus {
-  outline: none;
-  border-color: var(--brand-300);
-  box-shadow: 0 0 0 3px rgba(74, 127, 189, 0.18);
 }
 
 .table-wrapper {

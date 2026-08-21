@@ -1,5 +1,8 @@
 /* Global styles and ERP design tokens */
 
+@use 'styles/button';
+@use 'styles/field';
+
 :root {
   --brand-900: #0b2545;
   --brand-700: #13315c;
@@ -58,43 +61,4 @@ h3 {
   margin: 0;
   font-weight: 600;
   letter-spacing: -0.01em;
-}
-
-/* Reusable buttons */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 1rem;
-  font-family: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.btn:focus-visible {
-  outline: 2px solid var(--brand-300);
-  outline-offset: 2px;
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  color: #fff;
-}
-
-.btn--primary:hover {
-  background: var(--brand-700);
-}
-
-.btn--ghost {
-  background: transparent;
-  border-color: var(--border);
-  color: var(--text-700);
-}
-
-.btn--ghost:hover {
-  background: var(--surface-alt);
 }
