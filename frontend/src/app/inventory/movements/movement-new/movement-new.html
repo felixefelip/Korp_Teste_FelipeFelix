@@ -1,0 +1,16 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1 class="page__title">Nova movimentação</h1>
+      <p class="page__subtitle">Estoque &rsaquo; Produtos &rsaquo; Movimentações</p>
+    </div>
+  </header>
+
+  <app-movement-form
+    submitLabel="Salvar movimentação"
+    [backLink]="backLink"
+    [saving]="saving()"
+    [failure]="failure()"
+    (save)="create($event)"
+  />
+</section>

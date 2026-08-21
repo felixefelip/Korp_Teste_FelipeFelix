@@ -2,7 +2,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { Product } from '../product.model';
-import { ProductForm, ProductPayload } from './product-form';
+import { ProductForm } from './product-form';
+import { ProductPayload } from '../product.model';
 
 const EXISTING: Product = {
   id: 7,

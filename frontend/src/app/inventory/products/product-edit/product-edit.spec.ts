@@ -115,7 +115,10 @@ describe('ProductEdit', () => {
       expect(field<HTMLInputElement>('name').value).toBe('Cadeira de escritório');
       expect(field<HTMLSelectElement>('unit').value).toBe('CX');
       expect(field<HTMLInputElement>('price').value).toBe('750.5');
-      expect(field<HTMLInputElement>('stock').value).toBe('8');
+    });
+
+    it('does not offer the stock, which only a movement changes', () => {
+      expect(element().querySelector('#stock')).toBeNull();
     });
 
     it('announces that it is editing, not creating', () => {
@@ -150,8 +153,7 @@ describe('ProductEdit', () => {
         code: 'PRD-0007',
         name: 'Cadeira gamer',
         unit: 'CX',
-        price: 899.9,
-        stock: 8
+        price: 899.9
       });
     });
 

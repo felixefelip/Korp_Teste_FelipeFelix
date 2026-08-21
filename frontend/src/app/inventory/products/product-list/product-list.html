@@ -52,7 +52,8 @@
               </td>
             </tr>
           } @else {
-            @for (product of products(); track product.id) {
+            @for (row of rows(); track row.product.id) {
+              @let product = row.product;
               <tr>
                 <td class="table__code">{{ product.code }}</td>
                 <td>{{ product.name }}</td>
@@ -62,12 +63,7 @@
                 </td>
                 <td class="table__num">{{ product.stock }}</td>
                 <td class="table__actions">
-                  <a
-                    class="table__action"
-                    [routerLink]="['/inventory/products', product.id, 'edit']"
-                  >
-                    Editar
-                  </a>
+                  <app-menu-button [items]="row.actions" />
                 </td>
               </tr>
             } @empty {

@@ -3,7 +3,8 @@ import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { ApiFailure, readApiFailure } from '../../../shared/forms/http-errors';
-import { ProductForm, ProductPayload, SAVE_FAILURE } from '../product-form/product-form';
+import { ProductForm, SAVE_FAILURE } from '../product-form/product-form';
+import { ProductPayload } from '../product.model';
 import { ProductService } from '../product.service';
 
 @Component({

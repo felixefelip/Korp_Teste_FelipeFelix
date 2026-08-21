@@ -70,23 +70,25 @@
         }
       </div>
 
-      <div class="field-group">
-        <label class="field-label" for="stock">
-          {{ stockLabel() }}
-        </label>
-        <input
-          id="stock"
-          type="number"
-          class="field"
-          formControlName="stock"
-          step="1"
-          min="0"
-          [class.field--error]="fieldError('stock')"
-        />
-        @if (fieldError('stock'); as message) {
-          <p class="field-error">{{ message }}</p>
-        }
-      </div>
+      @if (showStock()) {
+        <div class="field-group">
+          <label class="field-label" for="stock">
+            {{ stockLabel() }}
+          </label>
+          <input
+            id="stock"
+            type="number"
+            class="field"
+            formControlName="stock"
+            step="1"
+            min="0"
+            [class.field--error]="fieldError('stock')"
+          />
+          @if (fieldError('stock'); as message) {
+            <p class="field-error">{{ message }}</p>
+          }
+        </div>
+      }
     </div>
   }
 
