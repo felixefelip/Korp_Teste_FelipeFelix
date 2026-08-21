@@ -32,17 +32,18 @@
             <th scope="col">Número</th>
             <th scope="col">Tipo</th>
             <th scope="col">Status</th>
+            <th scope="col" class="table__num">Total</th>
             <th scope="col" class="table__actions">Ações</th>
           </tr>
         </thead>
         <tbody>
           @if (loading()) {
             <tr>
-              <td colspan="4" class="table__empty">Carregando notas fiscais…</td>
+              <td colspan="5" class="table__empty">Carregando notas fiscais…</td>
             </tr>
           } @else if (failed()) {
             <tr>
-              <td colspan="4" class="table__empty table__error">
+              <td colspan="5" class="table__empty table__error">
                 Não foi possível carregar as notas fiscais.
                 <button type="button" class="btn btn--ghost" (click)="load()">
                   Tentar novamente
@@ -63,6 +64,9 @@
                     {{ statusLabel(invoice.status) }}
                   </span>
                 </td>
+                <td class="table__num">
+                  {{ invoice.total | currency: 'BRL' : 'symbol' : '1.2-2' }}
+                </td>
                 <td class="table__actions">
                   <a
                     class="table__action"
@@ -74,7 +78,7 @@
               </tr>
             } @empty {
               <tr>
-                <td colspan="4" class="table__empty">
+                <td colspan="5" class="table__empty">
                   Nenhuma nota fiscal encontrada.
                 </td>
               </tr>

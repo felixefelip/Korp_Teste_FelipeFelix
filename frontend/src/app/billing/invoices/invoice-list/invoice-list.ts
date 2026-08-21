@@ -1,3 +1,4 @@
+import { CurrencyPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
@@ -11,7 +12,7 @@ import { InvoiceService } from '../invoice.service';
 
 @Component({
   selector: 'app-invoice-list',
-  imports: [RouterLink],
+  imports: [CurrencyPipe, RouterLink],
   templateUrl: './invoice-list.html',
   styleUrl: './invoice-list.scss'
 })
