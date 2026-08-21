@@ -14,7 +14,8 @@ import { RouterLink } from '@angular/router';
 
 export interface MenuItem {
   label: string;
-  link: unknown[];
+  link?: unknown[];
+  action?: () => void;
 }
 
 const ITEM_HEIGHT = 40;
@@ -34,7 +35,7 @@ export class MenuButton {
   readonly items = input.required<MenuItem[]>();
 
   private readonly toggle = viewChild<ElementRef<HTMLButtonElement>>('toggle');
-  private readonly menuItems = viewChildren<ElementRef<HTMLAnchorElement>>('menuItem');
+  private readonly menuItems = viewChildren<ElementRef<HTMLElement>>('menuItem');
 
   private readonly pendingFocus = signal<number | null>(null);
 
@@ -138,6 +139,11 @@ export class MenuButton {
         this.close();
         break;
     }
+  }
+
+  protected run(item: MenuItem): void {
+    this.close();
+    item.action?.();
   }
 
   protected close(): void {

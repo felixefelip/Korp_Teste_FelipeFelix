@@ -620,3 +620,63 @@ func TestCreateProductWithoutStockRecordsNoMovement(t *testing.T) {
 
 	assert.Empty(t, movements)
 }
+
+func TestDeleteProductReturns204AndRemovesIt(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, validProduct)
+
+	response := webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/products/%d", id), "")
+
+	require.Equal(t, http.StatusNoContent, response.Code)
+	assert.Empty(t, response.Body.String(), "204 carries no body")
+
+	assert.Equal(t, http.StatusNotFound,
+		webtest.Get(t, server, fmt.Sprintf("/products/%d", id)).Code)
+}
+
+func TestDeleteProductRemovesItsMovements(t *testing.T) {
+	server := newServer(t)
+	id := createProduct(t, server, validProduct)
+
+	require.Equal(t, http.StatusNoContent,
+		webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/products/%d", id), "").Code)
+
+	var movements []model.StockMovement
+	require.NoError(t, testConnection.Find(&movements).Error)
+	assert.Empty(t, movements)
+}
+
+func TestDeleteProductTakesItOutOfTheListing(t *testing.T) {
+	server := newServer(t)
+	first := createProduct(t, server, validProduct)
+	createProduct(t, server, `{"code":"PRD-0002","name":"Caneca","unit":"UN","price":10}`)
+
+	require.Equal(t, http.StatusNoContent,
+		webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/products/%d", first), "").Code)
+
+	response := webtest.Get(t, server, "/products")
+
+	require.Equal(t, http.StatusOK, response.Code)
+
+	var products []productResponse
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &products))
+
+	require.Len(t, products, 1)
+	assert.Equal(t, "PRD-0002", products[0].Code)
+}
+
+func TestDeleteProductWhenMissingReturns404(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Do(t, server, http.MethodDelete, "/products/9999", "")
+
+	assert.Equal(t, http.StatusNotFound, response.Code)
+}
+
+func TestDeleteProductWithANonNumericIDReturns400(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Do(t, server, http.MethodDelete, "/products/abc", "")
+
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+}

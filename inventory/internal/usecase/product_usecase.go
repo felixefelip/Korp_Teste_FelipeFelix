@@ -66,3 +66,7 @@ func (pu *ProductUsecase) CreateProduct(product model.Product) (model.Product, e
 
 	return product, nil
 }
+
+func (pu *ProductUsecase) DeleteProduct(id int) error {
+	return pu.repository.DeleteProduct(id)
+}

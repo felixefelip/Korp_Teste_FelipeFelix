@@ -45,6 +45,12 @@ func (f *fakeRepository) UpdateProduct(product model.Product) error {
 	return f.err
 }
 
+func (f *fakeRepository) DeleteProduct(id int) error {
+	f.calls++
+	f.receivedID = id
+	return f.err
+}
+
 var errRepository = errors.New("database down")
 
 func newUsecase(repository model.ProductRepository) usecase.ProductUsecase {
@@ -181,4 +187,22 @@ func TestUpdateProductPropagatesTheRepositoryError(t *testing.T) {
 
 	require.ErrorIs(t, err, errRepository)
 	assert.Zero(t, updated, "on failure nothing partially filled should leak out")
+}
+
+func TestDeleteProductHandsTheIDToTheRepository(t *testing.T) {
+	repository := &fakeRepository{}
+	productUsecase := newUsecase(repository)
+
+	err := productUsecase.DeleteProduct(7)
+
+	require.NoError(t, err)
+	assert.Equal(t, 7, repository.receivedID)
+}
+
+func TestDeleteProductPropagatesTheRepositoryError(t *testing.T) {
+	productUsecase := newUsecase(&fakeRepository{err: errRepository})
+
+	err := productUsecase.DeleteProduct(7)
+
+	assert.ErrorIs(t, err, errRepository)
 }

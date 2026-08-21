@@ -37,3 +37,17 @@
 .btn--ghost:hover {
   background: var(--surface-alt);
 }
+
+.btn--danger {
+  background: var(--danger-500);
+  color: #fff;
+}
+
+.btn--danger:hover {
+  background: #a33224;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
