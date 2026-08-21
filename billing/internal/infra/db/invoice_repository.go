@@ -48,7 +48,7 @@ func (ir *InvoiceRepository) CreateInvoice(invoice model.Invoice) (int, error) {
 			return err
 		}
 
-		return saveItems(tx, invoice.ID, items)
+		return saveItems(tx, invoice.ID, items, invoice.Type)
 	})
 	if err != nil {
 		return 0, err
@@ -75,12 +75,17 @@ func (ir *InvoiceRepository) UpdateInvoice(invoice model.Invoice) error {
 			return nil
 		}
 
+		var stored model.Invoice
+		if err := tx.Select("type").First(&stored, invoice.ID).Error; err != nil {
+			return err
+		}
+
 		err := tx.Where("invoice_id = ?", invoice.ID).Delete(&model.InvoiceItem{}).Error
 		if err != nil {
 			return err
 		}
 
-		return saveItems(tx, invoice.ID, invoice.Items)
+		return saveItems(tx, invoice.ID, invoice.Items, stored.Type)
 	})
 }
 
@@ -92,9 +97,9 @@ func withItems(connection *gorm.DB) *gorm.DB {
 		Preload("Items.Product")
 }
 
-func saveItems(tx *gorm.DB, invoiceID int, items []model.InvoiceItem) error {
+func saveItems(tx *gorm.DB, invoiceID int, items []model.InvoiceItem, invoiceType string) error {
 	for _, item := range items {
-		product, err := saveProduct(tx, item.Product)
+		product, err := saveProduct(tx, item.Product, invoiceType)
 		if err != nil {
 			return err
 		}
@@ -111,14 +116,24 @@ func saveItems(tx *gorm.DB, invoiceID int, items []model.InvoiceItem) error {
 	return nil
 }
 
-func saveProduct(tx *gorm.DB, product model.Product) (model.Product, error) {
+func saveProduct(tx *gorm.DB, product model.Product, invoiceType string) (model.Product, error) {
 	err := tx.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "inventory_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"code", "name", "unit", "price"}),
+		DoUpdates: clause.AssignmentColumns(replicaColumns(invoiceType)),
 	}).Create(&product).Error
 	if err != nil {
 		return model.Product{}, err
 	}
 
 	return product, nil
+}
+
+func replicaColumns(invoiceType string) []string {
+	columns := []string{"code", "name", "unit"}
+
+	if invoiceType == model.InvoiceTypeOut {
+		columns = append(columns, "price")
+	}
+
+	return columns
 }

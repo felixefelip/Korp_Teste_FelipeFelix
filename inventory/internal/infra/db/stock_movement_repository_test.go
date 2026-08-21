@@ -192,7 +192,7 @@ func TestGetMovementByIDReturnsTheStoredOne(t *testing.T) {
 	id, err := movements.CreateMovement(model.StockMovement{
 		ProductID:     productID,
 		Type:          model.MovementOut,
-		Origin:        model.MovementOriginSale,
+		Origin:        model.MovementOriginInvoice,
 		Quantity:      2,
 		InvoiceItemID: &invoiceItemID,
 	})
@@ -201,7 +201,7 @@ func TestGetMovementByIDReturnsTheStoredOne(t *testing.T) {
 	found, err := movements.GetMovementByID(id)
 
 	require.NoError(t, err)
-	assert.Equal(t, model.MovementOriginSale, found.Origin)
+	assert.Equal(t, model.MovementOriginInvoice, found.Origin)
 	require.NotNil(t, found.InvoiceItemID)
 	assert.Equal(t, 3, *found.InvoiceItemID)
 }

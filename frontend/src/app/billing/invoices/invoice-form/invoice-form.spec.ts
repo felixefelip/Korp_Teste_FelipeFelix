@@ -41,6 +41,7 @@ const EXISTING_ITEM: InvoiceItemPayload = {
 const EXISTING: Invoice = {
   id: 7,
   number: 'NF-0007',
+  type: 'OUT',
   status: 'CLOSED',
   total: 301,
   items: [{ ...EXISTING_ITEM, id: 1, productId: 11, total: 301 }]
@@ -157,6 +158,21 @@ describe('InvoiceForm', () => {
       expect(field<HTMLSelectElement>('status').value).toBe('OPEN');
     });
 
+    it('starts as an outbound invoice, the common case', () => {
+      expect(field<HTMLSelectElement>('type').value).toBe('OUT');
+    });
+
+    it('lists both directions in Portuguese', () => {
+      const options = Array.from(field<HTMLSelectElement>('type').options).map(
+        (option) => [option.value, text(option)]
+      );
+
+      expect(options).toEqual([
+        ['OUT', 'Saída'],
+        ['IN', 'Entrada']
+      ]);
+    });
+
     it('lists the available statuses in Portuguese', () => {
       const options = Array.from(field<HTMLSelectElement>('status').options).map(
         (option) => [option.value, text(option)]
@@ -245,7 +261,7 @@ describe('InvoiceForm', () => {
       await fillValidForm();
       await submit();
 
-      expect(saved).toEqual([{ number: 'NF-0006', status: 'CLOSED', items: [] }]);
+      expect(saved).toEqual([{ number: 'NF-0006', type: 'OUT', status: 'CLOSED', items: [] }]);
     });
 
     it('trims surrounding spaces from the number', async () => {
@@ -253,6 +269,21 @@ describe('InvoiceForm', () => {
       await submit();
 
       expect(saved).toEqual([expect.objectContaining({ number: 'NF-0007' })]);
+    });
+
+    it('hands over the direction that was chosen', async () => {
+      await fill('number', 'NF-0006');
+      await fill('type', 'IN');
+      await submit();
+
+      expect(saved).toEqual([expect.objectContaining({ type: 'IN' })]);
+    });
+
+    it('hands over the outbound direction when it is untouched', async () => {
+      await fill('number', 'NF-0006');
+      await submit();
+
+      expect(saved).toEqual([expect.objectContaining({ type: 'OUT' })]);
     });
 
     it('hands over the open status when it is untouched', async () => {
@@ -295,7 +326,7 @@ describe('InvoiceForm', () => {
       await submit();
 
       expect(saved).toEqual([
-        { number: 'NF-0006', status: 'CLOSED', items: [EXISTING_ITEM] }
+        { number: 'NF-0006', type: 'OUT', status: 'CLOSED', items: [EXISTING_ITEM] }
       ]);
     });
 
@@ -378,6 +409,7 @@ describe('InvoiceForm', () => {
 
       expect(field<HTMLInputElement>('number').value).toBe('NF-0007');
       expect(field<HTMLSelectElement>('status').value).toBe('CLOSED');
+      expect(field<HTMLSelectElement>('type').value).toBe('OUT');
     });
 
     it('fills the rows with the items it was given', async () => {
@@ -405,7 +437,7 @@ describe('InvoiceForm', () => {
       await submit();
 
       expect(saved).toEqual([
-        { number: 'NF-0042', status: 'OPEN', items: [EXISTING_ITEM] }
+        { number: 'NF-0042', type: 'OUT', status: 'OPEN', items: [EXISTING_ITEM] }
       ]);
     });
 
@@ -556,5 +588,22 @@ describe('InvoiceForm', () => {
       expect(banner()).toBe('Dados inválidos.');
       expect(errors()).toEqual([]);
     });
+  });
+});
+
+describe('InvoiceForm loading an inbound invoice', () => {
+  it('fills the direction with the one it was given', async () => {
+    await TestBed.configureTestingModule({
+      imports: [InvoiceForm],
+      providers: [provideRouter([])]
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(InvoiceForm);
+    fixture.componentRef.setInput('value', { ...EXISTING, type: 'IN' });
+    await fixture.whenStable();
+
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector<HTMLSelectElement>('#type')!.value).toBe('IN');
   });
 });

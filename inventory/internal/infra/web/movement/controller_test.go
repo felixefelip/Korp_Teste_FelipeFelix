@@ -140,7 +140,7 @@ func TestCreateMovementCannotForgeASale(t *testing.T) {
 	server, productID := newProduct(t)
 
 	response := webtest.Post(t, server, fmt.Sprintf("/products/%d/movements", productID),
-		`{"type":"out","quantity":2,"confirmed":true,"origin":"sale","invoiceItemId":7}`)
+		`{"type":"out","quantity":2,"confirmed":true,"origin":"invoice","invoiceItemId":7}`)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 
@@ -315,7 +315,7 @@ func TestUpdateMovementBornFromAnInvoiceReturns409(t *testing.T) {
 	stored := model.StockMovement{
 		ProductID:     productID,
 		Type:          model.MovementOut,
-		Origin:        model.MovementOriginSale,
+		Origin:        model.MovementOriginInvoice,
 		Quantity:      2,
 		Confirmed:     true,
 		InvoiceItemID: &invoiceItemID,

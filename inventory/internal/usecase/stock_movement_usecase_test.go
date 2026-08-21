@@ -83,7 +83,7 @@ func TestCreateMovementForcesTheAdjustmentOrigin(t *testing.T) {
 	created, err := movementUsecase.CreateMovement(model.StockMovement{
 		ProductID:     7,
 		Type:          model.MovementOut,
-		Origin:        model.MovementOriginSale,
+		Origin:        model.MovementOriginInvoice,
 		Quantity:      2,
 		InvoiceItemID: &invoiceItemID,
 	})

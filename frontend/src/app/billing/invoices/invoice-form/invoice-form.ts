@@ -9,9 +9,12 @@ import { InvoiceItemsForm, newItemArray } from '../invoice-items-form/invoice-it
 import {
   INVOICE_STATUSES,
   INVOICE_STATUS_LABELS,
+  INVOICE_TYPES,
+  INVOICE_TYPE_LABELS,
   Invoice,
   InvoicePayload,
-  InvoiceStatus
+  InvoiceStatus,
+  InvoiceType
 } from '../invoice.model';
 
 export const SAVE_FAILURE = 'Não foi possível salvar a nota fiscal. Tente novamente.';
@@ -31,11 +34,14 @@ export class InvoiceForm {
   readonly loading = input(false);
   readonly saving = input(false);
   readonly failure = input<ApiFailure | null>(null);
+  readonly typeEditable = input(true);
   readonly submitLabel = input('Salvar nota fiscal');
 
   readonly save = output<InvoicePayload>();
 
   protected readonly statuses = INVOICE_STATUSES;
+  protected readonly types = INVOICE_TYPES;
+  protected readonly typeLabels = INVOICE_TYPE_LABELS;
   protected readonly submitted = signal(false);
   protected readonly banner = signal<string | null>(null);
 
@@ -44,6 +50,10 @@ export class InvoiceForm {
       Validators.required,
       Validators.maxLength(30)
     ]),
+    type: this.fb.nonNullable.control<InvoiceType>(
+      INVOICE_TYPES[0],
+      Validators.required
+    ),
     status: this.fb.nonNullable.control<InvoiceStatus>(
       INVOICE_STATUSES[0],
       Validators.required
@@ -65,7 +75,11 @@ export class InvoiceForm {
       }
 
       this.form.setControl('items', newItemArray(invoice.items ?? []));
-      this.form.patchValue({ number: invoice.number, status: invoice.status });
+      this.form.patchValue({
+        number: invoice.number,
+        type: invoice.type,
+        status: invoice.status
+      });
     });
 
     effect(() => {
@@ -89,6 +103,12 @@ export class InvoiceForm {
     return this.form.controls.items;
   }
 
+  protected currentTypeLabel(): string {
+    const type = this.form.controls.type.value;
+
+    return INVOICE_TYPE_LABELS[type] ?? type ?? '';
+  }
+
   protected statusLabel(status: InvoiceStatus): string {
     return INVOICE_STATUS_LABELS[status] ?? status;
   }
@@ -105,10 +125,11 @@ export class InvoiceForm {
       return;
     }
 
-    const { number, status, items } = this.form.getRawValue();
+    const { number, type, status, items } = this.form.getRawValue();
 
     this.save.emit({
       number: number.trim(),
+      ...(this.typeEditable() ? { type } : {}),
       status,
       items: items.map((item) => ({
         inventoryId: item.inventoryId!,

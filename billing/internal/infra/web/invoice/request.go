@@ -8,6 +8,7 @@ import (
 
 type createRequest struct {
 	Number string        `json:"number" binding:"required,max=30"`
+	Type   string        `json:"type"   binding:"required,oneof=IN OUT"`
 	Status string        `json:"status" binding:"required,oneof=OPEN CLOSED"`
 	Items  []itemRequest `json:"items"  binding:"omitempty,dive"`
 }
@@ -15,6 +16,7 @@ type createRequest struct {
 func (r createRequest) toModel() model.Invoice {
 	return model.Invoice{
 		Number: strings.ToUpper(strings.TrimSpace(r.Number)),
+		Type:   r.Type,
 		Status: r.Status,
 		Items:  toItemModels(r.Items),
 	}

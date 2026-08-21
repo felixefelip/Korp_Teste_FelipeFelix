@@ -9,6 +9,7 @@ import (
 type response struct {
 	ID     int            `json:"id"`
 	Number string         `json:"number"`
+	Type   string         `json:"type"`
 	Status string         `json:"status"`
 	Items  []itemResponse `json:"items"`
 	Total  float64        `json:"total"`
@@ -24,6 +25,7 @@ func newResponse(invoice model.Invoice) response {
 	return response{
 		ID:     invoice.ID,
 		Number: invoice.Number,
+		Type:   invoice.Type,
 		Status: invoice.Status,
 		Items:  items,
 		Total:  round(invoice.Total()),

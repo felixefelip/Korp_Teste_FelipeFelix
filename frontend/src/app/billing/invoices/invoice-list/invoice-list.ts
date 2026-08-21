@@ -1,7 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { INVOICE_STATUS_LABELS, InvoiceStatus } from '../invoice.model';
+import {
+  INVOICE_STATUS_LABELS,
+  INVOICE_TYPE_LABELS,
+  InvoiceStatus,
+  InvoiceType
+} from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 
 @Component({
@@ -30,6 +35,10 @@ export class InvoiceList {
 
   constructor() {
     this.load();
+  }
+
+  protected typeLabel(type: InvoiceType): string {
+    return INVOICE_TYPE_LABELS[type] ?? type;
   }
 
   protected statusLabel(status: InvoiceStatus): string {

@@ -8,9 +8,9 @@ import { InvoiceService } from '../invoice.service';
 import { InvoiceList } from './invoice-list';
 
 const INVOICES: Invoice[] = [
-  { id: 1, number: 'NF-0001', status: 'OPEN', items: [], total: 0 },
-  { id: 2, number: 'NF-0002', status: 'CLOSED', items: [], total: 0 },
-  { id: 3, number: 'ABC-9999', status: 'OPEN', items: [], total: 0 }
+  { id: 1, number: 'NF-0001', type: 'OUT', status: 'OPEN', items: [], total: 0 },
+  { id: 2, number: 'NF-0002', type: 'OUT', status: 'CLOSED', items: [], total: 0 },
+  { id: 3, number: 'ABC-9999', type: 'IN', status: 'OPEN', items: [], total: 0 }
 ];
 
 describe('InvoiceList', () => {
@@ -70,11 +70,16 @@ describe('InvoiceList', () => {
     });
 
     it('shows the invoice columns in the expected order', () => {
-      expect(cells(rows()[0])).toEqual(['NF-0001', 'Aberta', 'Editar']);
+      expect(cells(rows()[0])).toEqual(['NF-0001', 'Saída', 'Aberta', 'Editar']);
+    });
+
+    it('translates the direction of each invoice', () => {
+      const types = rows().map((row) => cells(row)[1]);
+      expect(types).toEqual(['Saída', 'Saída', 'Entrada']);
     });
 
     it('translates the status of each invoice', () => {
-      const statuses = rows().map((row) => cells(row)[1]);
+      const statuses = rows().map((row) => cells(row)[2]);
       expect(statuses).toEqual(['Aberta', 'Fechada', 'Aberta']);
     });
 

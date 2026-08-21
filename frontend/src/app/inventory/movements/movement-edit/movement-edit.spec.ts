@@ -20,7 +20,7 @@ const EXISTING: Movement = {
 
 const FROM_INVOICE: Movement = {
   ...EXISTING,
-  origin: 'sale',
+  origin: 'invoice',
   invoiceItemId: 33
 };
 

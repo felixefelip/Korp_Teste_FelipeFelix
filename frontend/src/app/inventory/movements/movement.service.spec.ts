@@ -24,7 +24,7 @@ const EXIT: Movement = {
   id: 2,
   productId: 7,
   type: 'out',
-  origin: 'sale',
+  origin: 'invoice',
   quantity: 4,
   confirmed: false,
   invoiceItemId: 33

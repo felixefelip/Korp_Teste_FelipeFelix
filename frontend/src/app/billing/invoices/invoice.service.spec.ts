@@ -12,10 +12,11 @@ describe('InvoiceService', () => {
   let service: InvoiceService;
   let http: HttpTestingController;
 
-  const newInvoice: InvoicePayload = { number: 'NF-0100', status: 'OPEN', items: [] };
+  const newInvoice: InvoicePayload = { number: 'NF-0100', type: 'OUT', status: 'OPEN', items: [] };
 
   const withItem: InvoicePayload = {
     number: 'NF-0101',
+    type: 'OUT',
     status: 'OPEN',
     items: [
       {
@@ -30,8 +31,8 @@ describe('InvoiceService', () => {
   };
 
   const invoices: Invoice[] = [
-    { id: 1, number: 'NF-0001', status: 'OPEN', items: [], total: 0 },
-    { id: 2, number: 'NF-0002', status: 'CLOSED', items: [], total: 0 }
+    { id: 1, number: 'NF-0001', type: 'OUT', status: 'OPEN', items: [], total: 0 },
+    { id: 2, number: 'NF-0002', type: 'OUT', status: 'CLOSED', items: [], total: 0 }
   ];
 
   const load = (list: Invoice[] = invoices) => {
@@ -164,11 +165,12 @@ describe('InvoiceService', () => {
       const request = http.expectOne('/api/billing/invoices/7');
       expect(request.request.method).toBe('GET');
 
-      request.flush({ id: 7, number: 'NF-0007', status: 'CLOSED', items: [], total: 0 });
+      request.flush({ id: 7, number: 'NF-0007', type: 'OUT', status: 'CLOSED', items: [], total: 0 });
 
       expect(received).toEqual({
         id: 7,
         number: 'NF-0007',
+        type: 'OUT',
         status: 'CLOSED',
         items: [],
         total: 0
@@ -183,6 +185,7 @@ describe('InvoiceService', () => {
       http.expectOne('/api/billing/invoices/7').flush({
         id: 7,
         number: 'NF-0007',
+        type: 'OUT',
         status: 'OPEN',
         total: 301,
         items: [

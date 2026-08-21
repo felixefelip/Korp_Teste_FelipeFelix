@@ -25,7 +25,7 @@ const MOVEMENTS: Movement[] = [
     id: 3,
     productId: 7,
     type: 'out',
-    origin: 'sale',
+    origin: 'invoice',
     quantity: 4,
     confirmed: false,
     invoiceItemId: 33
@@ -149,7 +149,7 @@ describe('MovementList', () => {
     });
 
     it('translates the type and the origin', () => {
-      expect(cells(rows()[0]).slice(0, 2)).toEqual(['Saída', 'Venda']);
+      expect(cells(rows()[0]).slice(0, 2)).toEqual(['Saída', 'Nota fiscal']);
     });
 
     it('names the product it belongs to', () => {
