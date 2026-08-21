@@ -1,76 +1,15 @@
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-}
-
-.form__failure {
-  margin: 0 0 1.25rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--danger-500) 12%, transparent);
-  color: var(--danger-500);
-  font-size: 0.9rem;
-}
-
-.form__status {
-  margin: 0;
-  padding: 2.5rem 1.5rem;
-  text-align: center;
-  color: var(--text-500);
-}
-
-.form__grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.25rem;
-  padding: 1.5rem;
-}
-
 .field-group--number {
   grid-column: span 2;
 }
 
-.form__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border);
-  background: var(--surface-alt);
-}
-
-.form__actions .btn {
-  text-decoration: none;
-}
-
 @media (max-width: 860px) {
-  .form__grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .field-group--number {
     grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 560px) {
-  .form__grid {
-    grid-template-columns: 1fr;
-    padding: 1.25rem;
-  }
-
   .field-group--number {
     grid-column: 1 / -1;
-  }
-
-  .form__actions {
-    padding: 1rem 1.25rem;
-  }
-
-  .form__actions .btn {
-    flex: 1;
-    justify-content: center;
   }
 }
