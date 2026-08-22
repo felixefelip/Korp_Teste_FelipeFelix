@@ -1,0 +1,27 @@
+<app-menu-button [items]="actions()" />
+
+@if (confirmingPrint()) {
+  <app-confirm-dialog
+    title="Imprimir nota fiscal"
+    confirmLabel="Imprimir"
+    busyLabel="Imprimindo…"
+    [busy]="printing()"
+    (confirmed)="confirmPrint()"
+    (cancelled)="cancelPrint()"
+  >
+    A nota fiscal <strong>{{ invoice().number }}</strong> será fechada e não
+    poderá mais ser alterada nem excluída.
+  </app-confirm-dialog>
+}
+
+@if (confirmingDeletion()) {
+  <app-confirm-dialog
+    title="Excluir nota fiscal"
+    [busy]="deleting()"
+    (confirmed)="confirmDeletion()"
+    (cancelled)="cancelDeletion()"
+  >
+    A nota fiscal <strong>{{ invoice().number }}</strong> e todos os seus itens
+    serão apagados.
+  </app-confirm-dialog>
+}

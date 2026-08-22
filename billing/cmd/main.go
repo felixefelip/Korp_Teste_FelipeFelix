@@ -2,6 +2,8 @@ package main
 
 import (
 	"billing/internal/infra/db"
+	"billing/internal/infra/messaging"
+	invoicemq "billing/internal/infra/messaging/invoice"
 	"billing/internal/infra/web"
 	"billing/internal/model"
 )
@@ -20,7 +22,13 @@ func main() {
 		panic(err)
 	}
 
-	server := web.New(dbConnection)
+	broker, err := messaging.Connect()
+	if err != nil {
+		panic(err)
+	}
+	defer broker.Close()
+
+	server := web.New(dbConnection, invoicemq.NewPublisher(broker.Channel()))
 
 	server.Run(":8001")
 }

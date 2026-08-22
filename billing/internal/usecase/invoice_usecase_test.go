@@ -66,10 +66,33 @@ func (f *fakeRepository) DeleteInvoice(id int) error {
 	return f.err
 }
 
-var errRepository = errors.New("database down")
+type fakePublisher struct {
+	published model.Invoice
+	err       error
+	calls     int
+}
+
+func (f *fakePublisher) PublishCloseRequested(invoice model.Invoice) error {
+	f.calls++
+	f.published = invoice
+
+	return f.err
+}
+
+var (
+	errRepository = errors.New("database down")
+	errPublisher  = errors.New("broker down")
+)
 
 func newUsecase(repository model.InvoiceRepository) usecase.InvoiceUsecase {
-	return usecase.NewInvoiceUsecase(repository)
+	return usecase.NewInvoiceUsecase(repository, &fakePublisher{})
+}
+
+func newUsecaseWithPublisher(
+	repository model.InvoiceRepository,
+	publisher model.InvoiceEventPublisher,
+) usecase.InvoiceUsecase {
+	return usecase.NewInvoiceUsecase(repository, publisher)
 }
 
 func TestGetInvoicesReturnsWhatTheRepositoryHolds(t *testing.T) {
@@ -270,6 +293,43 @@ func TestCloseInvoiceWhenMissingPropagatesTheError(t *testing.T) {
 	_, err := invoiceUsecase.CloseInvoice(7)
 
 	require.ErrorIs(t, err, errRepository)
+}
+
+func TestCloseInvoicePublishesTheClosedInvoice(t *testing.T) {
+	stored := model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen}
+	repository := &fakeRepository{invoice: stored}
+	publisher := &fakePublisher{}
+	invoiceUsecase := newUsecaseWithPublisher(repository, publisher)
+
+	_, err := invoiceUsecase.CloseInvoice(7)
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, publisher.calls)
+	assert.Equal(t, stored, publisher.published, "it publishes what the repository holds after closing")
+}
+
+func TestCloseInvoiceRefusesWhenPublishingFails(t *testing.T) {
+	repository := &fakeRepository{
+		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen},
+	}
+	invoiceUsecase := newUsecaseWithPublisher(repository, &fakePublisher{err: errPublisher})
+
+	_, err := invoiceUsecase.CloseInvoice(7)
+
+	require.ErrorIs(t, err, errPublisher)
+}
+
+func TestCloseInvoiceSkipsPublishingWhenAlreadyClosed(t *testing.T) {
+	repository := &fakeRepository{
+		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusClosed},
+	}
+	publisher := &fakePublisher{}
+	invoiceUsecase := newUsecaseWithPublisher(repository, publisher)
+
+	_, err := invoiceUsecase.CloseInvoice(7)
+
+	require.ErrorIs(t, err, model.ErrInvoiceClosed)
+	assert.Zero(t, publisher.calls)
 }
 
 func TestReopenInvoiceReopensAClosedOne(t *testing.T) {

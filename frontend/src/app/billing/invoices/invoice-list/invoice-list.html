@@ -51,8 +51,7 @@
               </td>
             </tr>
           } @else {
-            @for (row of rows(); track row.invoice.id) {
-              @let invoice = row.invoice;
+            @for (invoice of invoices(); track invoice.id) {
               <tr>
                 <td class="table__code">{{ invoice.number }}</td>
                 <td>{{ typeLabel(invoice.type) }}</td>
@@ -69,7 +68,7 @@
                   {{ invoice.total | currency: 'BRL' : 'symbol' : '1.2-2' }}
                 </td>
                 <td class="table__actions">
-                  <app-menu-button [items]="row.actions" />
+                  <app-invoice-actions [invoice]="invoice" />
                 </td>
               </tr>
             } @empty {
@@ -86,28 +85,4 @@
   </div>
 </section>
 
-@if (pendingDeletion(); as invoice) {
-  <app-confirm-dialog
-    title="Excluir nota fiscal"
-    [busy]="deleting()"
-    (confirmed)="confirmDeletion()"
-    (cancelled)="cancelDeletion()"
-  >
-    A nota fiscal <strong>{{ invoice.number }}</strong> e todos os seus itens
-    serão apagados.
-  </app-confirm-dialog>
-}
 
-@if (pendingPrint(); as invoice) {
-  <app-confirm-dialog
-    title="Imprimir nota fiscal"
-    confirmLabel="Imprimir"
-    busyLabel="Imprimindo…"
-    [busy]="printing()"
-    (confirmed)="confirmPrint()"
-    (cancelled)="cancelPrint()"
-  >
-    A nota fiscal <strong>{{ invoice.number }}</strong> será fechada e não poderá
-    mais ser alterada nem excluída.
-  </app-confirm-dialog>
-}
