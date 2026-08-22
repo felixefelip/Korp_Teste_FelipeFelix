@@ -1,4 +1,19 @@
 services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q check_running
+      interval: 10s
+      retries: 12
+
   inventory:
     build: ./inventory
     image: korp/inventory:dev
@@ -7,6 +22,7 @@ services:
       - "8000:8000"
     environment:
       GO_ENV: ${GO_ENV:-development}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       DB_HOST: inventory_db
       DB_PORT: 5432
       DB_USER: postgres
@@ -16,6 +32,8 @@ services:
       - gomodcache:/go/pkg/mod
     depends_on:
       inventory_db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     command: sleep infinity
 
@@ -41,6 +59,7 @@ services:
       - "8001:8001"
     environment:
       GO_ENV: ${GO_ENV:-development}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       DB_HOST: billing_db
       DB_PORT: 5432
       DB_USER: postgres
@@ -50,6 +69,8 @@ services:
       - gomodcache:/go/pkg/mod
     depends_on:
       billing_db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     command: sleep infinity
 
@@ -85,6 +106,7 @@ services:
       - billing
 
 volumes:
+  rabbitmqdata: {}
   pgdata: {}
   billing_pgdata: {}
   gomodcache: {}
