@@ -6,16 +6,11 @@ import (
 
 type InvoiceUsecase struct {
 	repository model.InvoiceRepository
-	publisher  model.InvoiceEventPublisher
 }
 
-func NewInvoiceUsecase(
-	repository model.InvoiceRepository,
-	publisher model.InvoiceEventPublisher,
-) InvoiceUsecase {
+func NewInvoiceUsecase(repository model.InvoiceRepository) InvoiceUsecase {
 	return InvoiceUsecase{
 		repository: repository,
-		publisher:  publisher,
 	}
 }
 
@@ -63,20 +58,16 @@ func (iu *InvoiceUsecase) CloseInvoice(id int) (model.Invoice, error) {
 		return model.Invoice{}, model.ErrInvoiceClosed
 	}
 
-	if err := iu.repository.CloseInvoice(id); err != nil {
-		return model.Invoice{}, err
-	}
-
-	closed, err := iu.repository.GetInvoiceByID(id)
+	event, err := model.NewInvoiceCloseRequested(invoice)
 	if err != nil {
 		return model.Invoice{}, err
 	}
 
-	if err := iu.publisher.PublishCloseRequested(closed); err != nil {
+	if err := iu.repository.CloseInvoice(id, event); err != nil {
 		return model.Invoice{}, err
 	}
 
-	return closed, nil
+	return iu.repository.GetInvoiceByID(id)
 }
 
 func (iu *InvoiceUsecase) ReopenInvoice(id int) (model.Invoice, error) {

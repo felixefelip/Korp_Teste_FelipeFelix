@@ -88,16 +88,22 @@ func (ir *InvoiceRepository) UpdateInvoice(invoice model.Invoice) error {
 	})
 }
 
-func (ir *InvoiceRepository) CloseInvoice(id int) error {
-	return ir.setStatus(id, model.InvoiceStatusClosed)
+func (ir *InvoiceRepository) CloseInvoice(id int, event model.OutboxEvent) error {
+	return ir.connection.Transaction(func(tx *gorm.DB) error {
+		if err := setStatus(tx, id, model.InvoiceStatusClosed); err != nil {
+			return err
+		}
+
+		return tx.Create(&event).Error
+	})
 }
 
 func (ir *InvoiceRepository) ReopenInvoice(id int) error {
-	return ir.setStatus(id, model.InvoiceStatusOpen)
+	return setStatus(ir.connection, id, model.InvoiceStatusOpen)
 }
 
-func (ir *InvoiceRepository) setStatus(id int, status string) error {
-	result := ir.connection.
+func setStatus(tx *gorm.DB, id int, status string) error {
+	result := tx.
 		Model(&model.Invoice{ID: id}).
 		Update("status", status)
 	if result.Error != nil {

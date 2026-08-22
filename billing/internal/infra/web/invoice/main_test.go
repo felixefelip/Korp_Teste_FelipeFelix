@@ -8,7 +8,6 @@ import (
 	"billing/internal/infra/db"
 	"billing/internal/infra/web"
 	"billing/internal/test/dbtest"
-	"billing/internal/test/mqtest"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -36,7 +35,7 @@ func newServer(t *testing.T) *gin.Engine {
 	dbtest.Reset(t, testConnection)
 
 	server := gin.New()
-	web.Register(server, testConnection, mqtest.NewPublisher())
+	web.Register(server, testConnection)
 
 	return server
 }
@@ -52,7 +51,7 @@ func newServerWithDatabaseDown(t *testing.T) *gin.Engine {
 	require.NoError(t, sqlDB.Close())
 
 	server := gin.New()
-	web.Register(server, connection, mqtest.NewPublisher())
+	web.Register(server, connection)
 
 	return server
 }

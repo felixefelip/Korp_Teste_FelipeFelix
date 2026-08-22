@@ -5,24 +5,23 @@ import (
 
 	"billing/internal/infra/db"
 	"billing/internal/infra/web/invoice"
-	"billing/internal/model"
 	"billing/internal/usecase"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-func New(connection *gorm.DB, publisher model.InvoiceEventPublisher) *gin.Engine {
+func New(connection *gorm.DB) *gin.Engine {
 	server := gin.Default()
 
-	Register(server, connection, publisher)
+	Register(server, connection)
 
 	return server
 }
 
-func Register(server *gin.Engine, connection *gorm.DB, publisher model.InvoiceEventPublisher) {
+func Register(server *gin.Engine, connection *gorm.DB) {
 	invoiceRepository := db.NewInvoiceRepository(connection)
-	invoiceUsecase := usecase.NewInvoiceUsecase(invoiceRepository, publisher)
+	invoiceUsecase := usecase.NewInvoiceUsecase(invoiceRepository)
 	invoiceController := invoice.NewController(invoiceUsecase)
 
 	server.GET("/ping", func(ctx *gin.Context) {

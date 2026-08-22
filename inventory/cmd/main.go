@@ -22,17 +22,9 @@ func main() {
 		panic(err)
 	}
 
-	broker, err := messaging.Connect()
-	if err != nil {
-		panic(err)
-	}
-	defer broker.Close()
-
 	handler := invoicemq.NewHandler()
 
-	if err := broker.Consume(messaging.InvoiceRequestsQueue, handler.HandleCloseRequested); err != nil {
-		panic(err)
-	}
+	messaging.NewConsumer(messaging.InvoiceRequestsQueue, handler.HandleCloseRequested).Start()
 
 	server := web.New(dbConnection)
 

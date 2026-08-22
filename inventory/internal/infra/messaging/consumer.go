@@ -1,33 +1,69 @@
 package messaging
 
 import (
+	"errors"
 	"fmt"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+const reconnectInterval = 3 * time.Second
+
+var errDeliveriesClosed = errors.New("connection to the broker was lost")
+
 type Handler func(delivery amqp.Delivery) error
 
-func (c *Connection) Consume(queue string, handle Handler) error {
-	deliveries, err := c.channel.Consume(queue, "", false, false, false, false, nil)
+type Consumer struct {
+	queue  string
+	handle Handler
+}
+
+func NewConsumer(queue string, handle Handler) *Consumer {
+	return &Consumer{
+		queue:  queue,
+		handle: handle,
+	}
+}
+
+func (c *Consumer) Start() {
+	go func() {
+		for {
+			if err := c.consume(); err != nil {
+				fmt.Printf("consumer of %s: %v\n", c.queue, err)
+			}
+
+			time.Sleep(reconnectInterval)
+		}
+	}()
+
+	fmt.Println("Consumer of " + c.queue + " started")
+}
+
+func (c *Consumer) consume() error {
+	connection, err := Connect()
+	if err != nil {
+		return err
+	}
+	defer connection.Close()
+
+	deliveries, err := connection.channel.Consume(c.queue, "", false, false, false, false, nil)
 	if err != nil {
 		return err
 	}
 
-	go func() {
-		for delivery := range deliveries {
-			if err := handle(delivery); err != nil {
-				fmt.Printf("message %s refused: %v\n", delivery.MessageId, err)
-				delivery.Nack(false, false)
+	fmt.Println("Consuming " + c.queue)
 
-				continue
-			}
+	for delivery := range deliveries {
+		if err := c.handle(delivery); err != nil {
+			fmt.Printf("message %s refused: %v\n", delivery.MessageId, err)
+			delivery.Nack(false, false)
 
-			delivery.Ack(false)
+			continue
 		}
-	}()
 
-	fmt.Println("Consuming " + queue)
+		delivery.Ack(false)
+	}
 
-	return nil
+	return errDeliveriesClosed
 }

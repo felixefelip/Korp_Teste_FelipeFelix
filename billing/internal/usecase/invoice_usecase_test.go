@@ -1,6 +1,7 @@
 package usecase_test
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -20,6 +21,7 @@ type fakeRepository struct {
 	receivedID      int
 	receivedInvoice model.Invoice
 	closedID        int
+	recordedEvent   model.OutboxEvent
 	reopenedID      int
 	deletedID       int
 	calls           int
@@ -48,9 +50,10 @@ func (f *fakeRepository) UpdateInvoice(invoice model.Invoice) error {
 	return f.err
 }
 
-func (f *fakeRepository) CloseInvoice(id int) error {
+func (f *fakeRepository) CloseInvoice(id int, event model.OutboxEvent) error {
 	f.calls++
 	f.closedID = id
+	f.recordedEvent = event
 	return f.err
 }
 
@@ -66,33 +69,10 @@ func (f *fakeRepository) DeleteInvoice(id int) error {
 	return f.err
 }
 
-type fakePublisher struct {
-	published model.Invoice
-	err       error
-	calls     int
-}
-
-func (f *fakePublisher) PublishCloseRequested(invoice model.Invoice) error {
-	f.calls++
-	f.published = invoice
-
-	return f.err
-}
-
-var (
-	errRepository = errors.New("database down")
-	errPublisher  = errors.New("broker down")
-)
+var errRepository = errors.New("database down")
 
 func newUsecase(repository model.InvoiceRepository) usecase.InvoiceUsecase {
-	return usecase.NewInvoiceUsecase(repository, &fakePublisher{})
-}
-
-func newUsecaseWithPublisher(
-	repository model.InvoiceRepository,
-	publisher model.InvoiceEventPublisher,
-) usecase.InvoiceUsecase {
-	return usecase.NewInvoiceUsecase(repository, publisher)
+	return usecase.NewInvoiceUsecase(repository)
 }
 
 func TestGetInvoicesReturnsWhatTheRepositoryHolds(t *testing.T) {
@@ -295,41 +275,74 @@ func TestCloseInvoiceWhenMissingPropagatesTheError(t *testing.T) {
 	require.ErrorIs(t, err, errRepository)
 }
 
-func TestCloseInvoicePublishesTheClosedInvoice(t *testing.T) {
-	stored := model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen}
+func TestCloseInvoiceRecordsTheCloseRequestedEvent(t *testing.T) {
+	stored := model.Invoice{
+		ID:     7,
+		Number: "NF-0007",
+		Type:   model.InvoiceTypeOut,
+		Status: model.InvoiceStatusOpen,
+		Items: []model.InvoiceItem{
+			{ID: 3, Quantity: 10, Product: model.Product{InventoryID: 42}},
+		},
+	}
 	repository := &fakeRepository{invoice: stored}
-	publisher := &fakePublisher{}
-	invoiceUsecase := newUsecaseWithPublisher(repository, publisher)
+	invoiceUsecase := newUsecase(repository)
 
 	_, err := invoiceUsecase.CloseInvoice(7)
 
 	require.NoError(t, err)
-	assert.Equal(t, 1, publisher.calls)
-	assert.Equal(t, stored, publisher.published, "it publishes what the repository holds after closing")
+
+	event := repository.recordedEvent
+	assert.Equal(t, model.InvoiceCloseRequestedKey, event.RoutingKey)
+	assert.Equal(t, model.OutboxAggregateInvoice, event.AggregateType)
+	assert.Equal(t, 7, event.AggregateID)
+	assert.NotEmpty(t, event.EventID)
+	assert.False(t, event.Published(), "the relay is the one that publishes it")
 }
 
-func TestCloseInvoiceRefusesWhenPublishingFails(t *testing.T) {
-	repository := &fakeRepository{
-		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen},
+func TestCloseInvoicePayloadCarriesTheInventoryProductID(t *testing.T) {
+	stored := model.Invoice{
+		ID:     7,
+		Number: "NF-0007",
+		Type:   model.InvoiceTypeOut,
+		Status: model.InvoiceStatusOpen,
+		Items: []model.InvoiceItem{
+			{ID: 3, ProductID: 1, Quantity: 10, Product: model.Product{InventoryID: 42}},
+		},
 	}
-	invoiceUsecase := newUsecaseWithPublisher(repository, &fakePublisher{err: errPublisher})
+	repository := &fakeRepository{invoice: stored}
+	invoiceUsecase := newUsecase(repository)
 
 	_, err := invoiceUsecase.CloseInvoice(7)
+	require.NoError(t, err)
 
-	require.ErrorIs(t, err, errPublisher)
+	var payload struct {
+		InvoiceID int `json:"invoiceId"`
+		Items     []struct {
+			InvoiceItemID int `json:"invoiceItemId"`
+			ProductID     int `json:"productId"`
+			Quantity      int `json:"quantity"`
+		} `json:"items"`
+	}
+	require.NoError(t, json.Unmarshal(repository.recordedEvent.Payload, &payload))
+
+	assert.Equal(t, 7, payload.InvoiceID)
+	require.Len(t, payload.Items, 1)
+	assert.Equal(t, 3, payload.Items[0].InvoiceItemID)
+	assert.Equal(t, 42, payload.Items[0].ProductID, "the inventory identity, not the local replica one")
+	assert.Equal(t, 10, payload.Items[0].Quantity)
 }
 
-func TestCloseInvoiceSkipsPublishingWhenAlreadyClosed(t *testing.T) {
+func TestCloseInvoiceRecordsNothingWhenAlreadyClosed(t *testing.T) {
 	repository := &fakeRepository{
 		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusClosed},
 	}
-	publisher := &fakePublisher{}
-	invoiceUsecase := newUsecaseWithPublisher(repository, publisher)
+	invoiceUsecase := newUsecase(repository)
 
 	_, err := invoiceUsecase.CloseInvoice(7)
 
 	require.ErrorIs(t, err, model.ErrInvoiceClosed)
-	assert.Zero(t, publisher.calls)
+	assert.Empty(t, repository.recordedEvent.RoutingKey)
 }
 
 func TestReopenInvoiceReopensAClosedOne(t *testing.T) {

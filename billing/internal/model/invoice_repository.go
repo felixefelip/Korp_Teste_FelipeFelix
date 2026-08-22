@@ -5,7 +5,7 @@ type InvoiceRepository interface {
 	GetInvoiceByID(id int) (Invoice, error)
 	CreateInvoice(invoice Invoice) (int, error)
 	UpdateInvoice(invoice Invoice) error
-	CloseInvoice(id int) error
+	CloseInvoice(id int, event OutboxEvent) error
 	ReopenInvoice(id int) error
 	DeleteInvoice(id int) error
 }

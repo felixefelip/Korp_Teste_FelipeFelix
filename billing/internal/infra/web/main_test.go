@@ -7,7 +7,6 @@ import (
 
 	"billing/internal/infra/web"
 	"billing/internal/test/dbtest"
-	"billing/internal/test/mqtest"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -34,7 +33,7 @@ func newServer(t *testing.T) *gin.Engine {
 	dbtest.Reset(t, testConnection)
 
 	server := gin.New()
-	web.Register(server, testConnection, mqtest.NewPublisher())
+	web.Register(server, testConnection)
 
 	return server
 }

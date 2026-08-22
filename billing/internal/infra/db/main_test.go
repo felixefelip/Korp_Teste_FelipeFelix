@@ -32,3 +32,11 @@ func newRepository(t *testing.T) *db.InvoiceRepository {
 
 	return db.NewInvoiceRepository(testConnection)
 }
+
+func newOutboxRepository(t *testing.T) *db.OutboxRepository {
+	t.Helper()
+
+	dbtest.Reset(t, testConnection)
+
+	return db.NewOutboxRepository(testConnection)
+}

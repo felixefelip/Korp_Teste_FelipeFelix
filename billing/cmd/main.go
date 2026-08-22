@@ -3,7 +3,6 @@ package main
 import (
 	"billing/internal/infra/db"
 	"billing/internal/infra/messaging"
-	invoicemq "billing/internal/infra/messaging/invoice"
 	"billing/internal/infra/web"
 	"billing/internal/model"
 )
@@ -18,17 +17,14 @@ func main() {
 		panic(err)
 	}
 
-	if err := dbConnection.AutoMigrate(&model.Product{}, &model.Invoice{}, &model.InvoiceItem{}); err != nil {
+	if err := dbConnection.AutoMigrate(&model.Product{}, &model.Invoice{}, &model.InvoiceItem{}, &model.OutboxEvent{}); err != nil {
 		panic(err)
 	}
 
-	broker, err := messaging.Connect()
-	if err != nil {
-		panic(err)
-	}
-	defer broker.Close()
+	relay := messaging.NewRelay(db.NewOutboxRepository(dbConnection))
+	relay.Start()
 
-	server := web.New(dbConnection, invoicemq.NewPublisher(broker.Channel()))
+	server := web.New(dbConnection)
 
 	server.Run(":8001")
 }

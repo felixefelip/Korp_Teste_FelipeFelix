@@ -565,7 +565,7 @@ func TestCloseInvoiceMovesTheStatus(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, repository.CloseInvoice(id))
+	require.NoError(t, repository.CloseInvoice(id, closeEventFor(t, id)))
 
 	var saved model.Invoice
 	require.NoError(t, testConnection.First(&saved, id).Error)
@@ -582,7 +582,7 @@ func TestCloseInvoiceKeepsTheItems(t *testing.T) {
 	))
 	require.NoError(t, err)
 
-	require.NoError(t, repository.CloseInvoice(id))
+	require.NoError(t, repository.CloseInvoice(id, closeEventFor(t, id)))
 
 	invoice, err := repository.GetInvoiceByID(id)
 	require.NoError(t, err)
@@ -593,9 +593,51 @@ func TestCloseInvoiceKeepsTheItems(t *testing.T) {
 func TestCloseInvoiceWhenMissingReturnsErrRecordNotFound(t *testing.T) {
 	repository := newRepository(t)
 
-	err := repository.CloseInvoice(9999)
+	err := repository.CloseInvoice(9999, closeEventFor(t, 9999))
 
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+}
+
+func TestCloseInvoiceRecordsTheEventAlongsideTheStatus(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(model.Invoice{
+		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, repository.CloseInvoice(id, closeEventFor(t, id)))
+
+	var events []model.OutboxEvent
+	require.NoError(t, testConnection.Find(&events).Error)
+
+	require.Len(t, events, 1)
+	assert.Equal(t, model.InvoiceCloseRequestedKey, events[0].RoutingKey)
+	assert.Equal(t, id, events[0].AggregateID)
+	assert.Nil(t, events[0].PublishedAt, "it is the relay that publishes")
+}
+
+func TestCloseInvoiceWhenMissingRecordsNoEvent(t *testing.T) {
+	repository := newRepository(t)
+
+	err := repository.CloseInvoice(9999, closeEventFor(t, 9999))
+	require.Error(t, err)
+
+	var events []model.OutboxEvent
+	require.NoError(t, testConnection.Find(&events).Error)
+
+	assert.Empty(t, events, "status and event are written in the same transaction")
+}
+
+func closeEventFor(t *testing.T, id int) model.OutboxEvent {
+	t.Helper()
+
+	event, err := model.NewInvoiceCloseRequested(model.Invoice{
+		ID: id, Number: "NF-0001", Type: model.InvoiceTypeOut,
+	})
+	require.NoError(t, err)
+
+	return event
 }
 
 func TestReopenInvoiceMovesTheStatusBack(t *testing.T) {
@@ -623,7 +665,7 @@ func TestReopenInvoiceKeepsTheItems(t *testing.T) {
 	))
 	require.NoError(t, err)
 
-	require.NoError(t, repository.CloseInvoice(id))
+	require.NoError(t, repository.CloseInvoice(id, closeEventFor(t, id)))
 	require.NoError(t, repository.ReopenInvoice(id))
 
 	invoice, err := repository.GetInvoiceByID(id)

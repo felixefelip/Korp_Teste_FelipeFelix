@@ -1,19 +1,12 @@
 package messaging
 
 import (
-	"fmt"
 	"os"
-	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const (
-	EventsExchange = "billing.events"
-
-	connectAttempts = 10
-	connectInterval = 3 * time.Second
-)
+const EventsExchange = "billing.events"
 
 func env(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
@@ -33,42 +26,35 @@ type Connection struct {
 }
 
 func Connect() (*Connection, error) {
-	var lastErr error
-
-	for attempt := 1; attempt <= connectAttempts; attempt++ {
-		connection, err := amqp.Dial(URL())
-		if err != nil {
-			lastErr = err
-
-			fmt.Printf("RabbitMQ unavailable (%d/%d): %v\n", attempt, connectAttempts, err)
-			time.Sleep(connectInterval)
-
-			continue
-		}
-
-		channel, err := connection.Channel()
-		if err != nil {
-			connection.Close()
-
-			return nil, err
-		}
-
-		if err := declareTopology(channel); err != nil {
-			connection.Close()
-
-			return nil, err
-		}
-
-		fmt.Println("Successfully connected to RabbitMQ")
-
-		return &Connection{connection: connection, channel: channel}, nil
+	connection, err := amqp.Dial(URL())
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, lastErr
+	channel, err := connection.Channel()
+	if err != nil {
+		connection.Close()
+
+		return nil, err
+	}
+
+	if err := declareTopology(channel); err != nil {
+		connection.Close()
+
+		return nil, err
+	}
+
+	if err := channel.Confirm(false); err != nil {
+		connection.Close()
+
+		return nil, err
+	}
+
+	return &Connection{connection: connection, channel: channel}, nil
 }
 
-func (c *Connection) Channel() *amqp.Channel {
-	return c.channel
+func (c *Connection) Closed() bool {
+	return c.connection.IsClosed()
 }
 
 func (c *Connection) Close() error {
