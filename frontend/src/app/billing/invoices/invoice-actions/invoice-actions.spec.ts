@@ -4,7 +4,7 @@ import { provideRouter } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
 
 import { FlashService } from '../../../shared/flash/flash.service';
-import { Invoice } from '../invoice.model';
+import { Invoice, ProcessingStage } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 import { InvoiceActions } from './invoice-actions';
 
@@ -78,7 +78,8 @@ describe('InvoiceActions', () => {
       reopen?: () => Observable<Invoice>;
       retry?: () => Observable<Invoice>;
       remove?: () => Observable<void>;
-    } = {}
+    } = {},
+    stage: ProcessingStage = 'normal'
   ) => {
     TestBed.resetTestingModule();
 
@@ -105,6 +106,7 @@ describe('InvoiceActions', () => {
 
     fixture = TestBed.createComponent(InvoiceActions);
     fixture.componentRef.setInput('invoice', invoice);
+    fixture.componentRef.setInput('stage', stage);
     await fixture.whenStable();
   };
 
@@ -164,7 +166,9 @@ describe('InvoiceActions', () => {
       await click(dialogButton('Imprimir'));
 
       expect(service.close).toHaveBeenCalledWith(7);
-      expect(flash.success).toHaveBeenCalledWith('Nota fiscal 001/000007 fechada.');
+      expect(flash.success).toHaveBeenCalledWith(
+        'Nota fiscal 001/000007 enviada para fechamento.'
+      );
       expect(dialog()).toBeNull();
     });
 
@@ -347,17 +351,13 @@ describe('InvoiceActions', () => {
     });
   });
 
-  describe('while the invoice is being processed', () => {
+  describe('while the invoice is being processed normally', () => {
     beforeEach(async () => {
       await mount(PROCESSING);
     });
 
-    it('offers retrying as the button itself, for the result that never came', () => {
-      expect(text(primary())).toBe('Tentar novamente');
-    });
-
-    it('offers nothing else behind a chevron', () => {
-      expect(toggle()).toBeNull();
+    it('offers no action at all, since the result may still arrive', () => {
+      expect(element().querySelector('.menu-button')).toBeNull();
     });
 
     it('does not offer printing again', () => {
@@ -374,12 +374,30 @@ describe('InvoiceActions', () => {
     });
   });
 
-  describe('while the invoice is being reopened', () => {
+  describe('while the invoice is taking longer than expected', () => {
+    it('still offers nothing, because the consumer is retrying on its own', async () => {
+      await mount(PROCESSING, {}, 'unstable');
+
+      expect(element().querySelector('.menu-button')).toBeNull();
+    });
+  });
+
+  describe('once the invoice is stuck', () => {
     beforeEach(async () => {
-      await mount(REOPENING);
+      await mount(PROCESSING, {}, 'stuck');
     });
 
-    it('offers retrying as well', () => {
+    it('offers retrying as the button itself, for the result that never came', () => {
+      expect(text(primary())).toBe('Tentar novamente');
+    });
+
+    it('offers nothing else behind a chevron', () => {
+      expect(toggle()).toBeNull();
+    });
+
+    it('offers it for a reopening that got stuck too', async () => {
+      await mount(REOPENING, {}, 'stuck');
+
       expect(text(primary())).toBe('Tentar novamente');
     });
 
@@ -390,7 +408,7 @@ describe('InvoiceActions', () => {
 
   describe('retrying', () => {
     it('resends the request without asking, since it settles nothing', async () => {
-      await mount(PROCESSING);
+      await mount(PROCESSING, {}, 'stuck');
       await click(primary());
 
       expect(dialog()).toBeNull();
@@ -399,25 +417,31 @@ describe('InvoiceActions', () => {
     });
 
     it('shows what the API said when it refuses', async () => {
-      await mount(PROCESSING, {
-        retry: () =>
-          throwError(
-            () =>
-              new HttpErrorResponse({
-                status: 409,
-                error: { message: 'Esta nota fiscal não está em processamento.' }
-              })
-          )
-      });
+      await mount(
+        PROCESSING,
+        {
+          retry: () =>
+            throwError(
+              () =>
+                new HttpErrorResponse({
+                  status: 409,
+                  error: { message: 'Esta nota fiscal não está em processamento.' }
+                })
+            )
+        },
+        'stuck'
+      );
       await click(primary());
 
       expect(flash.error).toHaveBeenCalledWith('Esta nota fiscal não está em processamento.');
     });
 
     it('falls back to its own message when the API names none', async () => {
-      await mount(PROCESSING, {
-        retry: () => throwError(() => new HttpErrorResponse({ status: 500 }))
-      });
+      await mount(
+        PROCESSING,
+        { retry: () => throwError(() => new HttpErrorResponse({ status: 500 })) },
+        'stuck'
+      );
       await click(primary());
 
       expect(flash.error).toHaveBeenCalledWith(

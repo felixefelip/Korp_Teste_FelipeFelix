@@ -471,9 +471,34 @@ novo, sem gravar movimento em dobro. O mesmo vale para o estorno, que não acha
 mais movimento e responde `invoice.stock.reverted`.
 
 Vale tanto para a mensagem que morreu na DLQ quanto para a que se perdeu por
-qualquer outro motivo — o reenvio não precisa saber onde ela parou. Na
-interface é a ação **Tentar novamente**, a única oferecida enquanto a nota
-está em processamento.
+qualquer outro motivo — o reenvio não precisa saber onde ela parou.
+
+## O que o usuário vê enquanto espera
+
+Oferecer o reenvio desde o primeiro instante seria convidar o usuário a agir
+sobre um problema que quase sempre não existe: o caminho feliz leva
+milissegundos. Por isso a tela tem três faixas, que espelham o que o sistema
+está de fato fazendo por dentro:
+
+| Tempo em processamento | O que acontece por dentro | O que a tela mostra |
+|---|---|---|
+| até 30s | fluxo normal, ou mensagem esperando na fila | só "Processando" |
+| 30s a 5min | o consumidor está retentando, com espera crescente | "Estamos com instabilidade. A nota fiscal continua sendo processada, você não precisa fazer nada." |
+| acima de 5min | o orçamento de tentativas acabou, a mensagem foi para a fila morta | "Não foi possível concluir o processamento desta nota fiscal." + **Tentar novamente** |
+
+A faixa do meio é a que justifica o desenho: ali o sistema está trabalhando, e
+o botão só produziria um segundo pedido em cima de um que ainda vai dar certo.
+
+O relógio vem da API, no campo `processingSince` da nota, e sai do
+`created_at` do **último** evento daquela nota no outbox — não de um
+`updated_at` na `invoice`. A diferença aparece no reenvio: ele grava evento
+novo sem tocar na linha da nota, então com `updated_at` a mensagem de erro
+ficaria congelada na tela depois do clique. Com o outbox, o relógio zera e a
+nota volta para "Processando", que é a verdade. A consulta é uma só, agrupada
+por `aggregate_id`, e só para as notas em processamento.
+
+O polling da listagem acompanha: 1,5s enquanto alguma nota ainda pode concluir
+a qualquer momento, 10s quando todas já passaram do primeiro limiar.
 
 ## Outbox transacional
 
@@ -586,6 +611,7 @@ para o fim — o registro que o usuário acabou de salvar sumia do lugar.
 ```sql
 -- invoice.status: OPEN | CLOSING | CLOSED | REOPENING
 ALTER TABLE invoice ADD COLUMN failure_reason VARCHAR(30);
+-- processingSince não é coluna: sai do último outbox_event da nota
 
 CREATE TABLE invoice_shortage (
   id           SERIAL PRIMARY KEY,
@@ -700,16 +726,19 @@ docker compose start billing_db
 # a entrega seguinte passa e a nota vai de CLOSING para CLOSED
 ```
 
-Se o banco não voltar dentro do orçamento de tentativas, a mensagem vai para
+Do lado do usuário, a nota passa a exibir o aviso de instabilidade enquanto as
+tentativas correm.
+
+Se o banco não voltar dentro do orçamento, a mensagem vai para
 `billing.dead-letter` — onde dá para vê-la, em vez de sumir — e a nota fica em
-`CLOSING`. O caminho de volta é a ação **Tentar novamente**, que refaz o pedido
-para o inventory.
+`CLOSING`. Aí a tela troca o aviso pela falha e oferece **Tentar novamente**,
+que refaz o pedido para o inventory.
 
 ### F. Mensagem venenosa
 
 Um corpo que não decodifica vai direto para a fila morta, sem repetir entrega e
 sem travar a fila. Nenhuma nota se move; a nota que originou a mensagem fica em
-processamento até alguém reenviar.
+processamento e, passados os limiares, a tela a reporta como não concluída.
 
 ---
 

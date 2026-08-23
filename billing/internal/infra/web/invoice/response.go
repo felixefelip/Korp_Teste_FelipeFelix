@@ -2,6 +2,7 @@ package invoice
 
 import (
 	"math"
+	"time"
 
 	"billing/internal/model"
 )
@@ -18,6 +19,8 @@ type response struct {
 
 	FailureReason string             `json:"failureReason,omitempty"`
 	Shortages     []shortageResponse `json:"shortages,omitempty"`
+
+	ProcessingSince *time.Time `json:"processingSince,omitempty"`
 }
 
 type shortageResponse struct {
@@ -67,6 +70,8 @@ func newResponse(invoice model.Invoice) response {
 
 		FailureReason: invoice.FailureReason,
 		Shortages:     newShortageResponses(invoice.Shortages),
+
+		ProcessingSince: invoice.ProcessingSince,
 	}
 }
 

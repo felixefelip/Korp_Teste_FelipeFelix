@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"time"
 
 	"billing/internal/model"
 
@@ -38,6 +39,10 @@ func (ir *InvoiceRepository) GetInvoices() ([]model.Invoice, error) {
 		return []model.Invoice{}, err
 	}
 
+	if err := fillProcessingSince(ir.connection, invoiceList); err != nil {
+		return []model.Invoice{}, err
+	}
+
 	return invoiceList, nil
 }
 
@@ -49,7 +54,58 @@ func (ir *InvoiceRepository) GetInvoiceByID(id int) (model.Invoice, error) {
 		return model.Invoice{}, err
 	}
 
-	return invoice, nil
+	single := []model.Invoice{invoice}
+
+	if err := fillProcessingSince(ir.connection, single); err != nil {
+		return model.Invoice{}, err
+	}
+
+	return single[0], nil
+}
+
+type lastRequest struct {
+	AggregateID int
+	CreatedAt   time.Time
+}
+
+func fillProcessingSince(connection *gorm.DB, invoices []model.Invoice) error {
+	ids := make([]int, 0, len(invoices))
+
+	for _, invoice := range invoices {
+		if invoice.Processing() {
+			ids = append(ids, invoice.ID)
+		}
+	}
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	var requests []lastRequest
+
+	err := connection.
+		Model(&model.OutboxEvent{}).
+		Select("aggregate_id, MAX(created_at) AS created_at").
+		Where("aggregate_type = ? AND aggregate_id IN ?", model.OutboxAggregateInvoice, ids).
+		Group("aggregate_id").
+		Scan(&requests).Error
+	if err != nil {
+		return err
+	}
+
+	requestedAt := make(map[int]time.Time, len(requests))
+
+	for _, request := range requests {
+		requestedAt[request.AggregateID] = request.CreatedAt
+	}
+
+	for index := range invoices {
+		if moment, asked := requestedAt[invoices[index].ID]; asked {
+			invoices[index].ProcessingSince = &moment
+		}
+	}
+
+	return nil
 }
 
 func (ir *InvoiceRepository) CreateInvoice(invoice model.Invoice) (int, error) {

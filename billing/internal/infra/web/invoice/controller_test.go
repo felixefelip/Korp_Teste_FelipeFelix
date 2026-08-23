@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"billing/internal/infra/db"
 	"billing/internal/model"
@@ -38,6 +39,7 @@ type invoiceResponse struct {
 	Status          string                `json:"status"`
 	Items           []invoiceItemResponse `json:"items"`
 	Total           float64               `json:"total"`
+	ProcessingSince *time.Time            `json:"processingSince"`
 }
 
 const validInvoice = `{"series":1,"number":1,"type":"OUT","status":"OPEN"}`
@@ -1381,4 +1383,40 @@ func TestRetryInvoiceWithANonNumericIDReturns400(t *testing.T) {
 	response := webtest.Post(t, server, "/invoices/abc/retry", "")
 
 	assert.Equal(t, http.StatusBadRequest, response.Code)
+}
+
+func TestAnInvoiceBeingProcessedTellsSinceWhen(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusAccepted, closeInvoice(t, server, id).Code)
+
+	closing := decodeInvoice(t, webtest.Get(t, server, fmt.Sprintf("/invoices/%d", id)).Body.Bytes())
+
+	require.NotNil(t, closing.ProcessingSince, "the screen decides what to say from this")
+	assert.WithinDuration(t, time.Now(), *closing.ProcessingSince, time.Minute)
+}
+
+func TestASettledInvoiceTellsNoProcessingClock(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	closeInvoiceCompletely(t, server, id)
+
+	closed := decodeInvoice(t, webtest.Get(t, server, fmt.Sprintf("/invoices/%d", id)).Body.Bytes())
+
+	require.Equal(t, "CLOSED", closed.Status)
+	assert.Nil(t, closed.ProcessingSince)
+}
+
+func TestTheListingCarriesTheProcessingClock(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusAccepted, closeInvoice(t, server, id).Code)
+
+	listed := decodeInvoices(t, webtest.Get(t, server, "/invoices").Body.Bytes())
+
+	require.Len(t, listed, 1)
+	assert.NotNil(t, listed[0].ProcessingSince)
 }

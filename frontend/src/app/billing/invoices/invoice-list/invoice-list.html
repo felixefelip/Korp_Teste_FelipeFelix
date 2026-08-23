@@ -67,12 +67,20 @@
                   @if (invoice.failureReason && !isProcessing(invoice)) {
                     <small class="table__failure">{{ failureLabel(invoice) }}</small>
                   }
+                  @if (processingMessage(invoice); as message) {
+                    <small
+                      class="table__failure"
+                      [class.table__failure--waiting]="stage(invoice) === 'unstable'"
+                    >
+                      {{ message }}
+                    </small>
+                  }
                 </td>
                 <td class="table__num">
                   {{ invoice.total | currency: 'BRL' : 'symbol' : '1.2-2' }}
                 </td>
                 <td class="table__actions">
-                  <app-invoice-actions [invoice]="invoice" />
+                  <app-invoice-actions [invoice]="invoice" [stage]="stage(invoice)" />
                 </td>
               </tr>
             } @empty {

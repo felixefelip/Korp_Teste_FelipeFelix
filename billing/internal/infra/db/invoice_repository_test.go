@@ -2,6 +2,7 @@ package db_test
 
 import (
 	"testing"
+	"time"
 
 	"billing/internal/infra/db"
 	"billing/internal/model"
@@ -962,4 +963,93 @@ func TestGetInvoicesComesWithTheMostRecentDocumentFirst(t *testing.T) {
 
 	assert.Equal(t, []string{"002/000001", "001/000057", "001/000007", "001/000006"}, documents,
 		"the newest number comes first, and 57 still outranks 7")
+}
+
+func TestGetInvoiceByIDCarriesWhenTheProcessingStarted(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(model.Invoice{
+		Series: 1, Number: 1, Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
+	})
+	require.NoError(t, err)
+
+	event := closeEventFor(t, id)
+	require.NoError(t, repository.CloseInvoice(id, event))
+
+	closing, err := repository.GetInvoiceByID(id)
+	require.NoError(t, err)
+
+	require.NotNil(t, closing.ProcessingSince, "the screen needs to know for how long it has been waiting")
+	assert.WithinDuration(t, event.CreatedAt, *closing.ProcessingSince, time.Second)
+}
+
+func TestProcessingSinceFollowsTheLatestRequest(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(model.Invoice{
+		Series: 1, Number: 1, Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, repository.CloseInvoice(id, closeEventFor(t, id)))
+
+	retry := closeEventFor(t, id)
+	retry.CreatedAt = retry.CreatedAt.Add(time.Hour)
+	require.NoError(t, repository.RetryInvoice(id, model.InvoiceStatusClosing, retry))
+
+	closing, err := repository.GetInvoiceByID(id)
+	require.NoError(t, err)
+
+	require.NotNil(t, closing.ProcessingSince)
+	assert.WithinDuration(t, retry.CreatedAt, *closing.ProcessingSince, time.Second,
+		"asking again restarts the clock the user sees")
+}
+
+func TestAnInvoiceThatIsNotBeingProcessedCarriesNoClock(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(model.Invoice{
+		Series: 1, Number: 1, Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, repository.CloseInvoice(id, closeEventFor(t, id)))
+
+	moved, err := repository.ConfirmClose(id)
+	require.NoError(t, err)
+	require.True(t, moved)
+
+	closed, err := repository.GetInvoiceByID(id)
+	require.NoError(t, err)
+
+	assert.Nil(t, closed.ProcessingSince, "a settled invoice has nothing to wait for")
+}
+
+func TestGetInvoicesAsksForEveryClockAtOnce(t *testing.T) {
+	repository := newRepository(t)
+
+	for number := 1; number <= 3; number++ {
+		id, err := repository.CreateInvoice(model.Invoice{
+			Series: 1, Number: number, Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
+		})
+		require.NoError(t, err)
+
+		require.NoError(t, repository.CloseInvoice(id, closeEventFor(t, id)))
+	}
+
+	queries := 0
+	counted := testConnection.Session(&gorm.Session{})
+	require.NoError(t, counted.Callback().Query().After("gorm:query").Register("count", func(*gorm.DB) {
+		queries++
+	}))
+
+	invoices, err := db.NewInvoiceRepository(counted).GetInvoices()
+	require.NoError(t, err)
+	require.Len(t, invoices, 3)
+
+	for _, invoice := range invoices {
+		assert.NotNil(t, invoice.ProcessingSince, invoice.FormattedNumber())
+	}
+
+	assert.LessOrEqual(t, queries, 5, "one query for the clocks, not one per invoice")
 }

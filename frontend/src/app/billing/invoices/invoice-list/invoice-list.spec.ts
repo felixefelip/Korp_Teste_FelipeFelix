@@ -6,10 +6,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Observable, of, tap, throwError } from 'rxjs';
 
-import { Invoice } from '../invoice.model';
+import { Invoice, STUCK_AFTER, UNSTABLE_AFTER } from '../invoice.model';
 import { FlashService } from '../../../shared/flash/flash.service';
 import { InvoiceService } from '../invoice.service';
-import { POLL_INTERVAL, InvoiceList } from './invoice-list';
+import { POLL_INTERVAL, SLOW_POLL_INTERVAL, InvoiceList } from './invoice-list';
 
 registerLocaleData(localePt, 'pt-BR');
 
@@ -322,6 +322,92 @@ describe('InvoiceList', () => {
       expect(text(element().querySelector('.table__failure'))).toBe(
         'O estoque desta nota já foi utilizado'
       );
+    });
+  });
+
+  describe('while an invoice takes longer than expected', () => {
+    const processingFor = (elapsed: number): Invoice[] => [
+      {
+        ...INVOICES[0],
+        status: 'CLOSING',
+        processingSince: new Date(Date.now() - elapsed).toISOString()
+      }
+    ];
+
+    const note = () => text(element().querySelector('.table__failure'));
+
+    const action = () => text(element().querySelector('.menu-button__action'));
+
+    it('says nothing extra in the first seconds', async () => {
+      await mount(() => of(processingFor(1000)));
+
+      expect(note()).toBe('');
+      expect(element().querySelector('.menu-button')).toBeNull();
+    });
+
+    it('owns up to the instability once it drags on', async () => {
+      await mount(() => of(processingFor(UNSTABLE_AFTER + 1000)));
+
+      expect(note()).toContain('instabilidade');
+      expect(note()).toContain('não precisa fazer nada');
+    });
+
+    it('offers no action while the retries are still running', async () => {
+      await mount(() => of(processingFor(UNSTABLE_AFTER + 1000)));
+
+      expect(element().querySelector('.menu-button')).toBeNull();
+    });
+
+    it('reports the failure once the retries are exhausted', async () => {
+      await mount(() => of(processingFor(STUCK_AFTER + 1000)));
+
+      expect(note()).toBe('Não foi possível concluir o processamento desta nota fiscal.');
+    });
+
+    it('only then offers retrying', async () => {
+      await mount(() => of(processingFor(STUCK_AFTER + 1000)));
+
+      expect(action()).toBe('Tentar novamente');
+    });
+
+    it('says nothing about an invoice the API gave no clock for', async () => {
+      await mount(() => of([{ ...INVOICES[0], status: 'CLOSING' as const }]));
+
+      expect(note()).toBe('');
+    });
+
+    it('slows the polling down once nothing is about to settle', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+
+      try {
+        const service = await mount(() => of(processingFor(STUCK_AFTER + 1000)));
+        const initial = service.list.mock.calls.length;
+
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL * 3);
+
+        expect(service.list.mock.calls.length).toBe(initial);
+
+        await vi.advanceTimersByTimeAsync(SLOW_POLL_INTERVAL);
+
+        expect(service.list.mock.calls.length).toBeGreaterThan(initial);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('keeps asking often while an invoice may still settle', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+
+      try {
+        const service = await mount(() => of(processingFor(1000)));
+        const initial = service.list.mock.calls.length;
+
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL * 2);
+
+        expect(service.list.mock.calls.length).toBeGreaterThan(initial);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

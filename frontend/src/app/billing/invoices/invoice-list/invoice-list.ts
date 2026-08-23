@@ -6,16 +6,21 @@ import { InvoiceActions } from '../invoice-actions/invoice-actions';
 
 import {
   isProcessing,
+  processingStage,
   INVOICE_FAILURE_LABELS,
   INVOICE_STATUS_LABELS,
   INVOICE_TYPE_LABELS,
+  PROCESSING_STAGE_MESSAGES,
   Invoice,
   InvoiceStatus,
-  InvoiceType
+  InvoiceType,
+  ProcessingStage
 } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 
 export const POLL_INTERVAL = 1500;
+export const SLOW_POLL_INTERVAL = 10000;
+export const CLOCK_INTERVAL = 1000;
 
 
 @Component({
@@ -47,6 +52,17 @@ export class InvoiceList {
     this.invoiceService.invoices().some(isProcessing)
   );
 
+  private readonly now = signal(Date.now());
+
+  private readonly pollInterval = computed(() => {
+    const waiting = this.invoiceService.invoices().filter(isProcessing);
+    const settlingSoon = waiting.some(
+      (invoice) => processingStage(invoice, this.now()) === 'normal'
+    );
+
+    return settlingSoon ? POLL_INTERVAL : SLOW_POLL_INTERVAL;
+  });
+
   constructor() {
     this.load();
 
@@ -55,7 +71,17 @@ export class InvoiceList {
         return;
       }
 
-      const timer = setInterval(() => this.refresh(), POLL_INTERVAL);
+      const timer = setInterval(() => this.refresh(), this.pollInterval());
+
+      onCleanup(() => clearInterval(timer));
+    });
+
+    effect((onCleanup) => {
+      if (!this.processing()) {
+        return;
+      }
+
+      const timer = setInterval(() => this.now.set(Date.now()), CLOCK_INTERVAL);
 
       onCleanup(() => clearInterval(timer));
     });
@@ -75,6 +101,14 @@ export class InvoiceList {
 
   protected isProcessing(invoice: Invoice): boolean {
     return isProcessing(invoice);
+  }
+
+  protected stage(invoice: Invoice): ProcessingStage {
+    return processingStage(invoice, this.now());
+  }
+
+  protected processingMessage(invoice: Invoice): string {
+    return PROCESSING_STAGE_MESSAGES[this.stage(invoice)];
   }
 
   protected failureLabel(invoice: Invoice): string {

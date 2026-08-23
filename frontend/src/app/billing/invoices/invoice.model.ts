@@ -32,6 +32,7 @@ export interface Invoice {
   total: number;
   failureReason?: string;
   shortages?: InvoiceShortage[];
+  processingSince?: string;
 }
 
 export interface InvoiceItemPayload {
@@ -72,5 +73,35 @@ export const INVOICE_FAILURE_LABELS: Record<string, string> = {
 
 export function isProcessing(invoice: Invoice): boolean {
   return invoice.status === 'CLOSING' || invoice.status === 'REOPENING';
+}
+
+export type ProcessingStage = 'normal' | 'unstable' | 'stuck';
+
+export const UNSTABLE_AFTER = 30_000;
+export const STUCK_AFTER = 5 * 60_000;
+
+export const PROCESSING_STAGE_MESSAGES: Record<ProcessingStage, string> = {
+  normal: '',
+  unstable:
+    'Estamos com instabilidade. A nota fiscal continua sendo processada, você não precisa fazer nada.',
+  stuck: 'Não foi possível concluir o processamento desta nota fiscal.'
+};
+
+export function processingStage(invoice: Invoice, now: number): ProcessingStage {
+  if (!isProcessing(invoice) || !invoice.processingSince) {
+    return 'normal';
+  }
+
+  const elapsed = now - Date.parse(invoice.processingSince);
+
+  if (elapsed >= STUCK_AFTER) {
+    return 'stuck';
+  }
+
+  if (elapsed >= UNSTABLE_AFTER) {
+    return 'unstable';
+  }
+
+  return 'normal';
 }
 

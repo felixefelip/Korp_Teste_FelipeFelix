@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 const (
@@ -33,6 +34,8 @@ type Invoice struct {
 
 	FailureReason string            `json:"failureReason" gorm:"type:varchar(30);not null;default:''"`
 	Shortages     []InvoiceShortage `json:"shortages"     gorm:"foreignKey:InvoiceID"`
+
+	ProcessingSince *time.Time `json:"processingSince" gorm:"-"`
 }
 
 func (i Invoice) FormattedNumber() string {

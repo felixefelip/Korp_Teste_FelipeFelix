@@ -5,7 +5,7 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import { ConfirmDialog } from '../../../shared/confirm-dialog/confirm-dialog';
 import { FlashService } from '../../../shared/flash/flash.service';
 import { MenuButton, MenuItem } from '../../../shared/menu-button/menu-button';
-import { Invoice, isProcessing } from '../invoice.model';
+import { Invoice, ProcessingStage, isProcessing } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 
 export const DELETE_FAILURE = 'Não foi possível excluir a nota fiscal. Tente novamente.';
@@ -25,6 +25,7 @@ export class InvoiceActions {
   private readonly document = inject(DOCUMENT);
 
   readonly invoice = input.required<Invoice>();
+  readonly stage = input<ProcessingStage>('normal');
 
   protected readonly confirmingPrint = signal(false);
   protected readonly printing = signal(false);
@@ -35,6 +36,10 @@ export class InvoiceActions {
     const invoice = this.invoice();
 
     if (isProcessing(invoice)) {
+      if (this.stage() !== 'stuck') {
+        return [];
+      }
+
       return [{ label: 'Tentar novamente', action: () => this.retry() }];
     }
 
@@ -68,7 +73,8 @@ export class InvoiceActions {
     this.printing.set(true);
 
     this.invoiceService.close(invoice.id).subscribe({
-      next: () => this.settlePrint(`Nota fiscal ${invoice.formattedNumber} fechada.`),
+      next: () =>
+        this.settlePrint(`Nota fiscal ${invoice.formattedNumber} enviada para fechamento.`),
       error: (response: HttpErrorResponse) =>
         this.settlePrint(null, response.error?.message ?? CLOSE_FAILURE)
     });

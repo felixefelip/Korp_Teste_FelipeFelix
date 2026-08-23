@@ -36,3 +36,7 @@
   font-size: 0.75rem;
   color: var(--warning-500);
 }
+
+.table__failure--waiting {
+  color: var(--info-500, #3a63b0);
+}
