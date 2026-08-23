@@ -1,7 +1,6 @@
 package usecase_test
 
 import (
-	"encoding/json"
 	"testing"
 
 	"inventory/internal/model"
@@ -13,57 +12,44 @@ import (
 
 func invoiceStockRequest() model.InvoiceStockRequest {
 	return model.InvoiceStockRequest{
-		InvoiceID: 7,
-		Type:      model.InvoiceTypeOut,
+		InvoiceID:     7,
+		InvoiceNumber: "NF-0007",
+		Type:          model.InvoiceTypeOut,
+		CausationID:   "cause-1",
 		Items: []model.InvoiceStockItem{
 			{BillingInvoiceItemID: 3, ProductID: 42, Quantity: 10},
 		},
 	}
 }
 
-func TestApplyRecordsTheStockAppliedEvent(t *testing.T) {
-	repository := &fakeMovementRepository{}
-	invoiceStockUsecase := usecase.NewInvoiceStockUsecase(repository)
-
-	require.NoError(t, invoiceStockUsecase.Apply(invoiceStockRequest()))
-
-	event := repository.recordedEvent
-	assert.Equal(t, model.InvoiceStockAppliedKey, event.RoutingKey)
-	assert.Equal(t, model.OutboxAggregateInvoice, event.AggregateType)
-	assert.Equal(t, 7, event.AggregateID)
-	assert.NotEmpty(t, event.EventID)
-	assert.False(t, event.Published(), "it is the relay that publishes")
-}
-
 func TestApplyHandsTheWholeRequestToTheRepository(t *testing.T) {
 	repository := &fakeMovementRepository{}
 	invoiceStockUsecase := usecase.NewInvoiceStockUsecase(repository)
 
-	require.NoError(t, invoiceStockUsecase.Apply(invoiceStockRequest()))
+	_, err := invoiceStockUsecase.Apply(invoiceStockRequest())
 
+	require.NoError(t, err)
 	assert.Equal(t, invoiceStockRequest(), repository.receivedRequest,
-		"the movements and the event are written together")
+		"validating and writing happen together, under the same lock")
 }
 
-func TestApplyPayloadCarriesTheInvoice(t *testing.T) {
-	repository := &fakeMovementRepository{}
+func TestApplyReturnsTheResultTheLedgerRecorded(t *testing.T) {
+	repository := &fakeMovementRepository{
+		recordedEvent: model.OutboxEvent{RoutingKey: model.InvoiceStockRejectedKey},
+	}
 	invoiceStockUsecase := usecase.NewInvoiceStockUsecase(repository)
 
-	require.NoError(t, invoiceStockUsecase.Apply(invoiceStockRequest()))
+	result, err := invoiceStockUsecase.Apply(invoiceStockRequest())
 
-	var payload struct {
-		EventID   string `json:"eventId"`
-		InvoiceID int    `json:"invoiceId"`
-	}
-	require.NoError(t, json.Unmarshal(repository.recordedEvent.Payload, &payload))
-
-	assert.Equal(t, 7, payload.InvoiceID)
-	assert.Equal(t, repository.recordedEvent.EventID, payload.EventID)
+	require.NoError(t, err)
+	assert.Equal(t, model.InvoiceStockRejectedKey, result.RoutingKey)
 }
 
 func TestApplyPropagatesTheRepositoryError(t *testing.T) {
 	repository := &fakeMovementRepository{err: errRepository}
 	invoiceStockUsecase := usecase.NewInvoiceStockUsecase(repository)
 
-	assert.ErrorIs(t, invoiceStockUsecase.Apply(invoiceStockRequest()), errRepository)
+	_, err := invoiceStockUsecase.Apply(invoiceStockRequest())
+
+	assert.ErrorIs(t, err, errRepository)
 }

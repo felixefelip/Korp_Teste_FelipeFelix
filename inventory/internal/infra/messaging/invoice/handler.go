@@ -2,6 +2,7 @@ package invoice
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"inventory/internal/model"
@@ -40,6 +41,7 @@ func (e closeRequestedEvent) toRequest() model.InvoiceStockRequest {
 		InvoiceID:     e.InvoiceID,
 		InvoiceNumber: e.InvoiceNumber,
 		Type:          e.Type,
+		CausationID:   e.EventID,
 		Items:         items,
 	}
 }
@@ -61,5 +63,13 @@ func (h *Handler) HandleCloseRequested(delivery amqp.Delivery) error {
 		return err
 	}
 
-	return h.usecase.Apply(event.toRequest())
+	result, err := h.usecase.Apply(event.toRequest())
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("invoice %d (%s): %s, caused by %s\n",
+		event.InvoiceID, event.InvoiceNumber, result.RoutingKey, event.EventID)
+
+	return nil
 }

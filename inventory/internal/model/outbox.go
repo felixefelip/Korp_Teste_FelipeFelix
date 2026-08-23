@@ -10,6 +10,7 @@ type OutboxEvent struct {
 	AggregateType string    `gorm:"type:varchar(30);not null"`
 	AggregateID   int       `gorm:"not null;index"`
 	RoutingKey    string    `gorm:"type:varchar(60);not null"`
+	CausationID   string    `gorm:"type:varchar(36);index"`
 	Payload       []byte    `gorm:"type:jsonb;not null"`
 	CreatedAt     time.Time `gorm:"not null"`
 	PublishedAt   *time.Time

@@ -21,11 +21,12 @@ type shortagePayload struct {
 }
 
 type stockResultEvent struct {
-	EventID    string            `json:"eventId"`
-	OccurredAt time.Time         `json:"occurredAt"`
-	InvoiceID  int               `json:"invoiceId"`
-	Reason     string            `json:"reason"`
-	Shortages  []shortagePayload `json:"shortages"`
+	EventID     string            `json:"eventId"`
+	CausationID string            `json:"causationId"`
+	OccurredAt  time.Time         `json:"occurredAt"`
+	InvoiceID   int               `json:"invoiceId"`
+	Reason      string            `json:"reason"`
+	Shortages   []shortagePayload `json:"shortages"`
 }
 
 type Handler struct {
@@ -44,6 +45,8 @@ func (h *Handler) HandleStockApplied(delivery amqp.Delivery) error {
 		return err
 	}
 
+	fmt.Printf("invoice %d: stock applied, caused by %s\n", event.InvoiceID, event.CausationID)
+
 	return settle(h.usecase.ConfirmClose(event.InvoiceID), event.InvoiceID)
 }
 
@@ -52,6 +55,9 @@ func (h *Handler) HandleStockRejected(delivery amqp.Delivery) error {
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("invoice %d: stock refused (%s), caused by %s\n",
+		event.InvoiceID, event.Reason, event.CausationID)
 
 	return settle(h.usecase.RejectClose(event.InvoiceID, event.Reason), event.InvoiceID)
 }

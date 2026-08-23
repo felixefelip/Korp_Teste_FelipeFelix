@@ -24,11 +24,10 @@ type fakeMovementRepository struct {
 	calls            int
 }
 
-func (f *fakeMovementRepository) ApplyInvoice(request model.InvoiceStockRequest, event model.OutboxEvent) error {
+func (f *fakeMovementRepository) ApplyInvoice(request model.InvoiceStockRequest) (model.OutboxEvent, error) {
 	f.calls++
 	f.receivedRequest = request
-	f.recordedEvent = event
-	return f.err
+	return f.recordedEvent, f.err
 }
 
 func (f *fakeMovementRepository) GetMovementsByProductID(productID int) ([]model.StockMovement, error) {

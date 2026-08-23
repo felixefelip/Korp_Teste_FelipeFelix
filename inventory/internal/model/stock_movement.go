@@ -26,6 +26,7 @@ type StockMovement struct {
 	BillingInvoiceItemID *int   `gorm:"uniqueIndex"`
 	BillingInvoiceID     *int   `gorm:"index"`
 	InvoiceNumber        string `gorm:"type:varchar(30)"`
+	CloseEventID         string `gorm:"type:varchar(36);index"`
 }
 
 func (m StockMovement) FromInvoice() bool {
@@ -36,6 +37,7 @@ func (m StockMovement) WithoutInvoice() StockMovement {
 	m.BillingInvoiceItemID = nil
 	m.BillingInvoiceID = nil
 	m.InvoiceNumber = ""
+	m.CloseEventID = ""
 
 	return m
 }

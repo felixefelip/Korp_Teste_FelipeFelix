@@ -14,11 +14,6 @@ func NewInvoiceStockUsecase(repository model.StockMovementRepository) InvoiceSto
 	}
 }
 
-func (iu *InvoiceStockUsecase) Apply(request model.InvoiceStockRequest) error {
-	event, err := model.NewInvoiceStockApplied(request.InvoiceID)
-	if err != nil {
-		return err
-	}
-
-	return iu.repository.ApplyInvoice(request, event)
+func (iu *InvoiceStockUsecase) Apply(request model.InvoiceStockRequest) (model.OutboxEvent, error) {
+	return iu.repository.ApplyInvoice(request)
 }

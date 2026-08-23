@@ -1,8 +1,10 @@
 package db_test
 
 import (
+	"encoding/json"
 	"testing"
 
+	"inventory/internal/infra/db"
 	"inventory/internal/model"
 
 	"github.com/stretchr/testify/assert"
@@ -214,31 +216,6 @@ func TestGetMovementByIDWhenMissingReturnsErrRecordNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
-func TestApplyInvoiceRecordsTheResultEvent(t *testing.T) {
-	movementRepository, _ := newMovementRepository(t)
-
-	event, err := model.NewInvoiceStockApplied(7)
-	require.NoError(t, err)
-
-	request := model.InvoiceStockRequest{
-		InvoiceID: 7,
-		Type:      model.InvoiceTypeOut,
-		Items: []model.InvoiceStockItem{
-			{BillingInvoiceItemID: 3, ProductID: 42, Quantity: 10},
-		},
-	}
-
-	require.NoError(t, movementRepository.ApplyInvoice(request, event))
-
-	var events []model.OutboxEvent
-	require.NoError(t, testConnection.Find(&events).Error)
-
-	require.Len(t, events, 1)
-	assert.Equal(t, model.InvoiceStockAppliedKey, events[0].RoutingKey)
-	assert.Equal(t, 7, events[0].AggregateID)
-	assert.Nil(t, events[0].PublishedAt, "it is the relay that publishes")
-}
-
 func TestStockMovementKeepsTheInvoiceItCameFrom(t *testing.T) {
 	movementRepository, productRepository := newMovementRepository(t)
 
@@ -293,4 +270,160 @@ func TestAManualMovementCarriesNoInvoice(t *testing.T) {
 
 	assert.Nil(t, stored.BillingInvoiceID)
 	assert.Empty(t, stored.InvoiceNumber)
+}
+
+func seedProduct(
+	t *testing.T,
+	products *db.ProductRepository,
+	movements *db.StockMovementRepository,
+	code string,
+	stock int,
+) int {
+	t.Helper()
+
+	productID, err := products.CreateProduct(model.Product{
+		Code: code, Name: "Parafuso", Unit: "UN", Price: 2.50,
+	})
+	require.NoError(t, err)
+
+	if stock == 0 {
+		return productID
+	}
+
+	_, err = movements.CreateMovement(model.StockMovement{
+		ProductID: productID,
+		Type:      model.MovementIn,
+		Origin:    model.MovementOriginAdjustment,
+		Quantity:  stock,
+		Confirmed: true,
+	})
+	require.NoError(t, err)
+
+	return productID
+}
+
+func stockOf(t *testing.T, products *db.ProductRepository, productID int) int {
+	t.Helper()
+
+	product, err := products.GetProductByID(productID)
+	require.NoError(t, err)
+
+	return product.Stock
+}
+
+func outInvoice(productID int, quantities ...int) model.InvoiceStockRequest {
+	items := make([]model.InvoiceStockItem, 0, len(quantities))
+
+	for index, quantity := range quantities {
+		items = append(items, model.InvoiceStockItem{
+			BillingInvoiceItemID: 100 + index,
+			ProductID:            productID,
+			Quantity:             quantity,
+		})
+	}
+
+	return model.InvoiceStockRequest{
+		InvoiceID:     42,
+		InvoiceNumber: "NF-0042",
+		Type:          model.InvoiceTypeOut,
+		CausationID:   "cause-1",
+		Items:         items,
+	}
+}
+
+func TestApplyInvoiceTakesTheStockAndRecordsTheResult(t *testing.T) {
+	movements, products := newMovementRepository(t)
+	productID := seedProduct(t, products, movements, "PROD-1", 20)
+
+	event, err := movements.ApplyInvoice(outInvoice(productID, 8))
+	require.NoError(t, err)
+
+	assert.Equal(t, model.InvoiceStockAppliedKey, event.RoutingKey)
+	assert.Equal(t, "cause-1", event.CausationID)
+	assert.Equal(t, 12, stockOf(t, products, productID))
+
+	var stored []model.StockMovement
+	require.NoError(t, testConnection.Where("billing_invoice_id = ?", 42).Find(&stored).Error)
+
+	require.Len(t, stored, 1)
+	assert.Equal(t, model.MovementOut, stored[0].Type)
+	assert.Equal(t, model.MovementOriginInvoice, stored[0].Origin)
+	assert.Equal(t, "NF-0042", stored[0].InvoiceNumber)
+	assert.Equal(t, "cause-1", stored[0].CloseEventID)
+}
+
+func TestApplyInvoiceAddsTheStockOfAnIncomingInvoice(t *testing.T) {
+	movements, products := newMovementRepository(t)
+	productID := seedProduct(t, products, movements, "PROD-1", 0)
+
+	request := outInvoice(productID, 7)
+	request.Type = model.InvoiceTypeIn
+
+	event, err := movements.ApplyInvoice(request)
+	require.NoError(t, err)
+
+	assert.Equal(t, model.InvoiceStockAppliedKey, event.RoutingKey,
+		"an inbound invoice is never refused for balance")
+	assert.Equal(t, 7, stockOf(t, products, productID))
+}
+
+func TestApplyInvoiceRefusesWhenTheItemsTogetherExceedTheStock(t *testing.T) {
+	movements, products := newMovementRepository(t)
+	productID := seedProduct(t, products, movements, "PROD-1", 12)
+
+	event, err := movements.ApplyInvoice(outInvoice(productID, 10, 5))
+	require.NoError(t, err)
+
+	assert.Equal(t, model.InvoiceStockRejectedKey, event.RoutingKey,
+		"10 and 5 each fit in 12, the sum does not")
+	assert.Equal(t, 12, stockOf(t, products, productID), "nothing was taken")
+
+	var stored []model.StockMovement
+	require.NoError(t, testConnection.Where("billing_invoice_id = ?", 42).Find(&stored).Error)
+	assert.Empty(t, stored, "all or nothing")
+
+	var payload struct {
+		Reason    string                `json:"reason"`
+		Shortages []model.StockShortage `json:"shortages"`
+	}
+	require.NoError(t, json.Unmarshal(event.Payload, &payload))
+	assert.Equal(t, model.ReasonInsufficientStock, payload.Reason)
+	require.Len(t, payload.Shortages, 1)
+	assert.Equal(t, 15, payload.Shortages[0].Required)
+	assert.Equal(t, 12, payload.Shortages[0].Available)
+}
+
+func TestApplyInvoiceRefusesWhenAProductIsGone(t *testing.T) {
+	movements, _ := newMovementRepository(t)
+
+	event, err := movements.ApplyInvoice(outInvoice(9999, 1))
+	require.NoError(t, err)
+
+	assert.Equal(t, model.InvoiceStockRejectedKey, event.RoutingKey)
+
+	var payload struct {
+		Reason string `json:"reason"`
+	}
+	require.NoError(t, json.Unmarshal(event.Payload, &payload))
+	assert.Equal(t, model.ReasonProductNotFound, payload.Reason)
+}
+
+func TestApplyInvoiceTwiceTakesTheStockOnlyOnce(t *testing.T) {
+	movements, products := newMovementRepository(t)
+	productID := seedProduct(t, products, movements, "PROD-1", 20)
+
+	first, err := movements.ApplyInvoice(outInvoice(productID, 8))
+	require.NoError(t, err)
+
+	second, err := movements.ApplyInvoice(outInvoice(productID, 8))
+	require.NoError(t, err)
+
+	assert.Equal(t, model.InvoiceStockAppliedKey, first.RoutingKey)
+	assert.Equal(t, model.InvoiceStockAppliedKey, second.RoutingKey,
+		"a redelivery answers success again, so the invoice does not hang")
+	assert.Equal(t, 12, stockOf(t, products, productID), "the second delivery took nothing")
+
+	var stored []model.StockMovement
+	require.NoError(t, testConnection.Where("billing_invoice_id = ?", 42).Find(&stored).Error)
+	assert.Len(t, stored, 1)
 }

@@ -117,11 +117,12 @@ func (r *Relay) publish(event model.OutboxEvent) error {
 		true,
 		false,
 		amqp.Publishing{
-			MessageId:    event.EventID,
-			ContentType:  "application/json",
-			DeliveryMode: amqp.Persistent,
-			Timestamp:    event.CreatedAt,
-			Body:         event.Payload,
+			MessageId:     event.EventID,
+			CorrelationId: event.CausationID,
+			ContentType:   "application/json",
+			DeliveryMode:  amqp.Persistent,
+			Timestamp:     event.CreatedAt,
+			Body:          event.Payload,
 		},
 	)
 	if err != nil {
