@@ -190,11 +190,11 @@ func TestGetMovementByIDReturnsTheStoredOne(t *testing.T) {
 
 	invoiceItemID := 3
 	id, err := movements.CreateMovement(model.StockMovement{
-		ProductID:     productID,
-		Type:          model.MovementOut,
-		Origin:        model.MovementOriginInvoice,
-		Quantity:      2,
-		InvoiceItemID: &invoiceItemID,
+		ProductID:            productID,
+		Type:                 model.MovementOut,
+		Origin:               model.MovementOriginInvoice,
+		Quantity:             2,
+		BillingInvoiceItemID: &invoiceItemID,
 	})
 	require.NoError(t, err)
 
@@ -202,8 +202,8 @@ func TestGetMovementByIDReturnsTheStoredOne(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, model.MovementOriginInvoice, found.Origin)
-	require.NotNil(t, found.InvoiceItemID)
-	assert.Equal(t, 3, *found.InvoiceItemID)
+	require.NotNil(t, found.BillingInvoiceItemID)
+	assert.Equal(t, 3, *found.BillingInvoiceItemID)
 }
 
 func TestGetMovementByIDWhenMissingReturnsErrRecordNotFound(t *testing.T) {
@@ -224,7 +224,7 @@ func TestApplyInvoiceRecordsTheResultEvent(t *testing.T) {
 		InvoiceID: 7,
 		Type:      model.InvoiceTypeOut,
 		Items: []model.InvoiceStockItem{
-			{InvoiceItemID: 3, ProductID: 42, Quantity: 10},
+			{BillingInvoiceItemID: 3, ProductID: 42, Quantity: 10},
 		},
 	}
 
@@ -237,4 +237,60 @@ func TestApplyInvoiceRecordsTheResultEvent(t *testing.T) {
 	assert.Equal(t, model.InvoiceStockAppliedKey, events[0].RoutingKey)
 	assert.Equal(t, 7, events[0].AggregateID)
 	assert.Nil(t, events[0].PublishedAt, "it is the relay that publishes")
+}
+
+func TestStockMovementKeepsTheInvoiceItCameFrom(t *testing.T) {
+	movementRepository, productRepository := newMovementRepository(t)
+
+	productID, err := productRepository.CreateProduct(model.Product{
+		Code: "PRD-0001", Name: "Camiseta", Unit: "UN", Price: 30.99,
+	})
+	require.NoError(t, err)
+
+	invoiceItemID := 108
+	billingInvoiceID := 42
+
+	id, err := movementRepository.CreateMovement(model.StockMovement{
+		ProductID:            productID,
+		Type:                 model.MovementOut,
+		Origin:               model.MovementOriginInvoice,
+		Quantity:             3,
+		Confirmed:            true,
+		BillingInvoiceItemID: &invoiceItemID,
+		BillingInvoiceID:     &billingInvoiceID,
+		InvoiceNumber:        "NF-0042",
+	})
+	require.NoError(t, err)
+
+	stored, err := movementRepository.GetMovementByID(id)
+	require.NoError(t, err)
+
+	require.NotNil(t, stored.BillingInvoiceID)
+	assert.Equal(t, 42, *stored.BillingInvoiceID)
+	assert.Equal(t, "NF-0042", stored.InvoiceNumber,
+		"the number is a snapshot, so the ledger reads on its own")
+}
+
+func TestAManualMovementCarriesNoInvoice(t *testing.T) {
+	movementRepository, productRepository := newMovementRepository(t)
+
+	productID, err := productRepository.CreateProduct(model.Product{
+		Code: "PRD-0001", Name: "Camiseta", Unit: "UN", Price: 30.99,
+	})
+	require.NoError(t, err)
+
+	id, err := movementRepository.CreateMovement(model.StockMovement{
+		ProductID: productID,
+		Type:      model.MovementIn,
+		Origin:    model.MovementOriginAdjustment,
+		Quantity:  5,
+		Confirmed: true,
+	})
+	require.NoError(t, err)
+
+	stored, err := movementRepository.GetMovementByID(id)
+	require.NoError(t, err)
+
+	assert.Nil(t, stored.BillingInvoiceID)
+	assert.Empty(t, stored.InvoiceNumber)
 }

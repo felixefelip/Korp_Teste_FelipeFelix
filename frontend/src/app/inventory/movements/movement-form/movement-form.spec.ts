@@ -11,7 +11,8 @@ const EXISTING: Movement = {
   origin: 'adjustment',
   quantity: 3,
   confirmed: true,
-  invoiceItemId: null
+  billingInvoiceItemId: null,
+  billingInvoiceId: null
 };
 
 const BACK_LINK = ['/inventory/products', 7, 'movements'];

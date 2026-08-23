@@ -5,24 +5,30 @@ import (
 )
 
 type response struct {
-	ID            int    `json:"id"`
-	ProductID     int    `json:"productId"`
-	Type          string `json:"type"`
-	Origin        string `json:"origin"`
-	Quantity      int    `json:"quantity"`
-	Confirmed     bool   `json:"confirmed"`
-	InvoiceItemID *int   `json:"invoiceItemId"`
+	ID                   int    `json:"id"`
+	ProductID            int    `json:"productId"`
+	Type                 string `json:"type"`
+	Origin               string `json:"origin"`
+	Quantity             int    `json:"quantity"`
+	Confirmed            bool   `json:"confirmed"`
+	BillingInvoiceItemID *int   `json:"billingInvoiceItemId"`
+
+	BillingInvoiceID *int   `json:"billingInvoiceId"`
+	InvoiceNumber    string `json:"invoiceNumber,omitempty"`
 }
 
 func newResponse(movement model.StockMovement) response {
 	return response{
-		ID:            movement.ID,
-		ProductID:     movement.ProductID,
-		Type:          movement.Type,
-		Origin:        movement.Origin,
-		Quantity:      movement.Quantity,
-		Confirmed:     movement.Confirmed,
-		InvoiceItemID: movement.InvoiceItemID,
+		ID:                   movement.ID,
+		ProductID:            movement.ProductID,
+		Type:                 movement.Type,
+		Origin:               movement.Origin,
+		Quantity:             movement.Quantity,
+		Confirmed:            movement.Confirmed,
+		BillingInvoiceItemID: movement.BillingInvoiceItemID,
+
+		BillingInvoiceID: movement.BillingInvoiceID,
+		InvoiceNumber:    movement.InvoiceNumber,
 	}
 }
 

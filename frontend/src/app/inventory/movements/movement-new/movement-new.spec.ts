@@ -14,7 +14,8 @@ const CREATED: Movement = {
   origin: 'adjustment',
   quantity: 10,
   confirmed: true,
-  invoiceItemId: null
+  billingInvoiceItemId: null,
+  billingInvoiceId: null
 };
 
 describe('MovementNew', () => {

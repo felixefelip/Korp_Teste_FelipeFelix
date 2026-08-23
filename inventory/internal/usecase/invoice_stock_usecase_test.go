@@ -16,7 +16,7 @@ func invoiceStockRequest() model.InvoiceStockRequest {
 		InvoiceID: 7,
 		Type:      model.InvoiceTypeOut,
 		Items: []model.InvoiceStockItem{
-			{InvoiceItemID: 3, ProductID: 42, Quantity: 10},
+			{BillingInvoiceItemID: 3, ProductID: 42, Quantity: 10},
 		},
 	}
 }

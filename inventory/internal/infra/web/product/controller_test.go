@@ -608,7 +608,7 @@ func TestCreateProductRecordsTheInitialStockAsAMovement(t *testing.T) {
 	assert.Equal(t, model.MovementOriginAdjustment, movements[0].Origin)
 	assert.Equal(t, 12, movements[0].Quantity)
 	assert.True(t, movements[0].Confirmed)
-	assert.Nil(t, movements[0].InvoiceItemID)
+	assert.Nil(t, movements[0].BillingInvoiceItemID)
 }
 
 func TestCreateProductWithoutStockRecordsNoMovement(t *testing.T) {

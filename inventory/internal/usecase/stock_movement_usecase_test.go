@@ -90,19 +90,41 @@ func TestCreateMovementForcesTheAdjustmentOrigin(t *testing.T) {
 	movementUsecase := newMovementUsecase(movements, &fakeRepository{})
 
 	created, err := movementUsecase.CreateMovement(model.StockMovement{
-		ProductID:     7,
-		Type:          model.MovementOut,
-		Origin:        model.MovementOriginInvoice,
-		Quantity:      2,
-		InvoiceItemID: &invoiceItemID,
+		ProductID:            7,
+		Type:                 model.MovementOut,
+		Origin:               model.MovementOriginInvoice,
+		Quantity:             2,
+		BillingInvoiceItemID: &invoiceItemID,
 	})
 
 	require.NoError(t, err)
 	assert.Equal(t, model.MovementOriginAdjustment, created.Origin, "the API never forges a sale")
-	assert.Nil(t, created.InvoiceItemID)
+	assert.Nil(t, created.BillingInvoiceItemID)
 	assert.Equal(t, 12, created.ID)
 	assert.Equal(t, model.MovementOriginAdjustment, movements.receivedMovement.Origin)
-	assert.Nil(t, movements.receivedMovement.InvoiceItemID)
+	assert.Nil(t, movements.receivedMovement.BillingInvoiceItemID)
+}
+
+func TestCreateMovementStripsAnyInvoiceTheCallerSends(t *testing.T) {
+	invoiceItemID := 3
+	billingInvoiceID := 42
+	movements := &fakeMovementRepository{newID: 12}
+	movementUsecase := newMovementUsecase(movements, &fakeRepository{})
+
+	created, err := movementUsecase.CreateMovement(model.StockMovement{
+		ProductID:            7,
+		Type:                 model.MovementOut,
+		Quantity:             2,
+		BillingInvoiceItemID: &invoiceItemID,
+		BillingInvoiceID:     &billingInvoiceID,
+		InvoiceNumber:        "NF-0042",
+	})
+
+	require.NoError(t, err)
+	assert.Nil(t, created.BillingInvoiceID, "a manual adjustment never belongs to an invoice")
+	assert.Empty(t, created.InvoiceNumber)
+	assert.Nil(t, movements.receivedMovement.BillingInvoiceID)
+	assert.Empty(t, movements.receivedMovement.InvoiceNumber)
 }
 
 func TestCreateMovementWhenTheProductIsGoneStopsBeforeTheLedger(t *testing.T) {
@@ -114,6 +136,31 @@ func TestCreateMovementWhenTheProductIsGoneStopsBeforeTheLedger(t *testing.T) {
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 	assert.Zero(t, created)
 	assert.Zero(t, movements.calls)
+}
+
+func TestUpdateMovementStripsAnyInvoiceTheCallerSends(t *testing.T) {
+	billingInvoiceID := 42
+	movements := &fakeMovementRepository{
+		movement: model.StockMovement{
+			ID:        4,
+			ProductID: 7,
+			Type:      model.MovementIn,
+			Origin:    model.MovementOriginAdjustment,
+			Quantity:  5,
+		},
+	}
+	movementUsecase := newMovementUsecase(movements, &fakeRepository{})
+
+	updated, err := movementUsecase.UpdateMovement(model.StockMovement{
+		ID:               4,
+		Quantity:         9,
+		BillingInvoiceID: &billingInvoiceID,
+		InvoiceNumber:    "NF-0042",
+	})
+
+	require.NoError(t, err)
+	assert.Nil(t, updated.BillingInvoiceID)
+	assert.Empty(t, updated.InvoiceNumber)
 }
 
 func TestUpdateMovementKeepsTheProductAndTheOriginOfTheStoredOne(t *testing.T) {
@@ -147,7 +194,7 @@ func TestUpdateMovementKeepsTheProductAndTheOriginOfTheStoredOne(t *testing.T) {
 func TestUpdateMovementRefusesTheOnesBornFromAnInvoice(t *testing.T) {
 	invoiceItemID := 3
 	movements := &fakeMovementRepository{
-		movement: model.StockMovement{ID: 4, ProductID: 7, InvoiceItemID: &invoiceItemID},
+		movement: model.StockMovement{ID: 4, ProductID: 7, BillingInvoiceItemID: &invoiceItemID},
 	}
 	movementUsecase := newMovementUsecase(movements, &fakeRepository{})
 

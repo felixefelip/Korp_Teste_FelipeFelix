@@ -28,7 +28,8 @@ const MOVEMENTS: Movement[] = [
     origin: 'invoice',
     quantity: 4,
     confirmed: false,
-    invoiceItemId: 33
+    billingInvoiceItemId: 33,
+    billingInvoiceId: 42
   },
   {
     id: 2,
@@ -37,7 +38,8 @@ const MOVEMENTS: Movement[] = [
     origin: 'adjustment',
     quantity: 2,
     confirmed: true,
-    invoiceItemId: null
+    billingInvoiceItemId: null,
+    billingInvoiceId: null
   },
   {
     id: 1,
@@ -46,7 +48,8 @@ const MOVEMENTS: Movement[] = [
     origin: 'adjustment',
     quantity: 12,
     confirmed: true,
-    invoiceItemId: null
+    billingInvoiceItemId: null,
+    billingInvoiceId: null
   }
 ];
 

@@ -15,13 +15,13 @@ import (
 )
 
 type movementResponse struct {
-	ID            int    `json:"id"`
-	ProductID     int    `json:"productId"`
-	Type          string `json:"type"`
-	Origin        string `json:"origin"`
-	Quantity      int    `json:"quantity"`
-	Confirmed     bool   `json:"confirmed"`
-	InvoiceItemID *int   `json:"invoiceItemId"`
+	ID                   int    `json:"id"`
+	ProductID            int    `json:"productId"`
+	Type                 string `json:"type"`
+	Origin               string `json:"origin"`
+	Quantity             int    `json:"quantity"`
+	Confirmed            bool   `json:"confirmed"`
+	BillingInvoiceItemID *int   `json:"billingInvoiceItemId"`
 }
 
 const validMovement = `{"type":"in","quantity":10,"confirmed":true}`
@@ -104,7 +104,7 @@ func TestCreateMovementReturns201WithTheAdjustmentOrigin(t *testing.T) {
 	assert.Equal(t, model.MovementOriginAdjustment, created.Origin)
 	assert.Equal(t, 10, created.Quantity)
 	assert.True(t, created.Confirmed)
-	assert.Nil(t, created.InvoiceItemID)
+	assert.Nil(t, created.BillingInvoiceItemID)
 }
 
 func TestCreateMovementUpdatesTheProductStock(t *testing.T) {
@@ -140,14 +140,14 @@ func TestCreateMovementCannotForgeASale(t *testing.T) {
 	server, productID := newProduct(t)
 
 	response := webtest.Post(t, server, fmt.Sprintf("/products/%d/movements", productID),
-		`{"type":"out","quantity":2,"confirmed":true,"origin":"invoice","invoiceItemId":7}`)
+		`{"type":"out","quantity":2,"confirmed":true,"origin":"invoice","billingInvoiceItemId":7}`)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 
 	created := decodeMovement(t, response.Body.Bytes())
 
 	assert.Equal(t, model.MovementOriginAdjustment, created.Origin)
-	assert.Nil(t, created.InvoiceItemID)
+	assert.Nil(t, created.BillingInvoiceItemID)
 }
 
 func TestCreateMovementForAMissingProductReturns404(t *testing.T) {
@@ -313,12 +313,12 @@ func TestUpdateMovementBornFromAnInvoiceReturns409(t *testing.T) {
 
 	invoiceItemID := 3
 	stored := model.StockMovement{
-		ProductID:     productID,
-		Type:          model.MovementOut,
-		Origin:        model.MovementOriginInvoice,
-		Quantity:      2,
-		Confirmed:     true,
-		InvoiceItemID: &invoiceItemID,
+		ProductID:            productID,
+		Type:                 model.MovementOut,
+		Origin:               model.MovementOriginInvoice,
+		Quantity:             2,
+		Confirmed:            true,
+		BillingInvoiceItemID: &invoiceItemID,
 	}
 	require.NoError(t, testConnection.Create(&stored).Error)
 

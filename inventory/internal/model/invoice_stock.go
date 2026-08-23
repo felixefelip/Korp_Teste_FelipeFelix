@@ -13,15 +13,16 @@ const (
 )
 
 type InvoiceStockItem struct {
-	InvoiceItemID int
-	ProductID     int
-	Quantity      int
+	BillingInvoiceItemID int
+	ProductID            int
+	Quantity             int
 }
 
 type InvoiceStockRequest struct {
-	InvoiceID int
-	Type      string
-	Items     []InvoiceStockItem
+	InvoiceID     int
+	InvoiceNumber string
+	Type          string
+	Items         []InvoiceStockItem
 }
 
 func (r InvoiceStockRequest) MovesStockOut() bool {

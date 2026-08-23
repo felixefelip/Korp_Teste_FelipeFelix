@@ -8,7 +8,9 @@ export interface Movement {
   origin: MovementOrigin;
   quantity: number;
   confirmed: boolean;
-  invoiceItemId: number | null;
+  billingInvoiceItemId: number | null;
+  billingInvoiceId: number | null;
+  invoiceNumber?: string;
 }
 
 export interface MovementPayload {
@@ -28,5 +30,5 @@ export const MOVEMENT_ORIGIN_LABELS: Record<MovementOrigin, string> = {
 };
 
 export function isFromInvoice(movement: Movement): boolean {
-  return movement.invoiceItemId !== null;
+  return movement.billingInvoiceItemId !== null;
 }

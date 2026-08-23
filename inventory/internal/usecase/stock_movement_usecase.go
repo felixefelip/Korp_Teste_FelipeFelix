@@ -37,7 +37,7 @@ func (su *StockMovementUsecase) CreateMovement(movement model.StockMovement) (mo
 	}
 
 	movement.Origin = model.MovementOriginAdjustment
-	movement.InvoiceItemID = nil
+	movement = movement.WithoutInvoice()
 
 	movementID, err := su.repository.CreateMovement(movement)
 	if err != nil {
@@ -61,7 +61,7 @@ func (su *StockMovementUsecase) UpdateMovement(movement model.StockMovement) (mo
 
 	movement.ProductID = stored.ProductID
 	movement.Origin = stored.Origin
-	movement.InvoiceItemID = nil
+	movement = movement.WithoutInvoice()
 
 	if err := su.repository.UpdateMovement(movement); err != nil {
 		return model.StockMovement{}, err

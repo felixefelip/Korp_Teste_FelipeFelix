@@ -30,16 +30,17 @@ func (e closeRequestedEvent) toRequest() model.InvoiceStockRequest {
 
 	for _, item := range e.Items {
 		items = append(items, model.InvoiceStockItem{
-			InvoiceItemID: item.InvoiceItemID,
-			ProductID:     item.ProductID,
-			Quantity:      item.Quantity,
+			BillingInvoiceItemID: item.InvoiceItemID,
+			ProductID:            item.ProductID,
+			Quantity:             item.Quantity,
 		})
 	}
 
 	return model.InvoiceStockRequest{
-		InvoiceID: e.InvoiceID,
-		Type:      e.Type,
-		Items:     items,
+		InvoiceID:     e.InvoiceID,
+		InvoiceNumber: e.InvoiceNumber,
+		Type:          e.Type,
+		Items:         items,
 	}
 }
 

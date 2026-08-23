@@ -17,7 +17,8 @@ const ENTRY: Movement = {
   origin: 'adjustment',
   quantity: 10,
   confirmed: true,
-  invoiceItemId: null
+  billingInvoiceItemId: null,
+  billingInvoiceId: null
 };
 
 const EXIT: Movement = {
@@ -27,7 +28,8 @@ const EXIT: Movement = {
   origin: 'invoice',
   quantity: 4,
   confirmed: false,
-  invoiceItemId: 33
+  billingInvoiceItemId: 33,
+  billingInvoiceId: 42
 };
 
 describe('MovementService', () => {
