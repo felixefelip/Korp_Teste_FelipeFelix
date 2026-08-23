@@ -26,7 +26,8 @@ type Invoice struct {
 	Status string        `json:"status" gorm:"type:varchar(10);not null"`
 	Items  []InvoiceItem `json:"items"  gorm:"foreignKey:InvoiceID"`
 
-	FailureReason string `json:"failureReason" gorm:"type:varchar(30);not null;default:''"`
+	FailureReason string            `json:"failureReason" gorm:"type:varchar(30);not null;default:''"`
+	Shortages     []InvoiceShortage `json:"shortages"     gorm:"foreignKey:InvoiceID"`
 }
 
 func (i Invoice) Closed() bool {

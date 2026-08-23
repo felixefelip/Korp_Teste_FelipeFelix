@@ -122,8 +122,12 @@ func (iu *InvoiceUsecase) ConfirmClose(invoiceID int) error {
 	return nil
 }
 
-func (iu *InvoiceUsecase) RejectClose(invoiceID int, reason string) error {
-	applied, err := iu.repository.RejectClose(invoiceID, reason)
+func (iu *InvoiceUsecase) RejectClose(
+	invoiceID int,
+	reason string,
+	shortages []model.InvoiceShortage,
+) error {
+	applied, err := iu.repository.RejectClose(invoiceID, reason, shortages)
 	if err != nil {
 		return err
 	}
@@ -148,8 +152,12 @@ func (iu *InvoiceUsecase) ConfirmReopen(invoiceID int) error {
 	return nil
 }
 
-func (iu *InvoiceUsecase) RejectReopen(invoiceID int, reason string) error {
-	applied, err := iu.repository.RejectReopen(invoiceID, reason)
+func (iu *InvoiceUsecase) RejectReopen(
+	invoiceID int,
+	reason string,
+	shortages []model.InvoiceShortage,
+) error {
+	applied, err := iu.repository.RejectReopen(invoiceID, reason, shortages)
 	if err != nil {
 		return err
 	}

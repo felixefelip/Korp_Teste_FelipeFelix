@@ -94,11 +94,15 @@ func (ir *InvoiceRepository) CloseInvoice(id int, event model.OutboxEvent) error
 }
 
 func (ir *InvoiceRepository) ConfirmClose(id int) (bool, error) {
-	return ir.moveFrom(id, model.InvoiceStatusClosing, model.InvoiceStatusClosed, "")
+	return ir.moveFrom(id, model.InvoiceStatusClosing, model.InvoiceStatusClosed, "", nil)
 }
 
-func (ir *InvoiceRepository) RejectClose(id int, reason string) (bool, error) {
-	return ir.moveFrom(id, model.InvoiceStatusClosing, model.InvoiceStatusOpen, reason)
+func (ir *InvoiceRepository) RejectClose(
+	id int,
+	reason string,
+	shortages []model.InvoiceShortage,
+) (bool, error) {
+	return ir.moveFrom(id, model.InvoiceStatusClosing, model.InvoiceStatusOpen, reason, shortages)
 }
 
 func (ir *InvoiceRepository) ReopenInvoice(id int, event model.OutboxEvent) error {
@@ -112,23 +116,48 @@ func (ir *InvoiceRepository) ReopenInvoice(id int, event model.OutboxEvent) erro
 }
 
 func (ir *InvoiceRepository) ConfirmReopen(id int) (bool, error) {
-	return ir.moveFrom(id, model.InvoiceStatusReopening, model.InvoiceStatusOpen, "")
+	return ir.moveFrom(id, model.InvoiceStatusReopening, model.InvoiceStatusOpen, "", nil)
 }
 
-func (ir *InvoiceRepository) RejectReopen(id int, reason string) (bool, error) {
-	return ir.moveFrom(id, model.InvoiceStatusReopening, model.InvoiceStatusClosed, reason)
+func (ir *InvoiceRepository) RejectReopen(
+	id int,
+	reason string,
+	shortages []model.InvoiceShortage,
+) (bool, error) {
+	return ir.moveFrom(id, model.InvoiceStatusReopening, model.InvoiceStatusClosed, reason, shortages)
 }
 
-func (ir *InvoiceRepository) moveFrom(id int, from, to, reason string) (bool, error) {
-	result := ir.connection.
-		Model(&model.Invoice{}).
-		Where("id = ? AND status = ?", id, from).
-		Updates(map[string]any{"status": to, "failure_reason": reason})
-	if result.Error != nil {
-		return false, result.Error
-	}
+func (ir *InvoiceRepository) moveFrom(
+	id int,
+	from, to, reason string,
+	shortages []model.InvoiceShortage,
+) (bool, error) {
+	moved := false
 
-	return result.RowsAffected > 0, nil
+	err := ir.connection.Transaction(func(tx *gorm.DB) error {
+		result := tx.
+			Model(&model.Invoice{}).
+			Where("id = ? AND status = ?", id, from).
+			Updates(map[string]any{"status": to, "failure_reason": reason})
+		if result.Error != nil {
+			return result.Error
+		}
+
+		moved = result.RowsAffected > 0
+
+		if !moved || len(shortages) == 0 {
+			return nil
+		}
+
+		for index := range shortages {
+			shortages[index].ID = 0
+			shortages[index].InvoiceID = id
+		}
+
+		return tx.Create(&shortages).Error
+	})
+
+	return moved, err
 }
 
 func startTransition(tx *gorm.DB, id int, status string) error {
@@ -143,11 +172,19 @@ func startTransition(tx *gorm.DB, id int, status string) error {
 		return gorm.ErrRecordNotFound
 	}
 
-	return nil
+	return deleteShortagesByInvoiceID(tx, id)
+}
+
+func deleteShortagesByInvoiceID(tx *gorm.DB, invoiceID int) error {
+	return tx.Where("invoice_id = ?", invoiceID).Delete(&model.InvoiceShortage{}).Error
 }
 
 func (ir *InvoiceRepository) DeleteInvoice(id int) error {
 	return ir.connection.Transaction(func(tx *gorm.DB) error {
+		if err := deleteShortagesByInvoiceID(tx, id); err != nil {
+			return err
+		}
+
 		if err := deleteInvoiceItemsByInvoiceID(tx, id); err != nil {
 			return err
 		}
@@ -174,7 +211,10 @@ func withItems(connection *gorm.DB) *gorm.DB {
 		Preload("Items", func(items *gorm.DB) *gorm.DB {
 			return items.Order("invoice_item.id")
 		}).
-		Preload("Items.Product")
+		Preload("Items.Product").
+		Preload("Shortages", func(shortages *gorm.DB) *gorm.DB {
+			return shortages.Order("invoice_shortage.product_code")
+		})
 }
 
 func saveItems(tx *gorm.DB, invoiceID int, items []model.InvoiceItem) error {

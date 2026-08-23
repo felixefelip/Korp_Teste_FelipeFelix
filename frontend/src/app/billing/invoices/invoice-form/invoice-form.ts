@@ -1,4 +1,4 @@
-import { Component, effect, inject, input, output, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
@@ -40,6 +40,23 @@ export class InvoiceForm {
   protected readonly typeLabels = INVOICE_TYPE_LABELS;
   protected readonly submitted = signal(false);
   protected readonly banner = signal<string | null>(null);
+
+  protected readonly shortages = computed(() => this.value()?.shortages ?? []);
+
+  protected readonly stockWarning = computed(() => {
+    const shortages = this.shortages();
+
+    if (!shortages.length) {
+      return null;
+    }
+
+    const total = shortages.reduce((sum, shortage) => sum + shortage.required, 0);
+    const products = shortages.map((shortage) => shortage.code).join(', ');
+
+    return shortages.length === 1
+      ? `Não foi possível imprimir: ${products} tem ${shortages[0].available} em estoque e a nota pede ${total}.`
+      : `Não foi possível imprimir: o estoque não cobre ${products}.`;
+  });
 
   protected readonly form = this.fb.group({
     number: this.fb.nonNullable.control('', [

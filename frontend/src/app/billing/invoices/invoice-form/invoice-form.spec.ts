@@ -572,6 +572,39 @@ describe('InvoiceForm', () => {
       expect(errors()).toEqual([]);
     });
   });
+  describe('reporting a refused print', () => {
+    const refused: Invoice = {
+      ...EXISTING,
+      status: 'OPEN',
+      failureReason: 'INSUFFICIENT_STOCK',
+      shortages: [
+        { inventoryId: 3, code: 'PRD-0003', name: 'Cadeira Gamer', required: 50, available: 42 }
+      ]
+    };
+
+    it('explains at the top what the stock could not cover', async () => {
+      await setInput('value', refused);
+
+      expect(text(element().querySelector('.form__warning'))).toBe(
+        'Não foi possível imprimir: PRD-0003 tem 42 em estoque e a nota pede 50.'
+      );
+    });
+
+    it('reports the balance beside the quantity that has to change', async () => {
+      await setInput('value', refused);
+
+      const warnings = Array.from(element().querySelectorAll('.field-warning')).map(text);
+
+      expect(warnings).toContain('No fechamento havia 42(UN) no estoque');
+    });
+
+    it('says nothing when the invoice was never refused', async () => {
+      await setInput('value', EXISTING);
+
+      expect(element().querySelector('.form__warning')).toBeNull();
+      expect(element().querySelector('.field-warning')).toBeNull();
+    });
+  });
 });
 
 describe('InvoiceForm loading an inbound invoice', () => {
@@ -589,4 +622,5 @@ describe('InvoiceForm loading an inbound invoice', () => {
 
     expect(element.querySelector<HTMLSelectElement>('#type')!.value).toBe('IN');
   });
+
 });

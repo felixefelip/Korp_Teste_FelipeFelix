@@ -82,6 +82,10 @@
                 />
                 @if (rowError(row, 'quantity'); as message) {
                   <p class="field-error">{{ message }}</p>
+                } @else if (rowShortage(row); as shortage) {
+                  <p class="field-warning">
+                    No fechamento havia {{ shortage.available }}({{ row.controls.unit.value }}) no estoque
+                  </p>
                 }
               </td>
 

@@ -20,6 +20,22 @@ type shortagePayload struct {
 	Available int    `json:"available"`
 }
 
+func (e stockResultEvent) toShortages() []model.InvoiceShortage {
+	shortages := make([]model.InvoiceShortage, 0, len(e.Shortages))
+
+	for _, shortage := range e.Shortages {
+		shortages = append(shortages, model.InvoiceShortage{
+			InventoryID: shortage.ProductID,
+			ProductCode: shortage.Code,
+			ProductName: shortage.Name,
+			Required:    shortage.Required,
+			Available:   shortage.Available,
+		})
+	}
+
+	return shortages
+}
+
 type stockResultEvent struct {
 	EventID     string            `json:"eventId"`
 	CausationID string            `json:"causationId"`
@@ -59,7 +75,7 @@ func (h *Handler) HandleStockRejected(delivery amqp.Delivery) error {
 	fmt.Printf("invoice %d: stock refused (%s), caused by %s\n",
 		event.InvoiceID, event.Reason, event.CausationID)
 
-	return settle(h.usecase.RejectClose(event.InvoiceID, event.Reason), event.InvoiceID)
+	return settle(h.usecase.RejectClose(event.InvoiceID, event.Reason, event.toShortages()), event.InvoiceID)
 }
 
 func (h *Handler) HandleStockReverted(delivery amqp.Delivery) error {
@@ -82,7 +98,7 @@ func (h *Handler) HandleStockRevertRejected(delivery amqp.Delivery) error {
 	fmt.Printf("invoice %d: revert refused (%s), caused by %s\n",
 		event.InvoiceID, event.Reason, event.CausationID)
 
-	return settle(h.usecase.RejectReopen(event.InvoiceID, event.Reason), event.InvoiceID)
+	return settle(h.usecase.RejectReopen(event.InvoiceID, event.Reason, event.toShortages()), event.InvoiceID)
 }
 
 func decode(delivery amqp.Delivery) (stockResultEvent, error) {

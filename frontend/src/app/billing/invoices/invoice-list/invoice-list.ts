@@ -77,8 +77,12 @@ export class InvoiceList {
     return isProcessing(invoice);
   }
 
-  protected failureLabel(reason: string): string {
-    return INVOICE_FAILURE_LABELS[reason] ?? reason;
+  protected failureLabel(invoice: Invoice): string {
+    const reason = invoice.failureReason ?? '';
+    const label = INVOICE_FAILURE_LABELS[reason] ?? reason;
+    const codes = (invoice.shortages ?? []).map((shortage) => shortage.code);
+
+    return codes.length ? `${label}: ${codes.join(', ')}` : label;
   }
 
   protected load(): void {

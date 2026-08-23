@@ -32,7 +32,7 @@ func Setup() (*gorm.DB, error) {
 		return nil, fmt.Errorf("connecting to the database: %w", err)
 	}
 
-	if err := connection.AutoMigrate(&model.Product{}, &model.Invoice{}, &model.InvoiceItem{}, &model.OutboxEvent{}); err != nil {
+	if err := connection.AutoMigrate(&model.Product{}, &model.Invoice{}, &model.InvoiceItem{}, &model.InvoiceShortage{}, &model.OutboxEvent{}); err != nil {
 		return nil, fmt.Errorf("migrating the database: %w", err)
 	}
 
@@ -43,6 +43,6 @@ func Reset(t testing.TB, connection *gorm.DB) {
 	t.Helper()
 
 	err := connection.
-		Exec("TRUNCATE TABLE invoice, invoice_item, product, outbox_event RESTART IDENTITY CASCADE").Error
+		Exec("TRUNCATE TABLE invoice, invoice_item, invoice_shortage, product, outbox_event RESTART IDENTITY CASCADE").Error
 	require.NoError(t, err, "cleaning the invoice tables")
 }

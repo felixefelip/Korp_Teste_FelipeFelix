@@ -18,17 +18,18 @@ type fakeRepository struct {
 	invoices []model.Invoice
 	err      error
 
-	receivedID      int
-	receivedInvoice model.Invoice
-	closedID        int
-	recordedEvent   model.OutboxEvent
-	confirmedID     int
-	rejectedID      int
-	rejectedReason  string
-	transitionMoved bool
-	reopenedID      int
-	deletedID       int
-	calls           int
+	receivedID        int
+	receivedInvoice   model.Invoice
+	closedID          int
+	recordedEvent     model.OutboxEvent
+	confirmedID       int
+	rejectedID        int
+	rejectedReason    string
+	rejectedShortages []model.InvoiceShortage
+	transitionMoved   bool
+	reopenedID        int
+	deletedID         int
+	calls             int
 }
 
 func (f *fakeRepository) GetInvoices() ([]model.Invoice, error) {
@@ -67,10 +68,15 @@ func (f *fakeRepository) ConfirmClose(id int) (bool, error) {
 	return f.transitionMoved, f.err
 }
 
-func (f *fakeRepository) RejectClose(id int, reason string) (bool, error) {
+func (f *fakeRepository) RejectClose(
+	id int,
+	reason string,
+	shortages []model.InvoiceShortage,
+) (bool, error) {
 	f.calls++
 	f.rejectedID = id
 	f.rejectedReason = reason
+	f.rejectedShortages = shortages
 	return f.transitionMoved, f.err
 }
 
@@ -80,10 +86,15 @@ func (f *fakeRepository) ConfirmReopen(id int) (bool, error) {
 	return f.transitionMoved, f.err
 }
 
-func (f *fakeRepository) RejectReopen(id int, reason string) (bool, error) {
+func (f *fakeRepository) RejectReopen(
+	id int,
+	reason string,
+	shortages []model.InvoiceShortage,
+) (bool, error) {
 	f.calls++
 	f.rejectedID = id
 	f.rejectedReason = reason
+	f.rejectedShortages = shortages
 	return f.transitionMoved, f.err
 }
 
@@ -481,7 +492,7 @@ func TestRejectCloseCarriesTheReason(t *testing.T) {
 	repository := &fakeRepository{transitionMoved: true}
 	invoiceUsecase := newUsecase(repository)
 
-	require.NoError(t, invoiceUsecase.RejectClose(7, "INSUFFICIENT_STOCK"))
+	require.NoError(t, invoiceUsecase.RejectClose(7, "INSUFFICIENT_STOCK", nil))
 
 	assert.Equal(t, 7, repository.rejectedID)
 	assert.Equal(t, "INSUFFICIENT_STOCK", repository.rejectedReason)
@@ -490,5 +501,18 @@ func TestRejectCloseCarriesTheReason(t *testing.T) {
 func TestRejectCloseReportsWhenTheInvoiceMovedAlready(t *testing.T) {
 	invoiceUsecase := newUsecase(&fakeRepository{transitionMoved: false})
 
-	require.ErrorIs(t, invoiceUsecase.RejectClose(7, "INSUFFICIENT_STOCK"), model.ErrInvoiceNotProcessing)
+	require.ErrorIs(t, invoiceUsecase.RejectClose(7, "INSUFFICIENT_STOCK", nil), model.ErrInvoiceNotProcessing)
+}
+
+func TestRejectCloseCarriesTheShortagesToTheRepository(t *testing.T) {
+	repository := &fakeRepository{transitionMoved: true}
+	invoiceUsecase := newUsecase(repository)
+
+	shortages := []model.InvoiceShortage{
+		{InventoryID: 42, ProductCode: "PROD-1", ProductName: "Parafuso", Required: 50, Available: 42},
+	}
+
+	require.NoError(t, invoiceUsecase.RejectClose(7, "INSUFFICIENT_STOCK", shortages))
+
+	assert.Equal(t, shortages, repository.rejectedShortages)
 }

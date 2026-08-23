@@ -315,4 +315,45 @@ describe('InvoiceList', () => {
       );
     });
   });
+
+  describe('reporting what was missing', () => {
+    it('names the product that was short', async () => {
+      await mount(() =>
+        of([
+          {
+            ...INVOICES[0],
+            status: 'OPEN' as const,
+            failureReason: 'INSUFFICIENT_STOCK',
+            shortages: [
+              { inventoryId: 42, code: 'PROD-1', name: 'Parafuso', required: 50, available: 42 }
+            ]
+          }
+        ])
+      );
+
+      expect(text(element().querySelector('.table__failure'))).toBe(
+        'Estoque insuficiente: PROD-1'
+      );
+    });
+
+    it('lists every product when more than one was short', async () => {
+      await mount(() =>
+        of([
+          {
+            ...INVOICES[0],
+            status: 'OPEN' as const,
+            failureReason: 'INSUFFICIENT_STOCK',
+            shortages: [
+              { inventoryId: 42, code: 'PROD-1', name: 'Parafuso', required: 50, available: 42 },
+              { inventoryId: 43, code: 'PROD-2', name: 'Arruela', required: 5, available: 0 }
+            ]
+          }
+        ])
+      );
+
+      expect(text(element().querySelector('.table__failure'))).toBe(
+        'Estoque insuficiente: PROD-1, PROD-2'
+      );
+    });
+  });
 });

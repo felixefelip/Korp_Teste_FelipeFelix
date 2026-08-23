@@ -13,6 +13,14 @@ export interface InvoiceItem {
   total: number;
 }
 
+export interface InvoiceShortage {
+  inventoryId: number;
+  code: string;
+  name: string;
+  required: number;
+  available: number;
+}
+
 export interface Invoice {
   id: number;
   number: string;
@@ -21,6 +29,7 @@ export interface Invoice {
   items: InvoiceItem[];
   total: number;
   failureReason?: string;
+  shortages?: InvoiceShortage[];
 }
 
 export interface InvoiceItemPayload {

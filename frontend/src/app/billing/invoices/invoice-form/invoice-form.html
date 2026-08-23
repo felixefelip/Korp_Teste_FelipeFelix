@@ -3,6 +3,10 @@
     <p class="form__failure" role="alert">{{ message }}</p>
   }
 
+  @if (stockWarning(); as message) {
+    <p class="form__warning" role="status">{{ message }}</p>
+  }
+
   @if (loading()) {
     <p class="form__status">Carregando nota fiscal…</p>
   } @else {
@@ -52,6 +56,7 @@
       [products]="products()"
       [productsFailed]="productsFailed()"
       [submitted]="submitted()"
+      [shortages]="shortages()"
     />
   }
 

@@ -147,7 +147,7 @@ sequenceDiagram
     rect rgb(240, 240, 240)
         Note over B: uma transação
         B->>B: status CLOSING → OPEN
-        B->>B: grava o motivo em invoice.failure_reason
+        B->>B: grava o motivo e as faltas
     end
 ```
 
@@ -155,8 +155,19 @@ Saldo insuficiente é **resposta de negócio, não falha de infraestrutura**: a
 mensagem recebe ack normal e não vai para retentativa. A compensação da saga é
 devolver a nota para `OPEN`.
 
-Como não existe request aberto para responder 409, o motivo é persistido e sai
-na API, para a interface exibir quando a nota voltar a ficar aberta.
+Como não existe request aberto para responder 409, o motivo **e as faltas** são
+persistidos e saem na API. A interface usa os dois em lugares diferentes: a
+listagem mostra o resumo ("Estoque insuficiente: PROD-1"), e a tela de edição
+mostra o detalhe, porque é onde o usuário corrige.
+
+No formulário, o aviso aparece em dois pontos: um banner no topo e, embaixo do
+campo de quantidade, o saldo que havia. O campo **não** recebe o vermelho de
+erro de validação: a falta é um retrato do momento do fechamento — outra nota
+pode ter consumido ou liberado saldo desde então — e a nota pode ser salva e
+impressa normalmente, só pode falhar de novo. É aviso, não impedimento.
+
+Item repetido do mesmo produto recebe o aviso nas duas linhas, porque quem
+estourou foi a soma. Qual linha reduzir é decisão do usuário.
 
 ## A regra de validação
 
@@ -476,11 +487,27 @@ na fila.
 -- invoice.status: OPEN | CLOSING | CLOSED | REOPENING
 ALTER TABLE invoice ADD COLUMN failure_reason VARCHAR(30);
 
+CREATE TABLE invoice_shortage (
+  id           SERIAL PRIMARY KEY,
+  invoice_id   INT NOT NULL,
+  inventory_id INT NOT NULL,
+  product_code VARCHAR(30)  NOT NULL,
+  product_name VARCHAR(255) NOT NULL,
+  required     INT NOT NULL,
+  available    INT NOT NULL
+);
+
 -- réplica do catálogo
 ALTER TABLE product ADD COLUMN active BOOLEAN NOT NULL DEFAULT true;
 ```
 
-`failure_reason` é limpo no início de cada nova tentativa.
+`failure_reason` e as faltas são apagados no início de cada nova tentativa, na
+mesma transação que muda o estado.
+
+A falta é gravada **por produto**, não por item: o que estourou foi a soma, e
+dividir os que faltam entre duas linhas seria arbitrário. O casamento com a
+linha na tela é por `inventory_id`, que é estável — `invoice_item.id` não é,
+porque toda edição apaga e recria os itens.
 
 ### inventory
 
@@ -566,9 +593,6 @@ reconhecido, confirmado e ignorado — sem mover a nota e sem parar a fila.
 - **Dead-letter exchange.** As filas têm `delivery_limit` 20 por padrão, mas
   **não há DLX configurada**: uma mensagem que esgota as entregas é descartada
   em silêncio. É a lacuna mais urgente da lista.
-- **Faltas detalhadas na tela.** As `shortages` chegam completas ao billing e
-  são descartadas; a interface mostra só o motivo. Falta persisti-las e exibir
-  qual produto e quanto falta.
 - **Índice parcial no outbox.** A consulta do relay filtra
   `published_at IS NULL`, mas o índice é só em `next_attempt_at` — e todo
   evento já publicado também satisfaz `next_attempt_at <= now()`. Conforme a

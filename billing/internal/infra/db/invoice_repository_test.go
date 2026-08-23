@@ -43,11 +43,12 @@ func TestGetInvoicesReturnsTheStoredFields(t *testing.T) {
 
 	require.Len(t, invoices, 1)
 	assert.Equal(t, model.Invoice{
-		ID:     id,
-		Number: "NF-0001",
-		Type:   model.InvoiceTypeOut,
-		Status: "CLOSED",
-		Items:  []model.InvoiceItem{},
+		ID:        id,
+		Number:    "NF-0001",
+		Type:      model.InvoiceTypeOut,
+		Status:    "CLOSED",
+		Items:     []model.InvoiceItem{},
+		Shortages: []model.InvoiceShortage{},
 	}, invoices[0])
 }
 
@@ -70,11 +71,12 @@ func TestGetInvoiceByIDReturnsTheInvoice(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, model.Invoice{
-		ID:     id,
-		Number: "NF-0001",
-		Type:   model.InvoiceTypeOut,
-		Status: "OPEN",
-		Items:  []model.InvoiceItem{},
+		ID:        id,
+		Number:    "NF-0001",
+		Type:      model.InvoiceTypeOut,
+		Status:    "OPEN",
+		Items:     []model.InvoiceItem{},
+		Shortages: []model.InvoiceShortage{},
 	}, invoice)
 }
 
@@ -693,7 +695,7 @@ func TestRejectCloseSendsTheInvoiceBackToOpenWithTheReason(t *testing.T) {
 	repository := newRepository(t)
 	id := closingInvoice(t, repository)
 
-	moved, err := repository.RejectClose(id, "INSUFFICIENT_STOCK")
+	moved, err := repository.RejectClose(id, "INSUFFICIENT_STOCK", nil)
 	require.NoError(t, err)
 	assert.True(t, moved)
 
@@ -707,7 +709,7 @@ func TestCloseInvoiceClearsThePreviousFailure(t *testing.T) {
 	repository := newRepository(t)
 	id := closingInvoice(t, repository)
 
-	_, err := repository.RejectClose(id, "INSUFFICIENT_STOCK")
+	_, err := repository.RejectClose(id, "INSUFFICIENT_STOCK", nil)
 	require.NoError(t, err)
 
 	require.NoError(t, repository.CloseInvoice(id, closeEventFor(t, id)))
@@ -754,7 +756,7 @@ func TestRejectReopenSendsTheInvoiceBackToClosedWithTheReason(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, repository.ReopenInvoice(id, reopenEventFor(t, id)))
 
-	moved, err := repository.RejectReopen(id, "STOCK_ALREADY_USED")
+	moved, err := repository.RejectReopen(id, "STOCK_ALREADY_USED", nil)
 	require.NoError(t, err)
 	assert.True(t, moved)
 
@@ -835,4 +837,74 @@ func TestReopenInvoiceWhenMissingReturnsErrRecordNotFound(t *testing.T) {
 	err := repository.ReopenInvoice(9999, reopenEventFor(t, 9999))
 
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+}
+
+func shortagesOf(productCode string) []model.InvoiceShortage {
+	return []model.InvoiceShortage{
+		{InventoryID: 42, ProductCode: productCode, ProductName: "Parafuso", Required: 50, Available: 42},
+	}
+}
+
+func TestRejectCloseStoresWhatWasMissing(t *testing.T) {
+	repository := newRepository(t)
+	id := closingInvoice(t, repository)
+
+	moved, err := repository.RejectClose(id, "INSUFFICIENT_STOCK", shortagesOf("PROD-1"))
+	require.NoError(t, err)
+	require.True(t, moved)
+
+	invoice, err := repository.GetInvoiceByID(id)
+	require.NoError(t, err)
+
+	require.Len(t, invoice.Shortages, 1)
+	assert.Equal(t, "PROD-1", invoice.Shortages[0].ProductCode)
+	assert.Equal(t, 50, invoice.Shortages[0].Required)
+	assert.Equal(t, 42, invoice.Shortages[0].Available)
+}
+
+func TestANewCloseAttemptClearsTheOldShortages(t *testing.T) {
+	repository := newRepository(t)
+	id := closingInvoice(t, repository)
+
+	_, err := repository.RejectClose(id, "INSUFFICIENT_STOCK", shortagesOf("PROD-1"))
+	require.NoError(t, err)
+
+	require.NoError(t, repository.CloseInvoice(id, closeEventFor(t, id)))
+
+	invoice, err := repository.GetInvoiceByID(id)
+	require.NoError(t, err)
+
+	assert.Empty(t, invoice.Shortages, "the new attempt starts without the old report")
+	assert.Empty(t, invoice.FailureReason)
+}
+
+func TestRejectCloseOnAnInvoiceThatMovedAlreadyStoresNothing(t *testing.T) {
+	repository := newRepository(t)
+	id := closingInvoice(t, repository)
+
+	_, err := repository.ConfirmClose(id)
+	require.NoError(t, err)
+
+	moved, err := repository.RejectClose(id, "INSUFFICIENT_STOCK", shortagesOf("PROD-1"))
+	require.NoError(t, err)
+	require.False(t, moved)
+
+	invoice, err := repository.GetInvoiceByID(id)
+	require.NoError(t, err)
+
+	assert.Empty(t, invoice.Shortages, "a late result must not report over a closed invoice")
+}
+
+func TestDeleteInvoiceRemovesItsShortages(t *testing.T) {
+	repository := newRepository(t)
+	id := closingInvoice(t, repository)
+
+	_, err := repository.RejectClose(id, "INSUFFICIENT_STOCK", shortagesOf("PROD-1"))
+	require.NoError(t, err)
+	require.NoError(t, repository.DeleteInvoice(id))
+
+	var stored []model.InvoiceShortage
+	require.NoError(t, testConnection.Find(&stored).Error)
+
+	assert.Empty(t, stored)
 }

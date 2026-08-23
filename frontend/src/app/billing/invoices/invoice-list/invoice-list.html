@@ -65,7 +65,7 @@
                     {{ statusLabel(invoice.status) }}
                   </span>
                   @if (invoice.failureReason && !isProcessing(invoice)) {
-                    <small class="table__failure">{{ failureLabel(invoice.failureReason) }}</small>
+                    <small class="table__failure">{{ failureLabel(invoice) }}</small>
                   }
                 </td>
                 <td class="table__num">

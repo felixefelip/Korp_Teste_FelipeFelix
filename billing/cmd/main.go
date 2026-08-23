@@ -17,7 +17,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := dbConnection.AutoMigrate(&model.Product{}, &model.Invoice{}, &model.InvoiceItem{}, &model.OutboxEvent{}); err != nil {
+	if err := dbConnection.AutoMigrate(&model.Product{}, &model.Invoice{}, &model.InvoiceItem{}, &model.InvoiceShortage{}, &model.OutboxEvent{}); err != nil {
 		panic(err)
 	}
 

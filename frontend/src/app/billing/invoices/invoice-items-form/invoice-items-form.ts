@@ -9,6 +9,7 @@ import {
 } from '@angular/forms';
 
 import { CatalogProduct } from '../catalog.model';
+import { InvoiceShortage } from '../invoice.model';
 import { CustomFormValidation } from '../../../shared/forms/custom-form-validation';
 import { CustomValidators } from '../../../shared/forms/validators';
 import { InvoiceItem } from '../invoice.model';
@@ -58,6 +59,13 @@ export class InvoiceItemsForm {
   readonly products = input<CatalogProduct[]>([]);
   readonly productsFailed = input(false);
   readonly submitted = input(false);
+  readonly shortages = input<InvoiceShortage[]>([]);
+
+  protected rowShortage(row: ItemGroup): InvoiceShortage | null {
+    const inventoryId = row.controls.inventoryId.value;
+
+    return this.shortages().find((shortage) => shortage.inventoryId === inventoryId) ?? null;
+  }
 
   protected rowError(row: ItemGroup, field: string): string | null {
     return CustomFormValidation.fieldErrorFor(row, this.submitted)(field);
