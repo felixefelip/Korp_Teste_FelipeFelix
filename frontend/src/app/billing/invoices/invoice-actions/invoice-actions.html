@@ -11,7 +11,7 @@
     (confirmed)="confirmPrint()"
     (cancelled)="cancelPrint()"
   >
-    A nota fiscal <strong>{{ invoice().number }}</strong> será fechada e não
+    A nota fiscal <strong>{{ invoice().formattedNumber }}</strong> será fechada e não
     poderá mais ser alterada nem excluída.
   </app-confirm-dialog>
 }
@@ -23,7 +23,7 @@
     (confirmed)="confirmDeletion()"
     (cancelled)="cancelDeletion()"
   >
-    A nota fiscal <strong>{{ invoice().number }}</strong> e todos os seus itens
+    A nota fiscal <strong>{{ invoice().formattedNumber }}</strong> e todos os seus itens
     serão apagados.
   </app-confirm-dialog>
 }

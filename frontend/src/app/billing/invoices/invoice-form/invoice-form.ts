@@ -59,9 +59,15 @@ export class InvoiceForm {
   });
 
   protected readonly form = this.fb.group({
-    number: this.fb.nonNullable.control('', [
+    series: this.fb.control<number | null>(null, [
       Validators.required,
-      Validators.maxLength(30)
+      Validators.min(1),
+      Validators.max(999)
+    ]),
+    number: this.fb.control<number | null>(null, [
+      Validators.required,
+      Validators.min(1),
+      Validators.max(999999)
     ]),
     type: this.fb.nonNullable.control<InvoiceType>(
       INVOICE_TYPES[0],
@@ -84,7 +90,7 @@ export class InvoiceForm {
       }
 
       this.form.setControl('items', newItemArray(invoice.items ?? []));
-      this.form.patchValue({ number: invoice.number, type: invoice.type });
+      this.form.patchValue({ series: invoice.series, number: invoice.number, type: invoice.type });
     });
 
     effect(() => {
@@ -126,10 +132,11 @@ export class InvoiceForm {
       return;
     }
 
-    const { number, type, items } = this.form.getRawValue();
+    const { series, number, type, items } = this.form.getRawValue();
 
     this.save.emit({
-      number: number.trim(),
+      series: series!,
+      number: number!,
       ...(this.typeEditable() ? { type } : {}),
       items: items.map((item) => ({
         inventoryId: item.inventoryId!,

@@ -53,7 +53,7 @@
           } @else {
             @for (invoice of invoices(); track invoice.id) {
               <tr>
-                <td class="table__code">{{ invoice.number }}</td>
+                <td class="table__code">{{ invoice.formattedNumber }}</td>
                 <td>{{ typeLabel(invoice.type) }}</td>
                 <td>
                   <span

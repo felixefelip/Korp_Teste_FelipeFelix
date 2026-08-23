@@ -77,7 +77,8 @@ describe('InvoiceNew', () => {
   };
 
   const fillValidForm = async () => {
-    await fill('number', 'NF-0006');
+    await fill('series', '1');
+    await fill('number', '6');
   };
 
   const mount = async (
@@ -137,7 +138,7 @@ describe('InvoiceNew', () => {
       await submit();
 
       expect(service.create).toHaveBeenCalledWith({
-        number: 'NF-0006',
+        series: 1, number: 6,
         type: 'OUT',
         items: []
       });
@@ -199,7 +200,7 @@ describe('InvoiceNew', () => {
       await submit();
 
       expect(service.create).toHaveBeenCalledWith({
-        number: 'NF-0006',
+        series: 1, number: 6,
         type: 'OUT',
         items: [
           {
@@ -316,7 +317,7 @@ describe('InvoiceNew', () => {
       await submit();
 
       service.create.mockReturnValue(of({ id: 6 } as Invoice));
-      await fill('number', 'NF-0042');
+      await fill('number', '42');
       await submit();
 
       expect(service.create).toHaveBeenCalledTimes(2);

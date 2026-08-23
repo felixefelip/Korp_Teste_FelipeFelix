@@ -1,14 +1,17 @@
+.field-group--series,
 .field-group--number {
-  grid-column: span 2;
+  grid-column: span 1;
 }
 
 @media (max-width: 860px) {
+  .field-group--series,
   .field-group--number {
-    grid-column: 1 / -1;
+    grid-column: span 1;
   }
 }
 
 @media (max-width: 560px) {
+  .field-group--series,
   .field-group--number {
     grid-column: 1 / -1;
   }

@@ -96,7 +96,7 @@ func TestMarkPublishedWhenMissingReturnsAnError(t *testing.T) {
 
 func pendingEvent(aggregateID int) model.OutboxEvent {
 	event, err := model.NewInvoiceCloseRequested(model.Invoice{
-		ID: aggregateID, Number: "NF-0001", Type: model.InvoiceTypeOut,
+		ID: aggregateID, Series: 1, Number: 1, Type: model.InvoiceTypeOut,
 	})
 	if err != nil {
 		panic(err)

@@ -73,6 +73,8 @@ func validationMessage(fieldError validator.FieldError) string {
 		}
 
 		return fmt.Sprintf("O valor precisa ser maior que %s.", fieldError.Param())
+	case "lte":
+		return fmt.Sprintf("O valor não pode ser maior que %s.", fieldError.Param())
 	case "max":
 		return fmt.Sprintf("Limite de %s caracteres excedido.", fieldError.Param())
 	default:

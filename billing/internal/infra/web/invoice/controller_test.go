@@ -29,15 +29,17 @@ type invoiceItemResponse struct {
 }
 
 type invoiceResponse struct {
-	ID     int                   `json:"id"`
-	Number string                `json:"number"`
-	Type   string                `json:"type"`
-	Status string                `json:"status"`
-	Items  []invoiceItemResponse `json:"items"`
-	Total  float64               `json:"total"`
+	ID              int                   `json:"id"`
+	Series          int                   `json:"series"`
+	Number          int                   `json:"number"`
+	FormattedNumber string                `json:"formattedNumber"`
+	Type            string                `json:"type"`
+	Status          string                `json:"status"`
+	Items           []invoiceItemResponse `json:"items"`
+	Total           float64               `json:"total"`
 }
 
-const validInvoice = `{"number":"NF-0001","type":"OUT","status":"OPEN"}`
+const validInvoice = `{"series":1,"number":1,"type":"OUT","status":"OPEN"}`
 
 func decodeInvoice(t *testing.T, body []byte) invoiceResponse {
 	t.Helper()
@@ -77,8 +79,8 @@ func decodeErrors(t *testing.T, body []byte) map[string]string {
 func TestGetInvoicesReturns200WithEverythingStored(t *testing.T) {
 	server := newServer(t)
 	seedInvoices(t,
-		model.Invoice{Number: "NF-0001", Status: "OPEN"},
-		model.Invoice{Number: "NF-0002", Status: "CLOSED"},
+		model.Invoice{Series: 1, Number: 1, Status: "OPEN"},
+		model.Invoice{Series: 1, Number: 2, Status: "CLOSED"},
 	)
 
 	response := webtest.Get(t, server, "/invoices")
@@ -89,14 +91,14 @@ func TestGetInvoicesReturns200WithEverythingStored(t *testing.T) {
 
 	require.Len(t, invoices, 2)
 	assert.ElementsMatch(t,
-		[]string{"NF-0001", "NF-0002"},
-		[]string{invoices[0].Number, invoices[1].Number},
+		[]int{1, 2},
+		[]int{invoices[0].Number, invoices[1].Number},
 	)
 }
 
 func TestGetInvoicesCarriesTheFieldsOfEachInvoice(t *testing.T) {
 	server := newServer(t)
-	seedInvoices(t, model.Invoice{Number: "NF-0001", Status: "CLOSED"})
+	seedInvoices(t, model.Invoice{Series: 1, Number: 1, Status: "CLOSED"})
 
 	response := webtest.Get(t, server, "/invoices")
 
@@ -106,7 +108,7 @@ func TestGetInvoicesCarriesTheFieldsOfEachInvoice(t *testing.T) {
 
 	require.Len(t, invoices, 1)
 	assert.NotZero(t, invoices[0].ID)
-	assert.Equal(t, "NF-0001", invoices[0].Number)
+	assert.Equal(t, 1, invoices[0].Number)
 	assert.Equal(t, "CLOSED", invoices[0].Status)
 }
 
@@ -131,7 +133,7 @@ func TestGetInvoicesListsWhatWasJustCreated(t *testing.T) {
 	invoices := decodeInvoices(t, response.Body.Bytes())
 
 	require.Len(t, invoices, 1)
-	assert.Equal(t, "NF-0001", invoices[0].Number)
+	assert.Equal(t, 1, invoices[0].Number)
 }
 
 func TestGetInvoicesWithTheDatabaseDownReturns500(t *testing.T) {
@@ -161,7 +163,7 @@ func TestGetInvoiceByIDReturns200WithTheInvoice(t *testing.T) {
 	invoice := decodeInvoice(t, response.Body.Bytes())
 
 	assert.Equal(t, expected.ID, invoice.ID)
-	assert.Equal(t, "NF-0001", invoice.Number)
+	assert.Equal(t, 1, invoice.Number)
 	assert.Equal(t, "OPEN", invoice.Status)
 }
 
@@ -199,7 +201,7 @@ func TestCreateInvoiceReturns201WithTheCreatedInvoice(t *testing.T) {
 	created := decodeInvoice(t, response.Body.Bytes())
 
 	assert.NotZero(t, created.ID, "the response should carry the generated id")
-	assert.Equal(t, "NF-0001", created.Number)
+	assert.Equal(t, 1, created.Number)
 	assert.Equal(t, "OPEN", created.Status)
 }
 
@@ -213,17 +215,33 @@ func TestCreateInvoicePersistsToTheDatabase(t *testing.T) {
 	require.NoError(t, testConnection.Find(&saved).Error)
 
 	require.Len(t, saved, 1)
-	assert.Equal(t, "NF-0001", saved[0].Number)
+	assert.Equal(t, 1, saved[0].Number)
 	assert.Equal(t, "OPEN", saved[0].Status)
 }
 
-func TestCreateInvoiceUppercasesTheNumber(t *testing.T) {
+func TestCreateInvoiceFormatsTheDocumentNumber(t *testing.T) {
 	server := newServer(t)
 
-	response := webtest.Post(t, server, "/invoices", `{"number":"  nf-0003  ","type":"OUT","status":"OPEN"}`)
+	response := webtest.Post(t, server, "/invoices", `{"series":1,"number":57,"type":"OUT"}`)
 
 	require.Equal(t, http.StatusCreated, response.Code)
-	assert.Equal(t, "NF-0003", decodeInvoice(t, response.Body.Bytes()).Number)
+
+	created := decodeInvoice(t, response.Body.Bytes())
+	assert.Equal(t, 1, created.Series)
+	assert.Equal(t, 57, created.Number)
+	assert.Equal(t, "001/000057", created.FormattedNumber)
+}
+
+func TestCreateInvoiceWithADuplicateDocumentReturns409(t *testing.T) {
+	server := newServer(t)
+
+	require.Equal(t, http.StatusCreated,
+		webtest.Post(t, server, "/invoices", `{"series":1,"number":57,"type":"OUT"}`).Code)
+
+	response := webtest.Post(t, server, "/invoices", `{"series":1,"number":57,"type":"IN"}`)
+
+	require.Equal(t, http.StatusConflict, response.Code)
+	assert.Contains(t, response.Body.String(), "série e número")
 }
 
 func TestCreateInvoiceWithoutTheRequiredFieldsReturns400(t *testing.T) {
@@ -244,20 +262,29 @@ func TestCreateInvoiceWithoutTheRequiredFieldsReturns400(t *testing.T) {
 	assert.Empty(t, saved, "nothing should have been stored")
 }
 
-func TestCreateInvoiceWithALongNumberReturns400(t *testing.T) {
+func TestCreateInvoiceWithANumberOverTheLimitReturns400(t *testing.T) {
 	server := newServer(t)
 
 	response := webtest.Post(t, server, "/invoices",
-		`{"number":"NF-000000000000000000000000000001","type":"OUT","status":"OPEN"}`)
+		`{"series":1,"number":1000000,"type":"OUT"}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
-	assert.Equal(t, "Limite de 30 caracteres excedido.", decodeErrors(t, response.Body.Bytes())["number"])
+	assert.Equal(t, "O valor não pode ser maior que 999999.", decodeErrors(t, response.Body.Bytes())["number"])
+}
+
+func TestCreateInvoiceWithASeriesOverTheLimitReturns400(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices", `{"series":1000,"number":1,"type":"OUT"}`)
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	assert.Equal(t, "O valor não pode ser maior que 999.", decodeErrors(t, response.Body.Bytes())["series"])
 }
 
 func TestCreateInvoiceWithWrongNumberTypeReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := webtest.Post(t, server, "/invoices", `{"number":1,"type":"OUT","status":"OPEN"}`)
+	response := webtest.Post(t, server, "/invoices", `{"series":1,"number":"NF-1","type":"OUT"}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 	assert.Equal(t, "Valor inválido.", decodeErrors(t, response.Body.Bytes())["number"])
@@ -291,7 +318,7 @@ func TestCreateInvoiceWithTheDatabaseDownReturns500(t *testing.T) {
 	assert.NotEmpty(t, body["message"])
 }
 
-const updatedInvoice = `{"number":"NF-0002"}`
+const updatedInvoice = `{"series":1,"number":2}`
 
 func createInvoice(t *testing.T, server *gin.Engine, body string) int {
 	t.Helper()
@@ -313,7 +340,7 @@ func TestUpdateInvoiceReturns200WithTheUpdatedInvoice(t *testing.T) {
 	updated := decodeInvoice(t, response.Body.Bytes())
 
 	assert.Equal(t, id, updated.ID, "the id must survive the update")
-	assert.Equal(t, "NF-0002", updated.Number)
+	assert.Equal(t, 2, updated.Number)
 	assert.Equal(t, "OPEN", updated.Status, "only the close action moves the status")
 }
 
@@ -327,18 +354,22 @@ func TestUpdateInvoicePersistsToTheDatabase(t *testing.T) {
 	require.NoError(t, testConnection.Find(&saved).Error)
 
 	require.Len(t, saved, 1, "the update must not create a second row")
-	assert.Equal(t, "NF-0002", saved[0].Number)
+	assert.Equal(t, 2, saved[0].Number)
 	assert.Equal(t, "OPEN", saved[0].Status)
 }
 
-func TestUpdateInvoiceUppercasesTheNumber(t *testing.T) {
+func TestUpdateInvoiceDocumentNumberIsRewritten(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), `{"number":"  nf-0009  "}`)
+	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), `{"series":2,"number":9}`)
 
 	require.Equal(t, http.StatusOK, response.Code)
-	assert.Equal(t, "NF-0009", decodeInvoice(t, response.Body.Bytes()).Number)
+
+	updated := decodeInvoice(t, response.Body.Bytes())
+	assert.Equal(t, 2, updated.Series)
+	assert.Equal(t, 9, updated.Number)
+	assert.Equal(t, "002/000009", updated.FormattedNumber)
 }
 
 func TestUpdateInvoiceIgnoresTheIDSentInTheBody(t *testing.T) {
@@ -346,7 +377,7 @@ func TestUpdateInvoiceIgnoresTheIDSentInTheBody(t *testing.T) {
 	id := createInvoice(t, server, validInvoice)
 
 	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
-		fmt.Sprintf(`{"id":%d,"number":"NF-0002","type":"OUT","status":"CLOSED"}`, id+900))
+		fmt.Sprintf(`{"id":%d,"series":1,"number":2,"type":"OUT","status":"CLOSED"}`, id+900))
 
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Equal(t, id, decodeInvoice(t, response.Body.Bytes()).ID, "the id comes from the URL")
@@ -400,7 +431,7 @@ func TestUpdateInvoiceWithoutTheRequiredFieldsReturns400(t *testing.T) {
 
 	var saved model.Invoice
 	require.NoError(t, testConnection.First(&saved, id).Error)
-	assert.Equal(t, "NF-0001", saved.Number, "a rejected update must leave the invoice untouched")
+	assert.Equal(t, 1, saved.Number, "a rejected update must leave the invoice untouched")
 }
 
 func TestUpdateInvoiceIgnoresTheStatusSentInTheBody(t *testing.T) {
@@ -408,22 +439,22 @@ func TestUpdateInvoiceIgnoresTheStatusSentInTheBody(t *testing.T) {
 	id := createInvoice(t, server, validInvoice)
 
 	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
-		`{"number":"NF-0001","status":"CLOSED"}`)
+		`{"series":1,"number":1,"status":"CLOSED"}`)
 
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Equal(t, "OPEN", decodeInvoice(t, response.Body.Bytes()).Status,
 		"closing is an action of its own, not a field of the update")
 }
 
-func TestUpdateInvoiceWithALongNumberReturns400(t *testing.T) {
+func TestUpdateInvoiceWithANumberOverTheLimitReturns400(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
 	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
-		`{"number":"NF-000000000000000000000000000001","type":"OUT","status":"OPEN"}`)
+		`{"series":1,"number":1000000}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
-	assert.Equal(t, "Limite de 30 caracteres excedido.", decodeErrors(t, response.Body.Bytes())["number"])
+	assert.Equal(t, "O valor não pode ser maior que 999999.", decodeErrors(t, response.Body.Bytes())["number"])
 }
 
 func TestUpdateInvoiceWithInvalidJSONReturns400(t *testing.T) {
@@ -460,7 +491,7 @@ func TestUnknownRouteReturns404(t *testing.T) {
 }
 
 const invoiceWithItems = `{
-    "number": "NF-0001",
+    "series":1,"number":1,
     "type": "OUT",
     "status": "OPEN",
     "items": [
@@ -470,7 +501,7 @@ const invoiceWithItems = `{
 }`
 
 func itemBody(item string) string {
-	return `{"number":"NF-0001","type":"OUT","status":"OPEN","items":[` + item + `]}`
+	return `{"series":1,"number":1,"type":"OUT","status":"OPEN","items":[` + item + `]}`
 }
 
 func TestCreateInvoiceReturns201WithTheItems(t *testing.T) {
@@ -598,7 +629,7 @@ func TestCreateInvoiceWithAnItemWithoutTheRequiredFieldsReturns400(t *testing.T)
 func TestCreateInvoicePointsAtTheItemThatWasRejected(t *testing.T) {
 	server := newServer(t)
 
-	response := webtest.Post(t, server, "/invoices", `{"number":"NF-0001","type":"OUT","status":"OPEN","items":[
+	response := webtest.Post(t, server, "/invoices", `{"series":1,"number":1,"type":"OUT","status":"OPEN","items":[
         {"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":1,"unitPrice":10},
         {"inventoryId":12,"code":"PRD-0002","name":"Caneca","unit":"UN","quantity":0,"unitPrice":10}
     ]}`)
@@ -704,7 +735,7 @@ func TestUpdateInvoiceWithAnEmptyListEmptiesTheInvoice(t *testing.T) {
 	id := createInvoice(t, server, invoiceWithItems)
 
 	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
-		`{"number":"NF-0001","type":"OUT","status":"OPEN","items":[]}`)
+		`{"series":1,"number":1,"type":"OUT","status":"OPEN","items":[]}`)
 
 	require.Equal(t, http.StatusOK, response.Code)
 
@@ -724,7 +755,7 @@ func TestUpdateInvoiceWithoutTheItemsKeyKeepsTheItems(t *testing.T) {
 
 	updated := decodeInvoice(t, response.Body.Bytes())
 
-	assert.Equal(t, "NF-0002", updated.Number)
+	assert.Equal(t, 2, updated.Number)
 	require.Len(t, updated.Items, 2, "an update that says nothing about the items must not erase them")
 	assert.Equal(t, 81.88, updated.Total)
 }
@@ -770,7 +801,7 @@ func TestCreateInvoiceCarriesTheTypeBack(t *testing.T) {
 func TestCreateInvoiceAcceptsAnInboundInvoice(t *testing.T) {
 	server := newServer(t)
 
-	response := webtest.Post(t, server, "/invoices", `{"number":"NF-0004","type":"IN","status":"OPEN"}`)
+	response := webtest.Post(t, server, "/invoices", `{"series":1,"number":4,"type":"IN","status":"OPEN"}`)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 	assert.Equal(t, model.InvoiceTypeIn, decodeInvoice(t, response.Body.Bytes()).Type)
@@ -785,7 +816,7 @@ func TestCreateInvoiceAcceptsAnInboundInvoice(t *testing.T) {
 func TestCreateInvoiceWithAnUnknownTypeReturns400(t *testing.T) {
 	server := newServer(t)
 
-	response := webtest.Post(t, server, "/invoices", `{"number":"NF-0001","type":"ENTRADA","status":"OPEN"}`)
+	response := webtest.Post(t, server, "/invoices", `{"series":1,"number":1,"type":"ENTRADA","status":"OPEN"}`)
 
 	require.Equal(t, http.StatusBadRequest, response.Code)
 	assert.NotEmpty(t, decodeErrors(t, response.Body.Bytes())["type"])
@@ -794,7 +825,7 @@ func TestCreateInvoiceWithAnUnknownTypeReturns400(t *testing.T) {
 func TestCreateInvoiceRejectsALowercaseType(t *testing.T) {
 	server := newServer(t)
 
-	response := webtest.Post(t, server, "/invoices", `{"number":"NF-0001","type":"out","status":"OPEN"}`)
+	response := webtest.Post(t, server, "/invoices", `{"series":1,"number":1,"type":"out","status":"OPEN"}`)
 
 	assert.Equal(t, http.StatusBadRequest, response.Code)
 }
@@ -804,7 +835,7 @@ func TestUpdateInvoiceIgnoresTheTypeSentInTheBody(t *testing.T) {
 	id := createInvoice(t, server, validInvoice)
 
 	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
-		`{"number":"NF-0001","type":"IN","status":"OPEN"}`)
+		`{"series":1,"number":1,"type":"IN","status":"OPEN"}`)
 
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Equal(t, model.InvoiceTypeOut, decodeInvoice(t, response.Body.Bytes()).Type,
@@ -813,10 +844,10 @@ func TestUpdateInvoiceIgnoresTheTypeSentInTheBody(t *testing.T) {
 
 func TestUpdateInvoiceWithoutATypeIsAccepted(t *testing.T) {
 	server := newServer(t)
-	id := createInvoice(t, server, `{"number":"NF-0009","type":"IN"}`)
+	id := createInvoice(t, server, `{"series":1,"number":9,"type":"IN"}`)
 
 	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
-		`{"number":"NF-0009","status":"CLOSED"}`)
+		`{"series":1,"number":9,"status":"CLOSED"}`)
 
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Equal(t, model.InvoiceTypeIn, decodeInvoice(t, response.Body.Bytes()).Type)
@@ -837,7 +868,7 @@ func TestInboundInvoiceKeepsThePriceOfTheReplica(t *testing.T) {
 	require.Equal(t, http.StatusCreated, webtest.Post(t, server, "/invoices",
 		itemBody(`{"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":1,"unitPrice":30.99}`)).Code)
 
-	inbound := `{"number":"NF-0009","type":"IN","status":"OPEN","items":[
+	inbound := `{"series":1,"number":9,"type":"IN","status":"OPEN","items":[
         {"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":10,"unitPrice":12.5}
     ]}`
 	require.Equal(t, http.StatusCreated, webtest.Post(t, server, "/invoices", inbound).Code)
@@ -939,7 +970,7 @@ func TestCloseInvoiceReturns202WithTheInvoiceBeingProcessed(t *testing.T) {
 
 	assert.Equal(t, id, closing.ID)
 	assert.Equal(t, "CLOSING", closing.Status, "the stock has not been taken yet")
-	assert.Equal(t, "NF-0001", closing.Number, "closing changes the status and nothing else")
+	assert.Equal(t, 1, closing.Number, "closing changes the status and nothing else")
 }
 
 func TestCloseInvoiceOnlyReachesClosedWhenTheStockIsApplied(t *testing.T) {
@@ -1075,7 +1106,7 @@ func TestReopenInvoiceReturns202WithTheInvoiceBeingProcessed(t *testing.T) {
 
 	assert.Equal(t, id, reopening.ID)
 	assert.Equal(t, "REOPENING", reopening.Status, "the stock has not been given back yet")
-	assert.Equal(t, "NF-0001", reopening.Number)
+	assert.Equal(t, 1, reopening.Number)
 }
 
 func TestAnInvoiceBeingReopenedCannotBeEditedOrDeleted(t *testing.T) {
@@ -1135,7 +1166,7 @@ func TestCreateInvoiceAlwaysStartsOpen(t *testing.T) {
 	server := newServer(t)
 
 	response := webtest.Post(t, server, "/invoices",
-		`{"number":"NF-0005","type":"OUT","status":"CLOSED"}`)
+		`{"series":1,"number":5,"type":"OUT","status":"CLOSED"}`)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 	assert.Equal(t, "OPEN", decodeInvoice(t, response.Body.Bytes()).Status,
@@ -1168,11 +1199,11 @@ func TestUpdateAClosedInvoiceKeepsItAsItWas(t *testing.T) {
 
 	require.Equal(t, http.StatusConflict,
 		webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
-			`{"number":"NF-9999","items":[]}`).Code)
+			`{"series":1,"number":9999,"items":[]}`).Code)
 
 	invoice := decodeInvoice(t, webtest.Get(t, server, fmt.Sprintf("/invoices/%d", id)).Body.Bytes())
 
-	assert.Equal(t, "NF-0001", invoice.Number)
+	assert.Equal(t, 1, invoice.Number)
 	assert.Len(t, invoice.Items, 2, "a refused update must not have erased the items")
 }
 

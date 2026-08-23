@@ -38,7 +38,7 @@ func NewInvoiceReopenRequested(invoice Invoice) (OutboxEvent, error) {
 		EventID:       eventID,
 		OccurredAt:    occurredAt,
 		InvoiceID:     invoice.ID,
-		InvoiceNumber: invoice.Number,
+		InvoiceNumber: invoice.FormattedNumber(),
 	})
 	if err != nil {
 		return OutboxEvent{}, err
@@ -82,7 +82,7 @@ func NewInvoiceCloseRequested(invoice Invoice) (OutboxEvent, error) {
 		EventID:       eventID,
 		OccurredAt:    occurredAt,
 		InvoiceID:     invoice.ID,
-		InvoiceNumber: invoice.Number,
+		InvoiceNumber: invoice.FormattedNumber(),
 		Type:          invoice.Type,
 		Items:         items,
 	})

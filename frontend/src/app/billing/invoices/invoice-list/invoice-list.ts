@@ -39,7 +39,7 @@ export class InvoiceList {
       return list;
     }
 
-    return list.filter((invoice) => invoice.number.toLowerCase().includes(term));
+    return list.filter((invoice) => invoice.formattedNumber.toLowerCase().includes(term));
   });
 
 

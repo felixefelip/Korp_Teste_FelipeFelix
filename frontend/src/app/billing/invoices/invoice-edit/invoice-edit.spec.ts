@@ -27,7 +27,7 @@ const EXISTING_ITEM: InvoiceItemPayload = {
 
 const EXISTING: Invoice = {
   id: 7,
-  number: 'NF-0007',
+  series: 1, number: 7, formattedNumber: '001/000007',
   type: 'OUT',
   status: 'OPEN',
   total: 301,
@@ -153,7 +153,8 @@ describe('InvoiceEdit', () => {
     });
 
     it('fills every field with what came back', () => {
-      expect(field<HTMLInputElement>('number').value).toBe('NF-0007');
+      expect(field<HTMLInputElement>('series').value).toBe('1');
+      expect(field<HTMLInputElement>('number').value).toBe('7');
     });
 
     it('shows the direction without letting it be changed, and no status at all', () => {
@@ -191,11 +192,13 @@ describe('InvoiceEdit', () => {
 
   describe('saving the changes', () => {
     it('sends the edited data to the update of that id', async () => {
-      await fill('number', 'NF-0042');
+      await fill('series', '1');
+      await fill('series', '1');
+      await fill('number', '42');
       await submit();
 
       expect(service.update).toHaveBeenCalledWith(7, {
-        number: 'NF-0042',
+        series: 1, number: 42,
         items: [EXISTING_ITEM]
       });
     });
@@ -220,13 +223,14 @@ describe('InvoiceEdit', () => {
       expect(service.update).toHaveBeenCalledTimes(1);
     });
 
-    it('trims surrounding spaces from the number', async () => {
-      await fill('number', '   NF-0099   ');
+    it('sends the number that was typed', async () => {
+      await fill('series', '1');
+      await fill('number', '99');
       await submit();
 
       expect(service.update).toHaveBeenCalledWith(
         7,
-        expect.objectContaining({ number: 'NF-0099' })
+        expect.objectContaining({ series: 1, number: 99 })
       );
     });
 
@@ -297,7 +301,7 @@ describe('InvoiceEdit', () => {
       await submit();
 
       expect(service.update).toHaveBeenCalledWith(7, {
-        number: 'NF-0007',
+        series: 1, number: 7,
         items: [
           EXISTING_ITEM,
           {

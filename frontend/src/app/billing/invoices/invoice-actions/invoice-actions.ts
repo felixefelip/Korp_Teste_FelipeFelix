@@ -62,7 +62,7 @@ export class InvoiceActions {
     this.printing.set(true);
 
     this.invoiceService.close(invoice.id).subscribe({
-      next: () => this.settlePrint(`Nota fiscal ${invoice.number} fechada.`),
+      next: () => this.settlePrint(`Nota fiscal ${invoice.formattedNumber} fechada.`),
       error: (response: HttpErrorResponse) =>
         this.settlePrint(null, response.error?.message ?? CLOSE_FAILURE)
     });
@@ -84,7 +84,7 @@ export class InvoiceActions {
     this.deleting.set(true);
 
     this.invoiceService.remove(invoice.id).subscribe({
-      next: () => this.settleDeletion(`Nota fiscal ${invoice.number} excluída.`),
+      next: () => this.settleDeletion(`Nota fiscal ${invoice.formattedNumber} excluída.`),
       error: (response: HttpErrorResponse) =>
         this.settleDeletion(null, response.error?.message ?? DELETE_FAILURE)
     });
@@ -94,7 +94,7 @@ export class InvoiceActions {
     const invoice = this.invoice();
 
     this.invoiceService.reopen(invoice.id).subscribe({
-      next: () => this.flash.success(`Nota fiscal ${invoice.number} reaberta.`),
+      next: () => this.flash.success(`Nota fiscal ${invoice.formattedNumber} reaberta.`),
       error: (response: HttpErrorResponse) =>
         this.flash.error(response.error?.message ?? REOPEN_FAILURE)
     });

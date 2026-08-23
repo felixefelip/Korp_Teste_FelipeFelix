@@ -1,20 +1,20 @@
 package invoice
 
 import (
-	"strings"
-
 	"billing/internal/model"
 )
 
 type createRequest struct {
-	Number string        `json:"number" binding:"required,max=30"`
+	Series *int          `json:"series" binding:"required,gt=0,lte=999"`
+	Number *int          `json:"number" binding:"required,gt=0,lte=999999"`
 	Type   string        `json:"type"   binding:"required,oneof=IN OUT"`
 	Items  []itemRequest `json:"items"  binding:"omitempty,dive"`
 }
 
 func (r createRequest) toModel() model.Invoice {
 	return model.Invoice{
-		Number: strings.ToUpper(strings.TrimSpace(r.Number)),
+		Series: *r.Series,
+		Number: *r.Number,
 		Type:   r.Type,
 		Status: model.InvoiceStatusOpen,
 		Items:  toItemModels(r.Items),
@@ -22,14 +22,16 @@ func (r createRequest) toModel() model.Invoice {
 }
 
 type updateRequest struct {
-	Number string        `json:"number" binding:"required,max=30"`
+	Series *int          `json:"series" binding:"required,gt=0,lte=999"`
+	Number *int          `json:"number" binding:"required,gt=0,lte=999999"`
 	Items  []itemRequest `json:"items"  binding:"omitempty,dive"`
 }
 
 func (r updateRequest) toModel(id int) model.Invoice {
 	return model.Invoice{
 		ID:     id,
-		Number: strings.ToUpper(strings.TrimSpace(r.Number)),
+		Series: *r.Series,
+		Number: *r.Number,
 		Items:  toItemModels(r.Items),
 	}
 }

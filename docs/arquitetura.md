@@ -483,6 +483,27 @@ na fila.
 
 ### billing
 
+O documento é identificado por **série e número**, dois inteiros, e não por uma
+string livre:
+
+```sql
+ALTER TABLE invoice
+  ADD COLUMN series INT NOT NULL,
+  ADD COLUMN number INT NOT NULL;
+CREATE UNIQUE INDEX idx_invoice_document ON invoice (series, number);
+```
+
+Isso vem de um problema concreto: como texto, `001/000057` ordena **antes** de
+`001/00006` — a nota 57 aparecendo antes da 6 — e nada impedia dois documentos
+com o mesmo número. Com inteiros, `ORDER BY series DESC, number DESC` ordena de verdade — a nota
+mais recente no topo —,
+a unicidade é do banco, e o formato `001/000057` passa a ser apresentação
+(`FormattedNumber()`), não armazenamento.
+
+A listagem de produtos ordena por `code`, pelo mesmo motivo: sem `ORDER BY` o
+Postgres devolve a ordem física do heap, e um `UPDATE` joga a linha editada
+para o fim — o registro que o usuário acabou de salvar sumia do lugar.
+
 ```sql
 -- invoice.status: OPEN | CLOSING | CLOSED | REOPENING
 ALTER TABLE invoice ADD COLUMN failure_reason VARCHAR(30);

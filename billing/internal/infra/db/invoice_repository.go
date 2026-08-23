@@ -1,11 +1,24 @@
 package db
 
 import (
+	"errors"
+
 	"billing/internal/model"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func asDuplicated(err error) error {
+	var pgErr *pgconn.PgError
+
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return model.ErrInvoiceDuplicated
+	}
+
+	return err
+}
 
 type InvoiceRepository struct {
 	connection *gorm.DB
@@ -20,7 +33,7 @@ func NewInvoiceRepository(connection *gorm.DB) *InvoiceRepository {
 func (ir *InvoiceRepository) GetInvoices() ([]model.Invoice, error) {
 	var invoiceList []model.Invoice
 
-	err := withItems(ir.connection).Find(&invoiceList).Error
+	err := withItems(ir.connection).Order("series desc, number desc").Find(&invoiceList).Error
 	if err != nil {
 		return []model.Invoice{}, err
 	}
@@ -51,18 +64,17 @@ func (ir *InvoiceRepository) CreateInvoice(invoice model.Invoice) (int, error) {
 		return saveItems(tx, invoice.ID, items)
 	})
 	if err != nil {
-		return 0, err
+		return 0, asDuplicated(err)
 	}
 
 	return invoice.ID, nil
 }
 
 func (ir *InvoiceRepository) UpdateInvoice(invoice model.Invoice) error {
-	return ir.connection.Transaction(func(tx *gorm.DB) error {
+	return asDuplicated(ir.connection.Transaction(func(tx *gorm.DB) error {
 		result := tx.
 			Model(&model.Invoice{ID: invoice.ID}).
-			Select("number").
-			Updates(model.Invoice{Number: invoice.Number})
+			Updates(map[string]any{"series": invoice.Series, "number": invoice.Number})
 		if result.Error != nil {
 			return result.Error
 		}
@@ -80,7 +92,7 @@ func (ir *InvoiceRepository) UpdateInvoice(invoice model.Invoice) error {
 		}
 
 		return saveItems(tx, invoice.ID, invoice.Items)
-	})
+	}))
 }
 
 func (ir *InvoiceRepository) CloseInvoice(id int, event model.OutboxEvent) error {

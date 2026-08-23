@@ -40,7 +40,7 @@ const EXISTING_ITEM: InvoiceItemPayload = {
 
 const EXISTING: Invoice = {
   id: 7,
-  number: 'NF-0007',
+  series: 1, number: 7, formattedNumber: '001/000007',
   type: 'OUT',
   status: 'CLOSED',
   total: 301,
@@ -122,7 +122,8 @@ describe('InvoiceForm', () => {
   const unitOf = (row: number) => text(rows()[row].querySelector('.items__unit'));
 
   const fillValidForm = async () => {
-    await fill('number', 'NF-0006');
+    await fill('series', '1');
+    await fill('number', '6');
   };
 
   const addValidItem = async (row = 0, productIndex = 0, quantity = '2') => {
@@ -203,20 +204,21 @@ describe('InvoiceForm', () => {
     });
 
     it('demands the number once the field is emptied', async () => {
-      await fill('number', 'NF-0006');
+      await fill('number', '6');
       await fill('number', '');
 
       expect(errorOf('number')).toBe('Campo obrigatório.');
     });
 
     it('rejects a number longer than the 30 characters the API accepts', async () => {
-      await fill('number', 'N'.repeat(31));
+      await fill('number', '1000000');
 
-      expect(errorOf('number')).toBe('Limite de 30 caracteres excedido.');
+      expect(errorOf('number')).toBe('O valor máximo é 999999.');
     });
 
-    it('accepts a number with exactly 30 characters', async () => {
-      await fill('number', 'N'.repeat(30));
+    it('accepts the highest number the series allows', async () => {
+      await fill('series', '1');
+      await fill('number', '999999');
       await submit();
 
       expect(errorOf('number')).toBe('');
@@ -225,11 +227,12 @@ describe('InvoiceForm', () => {
 
     it('accepts a number already used by another invoice', async () => {
       await fillValidForm();
-      await fill('number', 'NF-0001');
+      await fill('series', '1');
+      await fill('number', '1');
       await submit();
 
       expect(errorOf('number')).toBe('');
-      expect(saved).toEqual([expect.objectContaining({ number: 'NF-0001' })]);
+      expect(saved).toEqual([expect.objectContaining({ series: 1, number: 1 })]);
     });
 
     it('marks the invalid field visually', async () => {
@@ -241,7 +244,7 @@ describe('InvoiceForm', () => {
       await submit();
       expect(errorOf('number')).toBe('Campo obrigatório.');
 
-      await fill('number', 'NF-0006');
+      await fill('number', '6');
       expect(errorOf('number')).toBe('');
     });
   });
@@ -251,18 +254,12 @@ describe('InvoiceForm', () => {
       await fillValidForm();
       await submit();
 
-      expect(saved).toEqual([{ number: 'NF-0006', type: 'OUT', items: [] }]);
-    });
-
-    it('trims surrounding spaces from the number', async () => {
-      await fill('number', '   NF-0007   ');
-      await submit();
-
-      expect(saved).toEqual([expect.objectContaining({ number: 'NF-0007' })]);
+      expect(saved).toEqual([{ series: 1, number: 6, type: 'OUT', items: [] }]);
     });
 
     it('hands over the direction that was chosen', async () => {
-      await fill('number', 'NF-0006');
+      await fill('series', '1');
+      await fill('number', '6');
       await fill('type', 'IN');
       await submit();
 
@@ -270,7 +267,8 @@ describe('InvoiceForm', () => {
     });
 
     it('hands over the outbound direction when it is untouched', async () => {
-      await fill('number', 'NF-0006');
+      await fill('series', '1');
+      await fill('number', '6');
       await submit();
 
       expect(saved).toEqual([expect.objectContaining({ type: 'OUT' })]);
@@ -309,7 +307,7 @@ describe('InvoiceForm', () => {
       await submit();
 
       expect(saved).toEqual([
-        { number: 'NF-0006', type: 'OUT', items: [EXISTING_ITEM] }
+        { series: 1, number: 6, type: 'OUT', items: [EXISTING_ITEM] }
       ]);
     });
 
@@ -390,7 +388,8 @@ describe('InvoiceForm', () => {
     it('fills every field with the value it was given', async () => {
       await setInput('value', EXISTING);
 
-      expect(field<HTMLInputElement>('number').value).toBe('NF-0007');
+      expect(field<HTMLInputElement>('series').value).toBe('1');
+      expect(field<HTMLInputElement>('number').value).toBe('7');
       expect(field<HTMLSelectElement>('type').value).toBe('OUT');
       expect(element().querySelector('#status')).toBeNull();
     });
@@ -415,11 +414,12 @@ describe('InvoiceForm', () => {
 
     it('hands over the edited data', async () => {
       await setInput('value', EXISTING);
-      await fill('number', 'NF-0042');
+      await fill('series', '1');
+      await fill('number', '42');
       await submit();
 
       expect(saved).toEqual([
-        { number: 'NF-0042', type: 'OUT', items: [EXISTING_ITEM] }
+        { series: 1, number: 42, type: 'OUT', items: [EXISTING_ITEM] }
       ]);
     });
 
@@ -491,9 +491,9 @@ describe('InvoiceForm', () => {
 
     it('shows the server phrase exactly as it came', async () => {
       await fillValidForm();
-      await rejectWith({ number: 'Limite de 30 caracteres excedido.' });
+      await rejectWith({ number: 'Já existe uma nota fiscal com esta série e número.' });
 
-      expect(errorOf('number')).toBe('Limite de 30 caracteres excedido.');
+      expect(errorOf('number')).toBe('Já existe uma nota fiscal com esta série e número.');
     });
 
     it('shows a phrase the frontend has no copy for', async () => {
@@ -509,7 +509,7 @@ describe('InvoiceForm', () => {
       await rejectWith({ number: 'Campo obrigatório.' });
       expect(errorOf('number')).toBe('Campo obrigatório.');
 
-      await fill('number', 'NF-0042');
+      await fill('number', '42');
       expect(errorOf('number')).toBe('');
     });
 

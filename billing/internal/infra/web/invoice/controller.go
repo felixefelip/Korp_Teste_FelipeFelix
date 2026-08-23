@@ -74,6 +74,13 @@ func (i *Controller) UpdateInvoice(ctx *gin.Context) {
 
 	updatedInvoice, err := i.invoiceUsecase.UpdateInvoice(request.toModel(id))
 	if err != nil {
+		if errors.Is(err, model.ErrInvoiceDuplicated) {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"message": "Já existe uma nota fiscal com esta série e número.",
+			})
+			return
+		}
+
 		if errors.Is(err, model.ErrInvoiceProcessing) {
 			ctx.JSON(http.StatusConflict, gin.H{
 				"message": "Esta nota fiscal está em processamento.",
@@ -114,6 +121,13 @@ func (i *Controller) CreateInvoice(ctx *gin.Context) {
 
 	insertedInvoice, err := i.invoiceUsecase.CreateInvoice(request.toModel())
 	if err != nil {
+		if errors.Is(err, model.ErrInvoiceDuplicated) {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"message": "Já existe uma nota fiscal com esta série e número.",
+			})
+			return
+		}
+
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao criar a nota fiscal"})
 		return
 	}

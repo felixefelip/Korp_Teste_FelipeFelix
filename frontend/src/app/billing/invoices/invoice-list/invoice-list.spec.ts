@@ -14,9 +14,18 @@ import { POLL_INTERVAL, InvoiceList } from './invoice-list';
 registerLocaleData(localePt, 'pt-BR');
 
 const INVOICES: Invoice[] = [
-  { id: 1, number: 'NF-0001', type: 'OUT', status: 'OPEN', items: [], total: 4299.9 },
-  { id: 2, number: 'NF-0002', type: 'OUT', status: 'CLOSED', items: [], total: 899 },
-  { id: 3, number: 'ABC-9999', type: 'IN', status: 'OPEN', items: [], total: 0 }
+  { id: 1, series: 1, number: 1, formattedNumber: '001/000001', type: 'OUT', status: 'OPEN', items: [], total: 4299.9 },
+  { id: 2, series: 1, number: 2, formattedNumber: '001/000002', type: 'OUT', status: 'CLOSED', items: [], total: 899 },
+  {
+    id: 3,
+    series: 2,
+    number: 9999,
+    formattedNumber: '002/009999',
+    type: 'IN',
+    status: 'OPEN',
+    items: [],
+    total: 0
+  }
 ];
 
 describe('InvoiceList', () => {
@@ -82,12 +91,12 @@ describe('InvoiceList', () => {
 
   describe('listing', () => {
     it('shows every invoice coming from the API', () => {
-      expect(numbers()).toEqual(['NF-0001', 'NF-0002', 'ABC-9999']);
+      expect(numbers()).toEqual(['001/000001', '001/000002', '002/009999']);
     });
 
     it('shows the invoice columns in the expected order', () => {
       expect(cells(rows()[0])).toEqual([
-        'NF-0001',
+        '001/000001',
         'Saída',
         'Aberta',
         'R$ 4.299,90',
@@ -180,27 +189,27 @@ describe('InvoiceList', () => {
 
   describe('filter', () => {
     it('filters by number', async () => {
-      await typeInFilter('NF-0002');
-      expect(numbers()).toEqual(['NF-0002']);
+      await typeInFilter('001/000002');
+      expect(numbers()).toEqual(['001/000002']);
     });
 
     it('ignores case differences', async () => {
-      await typeInFilter('nf-0001');
-      expect(numbers()).toEqual(['NF-0001']);
+      await typeInFilter('001/000001');
+      expect(numbers()).toEqual(['001/000001']);
     });
 
     it('ignores spaces around the term', async () => {
-      await typeInFilter('   ABC   ');
-      expect(numbers()).toEqual(['ABC-9999']);
+      await typeInFilter('   002/009999   ');
+      expect(numbers()).toEqual(['002/009999']);
     });
 
     it('returns several invoices when the term is common', async () => {
-      await typeInFilter('NF-');
-      expect(numbers()).toEqual(['NF-0001', 'NF-0002']);
+      await typeInFilter('001/');
+      expect(numbers()).toEqual(['001/000001', '001/000002']);
     });
 
     it('updates the subtitle count while filtering', async () => {
-      await typeInFilter('NF-');
+      await typeInFilter('001/');
       expect(text(element().querySelector('.page__subtitle'))).toBe(
         '2 nota(s) fiscal(is) encontrada(s)'
       );
@@ -216,7 +225,7 @@ describe('InvoiceList', () => {
     });
 
     it('lists everything again when the filter is cleared', async () => {
-      await typeInFilter('NF-0001');
+      await typeInFilter('001/000001');
       await typeInFilter('');
 
       expect(numbers()).toHaveLength(3);

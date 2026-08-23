@@ -19,7 +19,7 @@ func NewProductRepository(connection *gorm.DB) *ProductRepository {
 func (pr *ProductRepository) GetProducts() ([]model.Product, error) {
 	var productList []model.Product
 
-	err := pr.connection.Find(&productList).Error
+	err := pr.connection.Order("code").Find(&productList).Error
 	if err != nil {
 		return []model.Product{}, err
 	}

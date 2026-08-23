@@ -10,7 +10,7 @@ import { InvoiceActions } from './invoice-actions';
 
 const OPEN: Invoice = {
   id: 7,
-  number: 'NF-0007',
+  series: 1, number: 7, formattedNumber: '001/000007',
   type: 'OUT',
   status: 'OPEN',
   items: [],
@@ -141,7 +141,7 @@ describe('InvoiceActions', () => {
     it('asks before closing anything', async () => {
       await choose('Imprimir');
 
-      expect(text(dialog())).toContain('NF-0007');
+      expect(text(dialog())).toContain('001/000007');
       expect(service.close).not.toHaveBeenCalled();
     });
 
@@ -150,7 +150,7 @@ describe('InvoiceActions', () => {
       await click(dialogButton('Imprimir'));
 
       expect(service.close).toHaveBeenCalledWith(7);
-      expect(flash.success).toHaveBeenCalledWith('Nota fiscal NF-0007 fechada.');
+      expect(flash.success).toHaveBeenCalledWith('Nota fiscal 001/000007 fechada.');
       expect(dialog()).toBeNull();
     });
 
@@ -206,7 +206,7 @@ describe('InvoiceActions', () => {
     it('asks before deleting anything', async () => {
       await choose('Excluir');
 
-      expect(text(dialog())).toContain('NF-0007');
+      expect(text(dialog())).toContain('001/000007');
       expect(service.remove).not.toHaveBeenCalled();
     });
 
@@ -215,7 +215,7 @@ describe('InvoiceActions', () => {
       await click(dialogButton('Excluir'));
 
       expect(service.remove).toHaveBeenCalledWith(7);
-      expect(flash.success).toHaveBeenCalledWith('Nota fiscal NF-0007 excluída.');
+      expect(flash.success).toHaveBeenCalledWith('Nota fiscal 001/000007 excluída.');
     });
 
     it('deletes nothing when cancelled', async () => {
@@ -265,7 +265,7 @@ describe('InvoiceActions', () => {
 
       expect(dialog()).toBeNull();
       expect(service.reopen).toHaveBeenCalledWith(7);
-      expect(flash.success).toHaveBeenCalledWith('Nota fiscal NF-0007 reaberta.');
+      expect(flash.success).toHaveBeenCalledWith('Nota fiscal 001/000007 reaberta.');
     });
 
     it('shows what the API said when it refuses', async () => {

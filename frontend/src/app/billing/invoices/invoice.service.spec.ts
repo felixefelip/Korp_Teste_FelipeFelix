@@ -12,10 +12,10 @@ describe('InvoiceService', () => {
   let service: InvoiceService;
   let http: HttpTestingController;
 
-  const newInvoice: InvoicePayload = { number: 'NF-0100', type: 'OUT', items: [] };
+  const newInvoice: InvoicePayload = { series: 1, number: 100, type: 'OUT', items: [] };
 
   const withItem: InvoicePayload = {
-    number: 'NF-0101',
+    series: 1, number: 101,
     type: 'OUT',
     items: [
       {
@@ -30,8 +30,8 @@ describe('InvoiceService', () => {
   };
 
   const invoices: Invoice[] = [
-    { id: 1, number: 'NF-0001', type: 'OUT', status: 'OPEN', items: [], total: 0 },
-    { id: 2, number: 'NF-0002', type: 'OUT', status: 'CLOSED', items: [], total: 0 }
+    { id: 1, series: 1, number: 1, formattedNumber: '001/000001', type: 'OUT', status: 'OPEN', items: [], total: 0 },
+    { id: 2, series: 1, number: 2, formattedNumber: '001/000002', type: 'OUT', status: 'CLOSED', items: [], total: 0 }
   ];
 
   const load = (list: Invoice[] = invoices) => {
@@ -121,10 +121,10 @@ describe('InvoiceService', () => {
       service.create(newInvoice).subscribe();
       http
         .expectOne('/api/billing/invoices')
-        .flush({ ...newInvoice, id: 7, number: 'NF-0100' });
+        .flush({ ...newInvoice, id: 7, series: 1, number: 100 });
 
       expect(service.invoices()).toHaveLength(3);
-      expect(service.invoices().at(-1)).toMatchObject({ id: 7, number: 'NF-0100' });
+      expect(service.invoices().at(-1)).toMatchObject({ id: 7, series: 1, number: 100 });
     });
 
     it('does not mutate the previous list array', () => {
@@ -164,11 +164,13 @@ describe('InvoiceService', () => {
       const request = http.expectOne('/api/billing/invoices/7');
       expect(request.request.method).toBe('GET');
 
-      request.flush({ id: 7, number: 'NF-0007', type: 'OUT', status: 'CLOSED', items: [], total: 0 });
+      request.flush({ id: 7, series: 1, number: 7, formattedNumber: '001/000007', type: 'OUT', status: 'CLOSED', items: [], total: 0 });
 
       expect(received).toEqual({
         id: 7,
-        number: 'NF-0007',
+        series: 1,
+        number: 7,
+        formattedNumber: '001/000007',
         type: 'OUT',
         status: 'CLOSED',
         items: [],
@@ -183,7 +185,7 @@ describe('InvoiceService', () => {
 
       http.expectOne('/api/billing/invoices/7').flush({
         id: 7,
-        number: 'NF-0007',
+        series: 1, number: 7,
         type: 'OUT',
         status: 'OPEN',
         total: 301,
@@ -260,7 +262,7 @@ describe('InvoiceService', () => {
       http.expectOne('/api/billing/invoices/1').flush({ ...newInvoice, id: 1 });
 
       expect(service.invoices()).toHaveLength(2);
-      expect(service.invoices()[0]).toMatchObject({ id: 1, number: 'NF-0100' });
+      expect(service.invoices()[0]).toMatchObject({ id: 1, series: 1, number: 100 });
     });
 
     it('leaves the other invoices alone', () => {

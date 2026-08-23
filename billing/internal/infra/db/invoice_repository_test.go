@@ -14,10 +14,10 @@ import (
 func TestGetInvoicesReturnsEverythingStored(t *testing.T) {
 	repository := newRepository(t)
 
-	_, err := repository.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "OPEN"})
+	_, err := repository.CreateInvoice(model.Invoice{Series: 1, Number: 1, Status: "OPEN"})
 	require.NoError(t, err)
 
-	_, err = repository.CreateInvoice(model.Invoice{Number: "NF-0002", Status: "CLOSED"})
+	_, err = repository.CreateInvoice(model.Invoice{Series: 1, Number: 2, Status: "CLOSED"})
 	require.NoError(t, err)
 
 	invoices, err := repository.GetInvoices()
@@ -25,8 +25,8 @@ func TestGetInvoicesReturnsEverythingStored(t *testing.T) {
 
 	require.Len(t, invoices, 2)
 	assert.ElementsMatch(t,
-		[]string{"NF-0001", "NF-0002"},
-		[]string{invoices[0].Number, invoices[1].Number},
+		[]int{1, 2},
+		[]int{invoices[0].Number, invoices[1].Number},
 	)
 }
 
@@ -34,7 +34,7 @@ func TestGetInvoicesReturnsTheStoredFields(t *testing.T) {
 	repository := newRepository(t)
 
 	id, err := repository.CreateInvoice(model.Invoice{
-		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: "CLOSED",
+		Series: 1, Number: 1, Type: model.InvoiceTypeOut, Status: "CLOSED",
 	})
 	require.NoError(t, err)
 
@@ -43,8 +43,8 @@ func TestGetInvoicesReturnsTheStoredFields(t *testing.T) {
 
 	require.Len(t, invoices, 1)
 	assert.Equal(t, model.Invoice{
-		ID:        id,
-		Number:    "NF-0001",
+		ID:     id,
+		Series: 1, Number: 1,
 		Type:      model.InvoiceTypeOut,
 		Status:    "CLOSED",
 		Items:     []model.InvoiceItem{},
@@ -64,15 +64,15 @@ func TestGetInvoicesWithNothingStoredReturnsAnEmptyList(t *testing.T) {
 func TestGetInvoiceByIDReturnsTheInvoice(t *testing.T) {
 	repository := newRepository(t)
 
-	id, err := repository.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "OPEN"})
+	id, err := repository.CreateInvoice(model.Invoice{Series: 1, Number: 1, Status: "OPEN"})
 	require.NoError(t, err)
 
 	invoice, err := repository.GetInvoiceByID(id)
 
 	require.NoError(t, err)
 	assert.Equal(t, model.Invoice{
-		ID:        id,
-		Number:    "NF-0001",
+		ID:     id,
+		Series: 1, Number: 1,
 		Type:      model.InvoiceTypeOut,
 		Status:    "OPEN",
 		Items:     []model.InvoiceItem{},
@@ -92,21 +92,21 @@ func TestGetInvoiceByIDWhenMissingReturnsErrRecordNotFound(t *testing.T) {
 func TestCreateInvoice(t *testing.T) {
 	repository := newRepository(t)
 
-	id, err := repository.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "OPEN"})
+	id, err := repository.CreateInvoice(model.Invoice{Series: 1, Number: 1, Status: "OPEN"})
 	require.NoError(t, err)
 	assert.NotZero(t, id, "the database should have generated an id")
 
 	var saved model.Invoice
 	require.NoError(t, testConnection.First(&saved, id).Error)
 
-	assert.Equal(t, "NF-0001", saved.Number)
+	assert.Equal(t, 1, saved.Number)
 	assert.Equal(t, "OPEN", saved.Status)
 }
 
 func TestCreateInvoiceKeepsTheClosedStatus(t *testing.T) {
 	repository := newRepository(t)
 
-	id, err := repository.CreateInvoice(model.Invoice{Number: "NF-0002", Status: "CLOSED"})
+	id, err := repository.CreateInvoice(model.Invoice{Series: 1, Number: 2, Status: "CLOSED"})
 	require.NoError(t, err)
 
 	var saved model.Invoice
@@ -118,35 +118,61 @@ func TestCreateInvoiceKeepsTheClosedStatus(t *testing.T) {
 func TestCreateInvoiceGeneratesSequentialIDs(t *testing.T) {
 	repository := newRepository(t)
 
-	first, err := repository.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "OPEN"})
+	first, err := repository.CreateInvoice(model.Invoice{Series: 1, Number: 1, Status: "OPEN"})
 	require.NoError(t, err)
 
-	second, err := repository.CreateInvoice(model.Invoice{Number: "NF-0002", Status: "OPEN"})
+	second, err := repository.CreateInvoice(model.Invoice{Series: 1, Number: 2, Status: "OPEN"})
 	require.NoError(t, err)
 
 	assert.Greater(t, second, first, "each invoice should get its own id")
 }
 
-func TestCreateInvoiceAcceptsADuplicateNumber(t *testing.T) {
+func TestCreateInvoiceRefusesADuplicateNumberInTheSameSeries(t *testing.T) {
 	repository := newRepository(t)
 
-	_, err := repository.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "OPEN"})
+	_, err := repository.CreateInvoice(model.Invoice{Series: 1, Number: 1, Status: "OPEN"})
 	require.NoError(t, err)
 
-	_, err = repository.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "OPEN"})
-	require.NoError(t, err, "a duplicate number must be accepted")
+	_, err = repository.CreateInvoice(model.Invoice{Series: 1, Number: 1, Status: "OPEN"})
+
+	assert.ErrorIs(t, err, model.ErrInvoiceDuplicated)
+}
+
+func TestCreateInvoiceAcceptsTheSameNumberInAnotherSeries(t *testing.T) {
+	repository := newRepository(t)
+
+	_, err := repository.CreateInvoice(model.Invoice{Series: 1, Number: 1, Status: "OPEN"})
+	require.NoError(t, err)
+
+	_, err = repository.CreateInvoice(model.Invoice{Series: 2, Number: 1, Status: "OPEN"})
+
+	assert.NoError(t, err, "the number is unique within its series, not globally")
+}
+
+func TestUpdateInvoiceRefusesANumberAnotherInvoiceAlreadyUses(t *testing.T) {
+	repository := newRepository(t)
+
+	_, err := repository.CreateInvoice(model.Invoice{Series: 1, Number: 1, Status: "OPEN"})
+	require.NoError(t, err)
+
+	second, err := repository.CreateInvoice(model.Invoice{Series: 1, Number: 2, Status: "OPEN"})
+	require.NoError(t, err)
+
+	err = repository.UpdateInvoice(model.Invoice{ID: second, Series: 1, Number: 1})
+
+	assert.ErrorIs(t, err, model.ErrInvoiceDuplicated)
 }
 
 func TestUpdateInvoiceChangesEveryEditableField(t *testing.T) {
 	repository := newRepository(t)
 
 	id, err := repository.CreateInvoice(model.Invoice{
-		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: "OPEN",
+		Series: 1, Number: 1, Type: model.InvoiceTypeOut, Status: "OPEN",
 	})
 	require.NoError(t, err)
 
 	err = repository.UpdateInvoice(model.Invoice{
-		ID: id, Number: "NF-0002", Status: model.InvoiceStatusClosed,
+		ID: id, Series: 1, Number: 2, Status: model.InvoiceStatusClosed,
 	})
 	require.NoError(t, err)
 
@@ -155,7 +181,7 @@ func TestUpdateInvoiceChangesEveryEditableField(t *testing.T) {
 
 	assert.Equal(t, model.Invoice{
 		ID:     id,
-		Number: "NF-0002",
+		Series: 1, Number: 2,
 		Type:   model.InvoiceTypeOut,
 		Status: model.InvoiceStatusOpen,
 	}, saved, "only CloseInvoice moves the status")
@@ -164,7 +190,7 @@ func TestUpdateInvoiceChangesEveryEditableField(t *testing.T) {
 func TestUpdateInvoiceWhenMissingReturnsErrRecordNotFound(t *testing.T) {
 	repository := newRepository(t)
 
-	err := repository.UpdateInvoice(model.Invoice{ID: 9999, Number: "NF-0001", Status: "OPEN"})
+	err := repository.UpdateInvoice(model.Invoice{ID: 9999, Series: 1, Number: 1, Status: "OPEN"})
 
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
@@ -172,18 +198,18 @@ func TestUpdateInvoiceWhenMissingReturnsErrRecordNotFound(t *testing.T) {
 func TestUpdateInvoiceLeavesTheOtherInvoicesAlone(t *testing.T) {
 	repository := newRepository(t)
 
-	first, err := repository.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "OPEN"})
+	first, err := repository.CreateInvoice(model.Invoice{Series: 1, Number: 1, Status: "OPEN"})
 	require.NoError(t, err)
 
-	second, err := repository.CreateInvoice(model.Invoice{Number: "NF-0002", Status: "OPEN"})
+	second, err := repository.CreateInvoice(model.Invoice{Series: 1, Number: 2, Status: "OPEN"})
 	require.NoError(t, err)
 
-	require.NoError(t, repository.UpdateInvoice(model.Invoice{ID: first, Number: "NF-0001", Status: "CLOSED"}))
+	require.NoError(t, repository.UpdateInvoice(model.Invoice{ID: first, Series: 1, Number: 1, Status: "CLOSED"}))
 
 	var untouched model.Invoice
 	require.NoError(t, testConnection.First(&untouched, second).Error)
 
-	assert.Equal(t, "NF-0002", untouched.Number)
+	assert.Equal(t, 2, untouched.Number)
 	assert.Equal(t, "OPEN", untouched.Status)
 }
 
@@ -204,9 +230,13 @@ func itemOf(inventoryID int, code, name string, quantity int, price float64) mod
 	}
 }
 
+var fixtureNumber = 100
+
 func invoiceWithItems(items ...model.InvoiceItem) model.Invoice {
+	fixtureNumber++
+
 	return model.Invoice{
-		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: "OPEN", Items: items,
+		Series: 1, Number: fixtureNumber, Type: model.InvoiceTypeOut, Status: "OPEN", Items: items,
 	}
 }
 
@@ -349,10 +379,13 @@ func TestCreateInvoiceKeepsTheItemAsItWasSold(t *testing.T) {
 func TestGetInvoicesBringsTheItemsOfEachInvoice(t *testing.T) {
 	repository := newRepository(t)
 
-	_, err := repository.CreateInvoice(invoiceWithItems(itemOf(11, "PRD-0001", "Camiseta", 2, 30.99)))
+	newest := invoiceWithItems(itemOf(11, "PRD-0001", "Camiseta", 2, 30.99))
+	newest.Number = 2
+
+	_, err := repository.CreateInvoice(newest)
 	require.NoError(t, err)
 
-	_, err = repository.CreateInvoice(model.Invoice{Number: "NF-0002", Status: "OPEN"})
+	_, err = repository.CreateInvoice(model.Invoice{Series: 1, Number: 1, Status: "OPEN"})
 	require.NoError(t, err)
 
 	invoices, err := repository.GetInvoices()
@@ -375,7 +408,7 @@ func TestUpdateInvoiceReplacesTheItems(t *testing.T) {
 
 	err = repository.UpdateInvoice(model.Invoice{
 		ID:     id,
-		Number: "NF-0001",
+		Series: 1, Number: 1,
 		Status: "CLOSED",
 		Items:  []model.InvoiceItem{itemOf(13, "PRD-0003", "Mochila", 3, 99.9)},
 	})
@@ -400,7 +433,7 @@ func TestUpdateInvoiceWithAnEmptyListEmptiesTheInvoice(t *testing.T) {
 	require.NoError(t, err)
 
 	err = repository.UpdateInvoice(model.Invoice{
-		ID: id, Number: "NF-0001", Status: "OPEN", Items: []model.InvoiceItem{},
+		ID: id, Series: 1, Number: 1, Status: "OPEN", Items: []model.InvoiceItem{},
 	})
 	require.NoError(t, err)
 
@@ -416,13 +449,13 @@ func TestUpdateInvoiceWithoutAListKeepsTheItemsAlreadyThere(t *testing.T) {
 	id, err := repository.CreateInvoice(invoiceWithItems(itemOf(11, "PRD-0001", "Camiseta", 2, 30.99)))
 	require.NoError(t, err)
 
-	err = repository.UpdateInvoice(model.Invoice{ID: id, Number: "NF-0009"})
+	err = repository.UpdateInvoice(model.Invoice{ID: id, Series: 1, Number: 9})
 	require.NoError(t, err)
 
 	invoice, err := repository.GetInvoiceByID(id)
 	require.NoError(t, err)
 
-	assert.Equal(t, "NF-0009", invoice.Number)
+	assert.Equal(t, 9, invoice.Number)
 	require.Len(t, invoice.Items, 1, "an update that says nothing about the items must not erase them")
 	assert.Equal(t, "Camiseta", invoice.Items[0].ProductName)
 }
@@ -435,7 +468,7 @@ func TestUpdateInvoiceKeepsTheProductAlreadyRegistered(t *testing.T) {
 
 	err = repository.UpdateInvoice(model.Invoice{
 		ID:     id,
-		Number: "NF-0001",
+		Series: 1, Number: 1,
 		Status: "OPEN",
 		Items:  []model.InvoiceItem{itemOf(11, "PRD-0001", "Camiseta", 5, 30.99)},
 	})
@@ -451,7 +484,7 @@ func TestUpdateInvoiceOfAMissingInvoiceStoresNoItem(t *testing.T) {
 
 	err := repository.UpdateInvoice(model.Invoice{
 		ID:     9999,
-		Number: "NF-0001",
+		Series: 1, Number: 1,
 		Status: "OPEN",
 		Items:  []model.InvoiceItem{itemOf(11, "PRD-0001", "Camiseta", 2, 30.99)},
 	})
@@ -477,7 +510,7 @@ func TestUpdateInvoiceLeavesTheItemsOfTheOtherInvoicesAlone(t *testing.T) {
 	require.NoError(t, err)
 
 	err = repository.UpdateInvoice(model.Invoice{
-		ID: first, Number: "NF-0001", Status: "CLOSED", Items: []model.InvoiceItem{},
+		ID: first, Series: 1, Number: 1, Status: "CLOSED", Items: []model.InvoiceItem{},
 	})
 	require.NoError(t, err)
 
@@ -492,12 +525,12 @@ func TestUpdateInvoiceNeverFlipsTheDirection(t *testing.T) {
 	repository := newRepository(t)
 
 	id, err := repository.CreateInvoice(model.Invoice{
-		Number: "NF-0001", Type: model.InvoiceTypeIn, Status: "OPEN",
+		Series: 1, Number: 1, Type: model.InvoiceTypeIn, Status: "OPEN",
 	})
 	require.NoError(t, err)
 
 	err = repository.UpdateInvoice(model.Invoice{
-		ID: id, Number: "NF-0001", Type: model.InvoiceTypeOut, Status: "CLOSED",
+		ID: id, Series: 1, Number: 1, Type: model.InvoiceTypeOut, Status: "CLOSED",
 	})
 	require.NoError(t, err)
 
@@ -579,7 +612,7 @@ func TestCloseInvoiceMovesTheStatus(t *testing.T) {
 	repository := newRepository(t)
 
 	id, err := repository.CreateInvoice(model.Invoice{
-		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
+		Series: 1, Number: 1, Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
 	})
 	require.NoError(t, err)
 
@@ -590,7 +623,7 @@ func TestCloseInvoiceMovesTheStatus(t *testing.T) {
 
 	assert.Equal(t, model.InvoiceStatusClosing, saved.Status,
 		"the invoice waits for the inventory before being closed")
-	assert.Equal(t, "NF-0001", saved.Number, "closing touches the status and nothing else")
+	assert.Equal(t, 1, saved.Number, "closing touches the status and nothing else")
 }
 
 func TestCloseInvoiceKeepsTheItems(t *testing.T) {
@@ -621,7 +654,7 @@ func TestCloseInvoiceRecordsTheEventAlongsideTheStatus(t *testing.T) {
 	repository := newRepository(t)
 
 	id, err := repository.CreateInvoice(model.Invoice{
-		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
+		Series: 1, Number: 1, Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
 	})
 	require.NoError(t, err)
 
@@ -665,7 +698,7 @@ func TestConfirmCloseDoesNothingWhenTheInvoiceIsNotClosing(t *testing.T) {
 	repository := newRepository(t)
 
 	id, err := repository.CreateInvoice(model.Invoice{
-		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
+		Series: 1, Number: 1, Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
 	})
 	require.NoError(t, err)
 
@@ -723,7 +756,7 @@ func closingInvoice(t *testing.T, repository *db.InvoiceRepository) int {
 	t.Helper()
 
 	id, err := repository.CreateInvoice(model.Invoice{
-		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
+		Series: 1, Number: 1, Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
 	})
 	require.NoError(t, err)
 	require.NoError(t, repository.CloseInvoice(id, closeEventFor(t, id)))
@@ -779,7 +812,7 @@ func TestConfirmReopenDoesNothingWhenTheInvoiceIsNotReopening(t *testing.T) {
 func reopenEventFor(t *testing.T, id int) model.OutboxEvent {
 	t.Helper()
 
-	event, err := model.NewInvoiceReopenRequested(model.Invoice{ID: id, Number: "NF-0001"})
+	event, err := model.NewInvoiceReopenRequested(model.Invoice{ID: id, Series: 1, Number: 1})
 	require.NoError(t, err)
 
 	return event
@@ -789,7 +822,7 @@ func closeEventFor(t *testing.T, id int) model.OutboxEvent {
 	t.Helper()
 
 	event, err := model.NewInvoiceCloseRequested(model.Invoice{
-		ID: id, Number: "NF-0001", Type: model.InvoiceTypeOut,
+		ID: id, Series: 1, Number: 1, Type: model.InvoiceTypeOut,
 	})
 	require.NoError(t, err)
 
@@ -800,7 +833,7 @@ func TestReopenInvoiceMovesTheStatusBack(t *testing.T) {
 	repository := newRepository(t)
 
 	id, err := repository.CreateInvoice(model.Invoice{
-		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: model.InvoiceStatusClosed,
+		Series: 1, Number: 1, Type: model.InvoiceTypeOut, Status: model.InvoiceStatusClosed,
 	})
 	require.NoError(t, err)
 
@@ -811,7 +844,7 @@ func TestReopenInvoiceMovesTheStatusBack(t *testing.T) {
 
 	assert.Equal(t, model.InvoiceStatusReopening, saved.Status,
 		"the invoice waits for the inventory to give the stock back")
-	assert.Equal(t, "NF-0001", saved.Number, "reopening touches the status and nothing else")
+	assert.Equal(t, 1, saved.Number, "reopening touches the status and nothing else")
 }
 
 func TestReopenInvoiceKeepsTheItems(t *testing.T) {
@@ -907,4 +940,26 @@ func TestDeleteInvoiceRemovesItsShortages(t *testing.T) {
 	require.NoError(t, testConnection.Find(&stored).Error)
 
 	assert.Empty(t, stored)
+}
+
+func TestGetInvoicesComesWithTheMostRecentDocumentFirst(t *testing.T) {
+	repository := newRepository(t)
+
+	for _, document := range [][2]int{{2, 1}, {1, 57}, {1, 6}, {1, 7}} {
+		_, err := repository.CreateInvoice(model.Invoice{
+			Series: document[0], Number: document[1], Status: model.InvoiceStatusOpen,
+		})
+		require.NoError(t, err)
+	}
+
+	invoices, err := repository.GetInvoices()
+	require.NoError(t, err)
+
+	documents := make([]string, 0, len(invoices))
+	for _, invoice := range invoices {
+		documents = append(documents, invoice.FormattedNumber())
+	}
+
+	assert.Equal(t, []string{"002/000001", "001/000057", "001/000007", "001/000006"}, documents,
+		"the newest number comes first, and 57 still outranks 7")
 }

@@ -23,7 +23,9 @@ export interface InvoiceShortage {
 
 export interface Invoice {
   id: number;
-  number: string;
+  series: number;
+  number: number;
+  formattedNumber: string;
   type: InvoiceType;
   status: InvoiceStatus;
   items: InvoiceItem[];
@@ -42,7 +44,8 @@ export interface InvoiceItemPayload {
 }
 
 export interface InvoicePayload {
-  number: string;
+  series: number;
+  number: number;
   type?: InvoiceType;
   items: InvoiceItemPayload[];
 }

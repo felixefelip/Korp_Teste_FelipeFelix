@@ -7,12 +7,14 @@ import (
 )
 
 type response struct {
-	ID     int            `json:"id"`
-	Number string         `json:"number"`
-	Type   string         `json:"type"`
-	Status string         `json:"status"`
-	Items  []itemResponse `json:"items"`
-	Total  float64        `json:"total"`
+	ID              int            `json:"id"`
+	Series          int            `json:"series"`
+	Number          int            `json:"number"`
+	FormattedNumber string         `json:"formattedNumber"`
+	Type            string         `json:"type"`
+	Status          string         `json:"status"`
+	Items           []itemResponse `json:"items"`
+	Total           float64        `json:"total"`
 
 	FailureReason string             `json:"failureReason,omitempty"`
 	Shortages     []shortageResponse `json:"shortages,omitempty"`
@@ -54,12 +56,14 @@ func newResponse(invoice model.Invoice) response {
 	}
 
 	return response{
-		ID:     invoice.ID,
-		Number: invoice.Number,
-		Type:   invoice.Type,
-		Status: invoice.Status,
-		Items:  items,
-		Total:  round(invoice.Total()),
+		ID:              invoice.ID,
+		Series:          invoice.Series,
+		Number:          invoice.Number,
+		FormattedNumber: invoice.FormattedNumber(),
+		Type:            invoice.Type,
+		Status:          invoice.Status,
+		Items:           items,
+		Total:           round(invoice.Total()),
 
 		FailureReason: invoice.FailureReason,
 		Shortages:     newShortageResponses(invoice.Shortages),

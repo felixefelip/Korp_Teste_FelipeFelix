@@ -119,8 +119,8 @@ func newUsecase(repository model.InvoiceRepository) usecase.InvoiceUsecase {
 
 func TestGetInvoicesReturnsWhatTheRepositoryHolds(t *testing.T) {
 	stored := []model.Invoice{
-		{ID: 1, Number: "NF-0001", Status: "OPEN"},
-		{ID: 2, Number: "NF-0002", Status: "CLOSED"},
+		{ID: 1, Series: 1, Number: 1, Status: "OPEN"},
+		{ID: 2, Series: 1, Number: 2, Status: "CLOSED"},
 	}
 	repository := &fakeRepository{invoices: stored}
 	invoiceUsecase := newUsecase(repository)
@@ -143,14 +143,14 @@ func TestGetInvoicesPropagatesTheRepositoryError(t *testing.T) {
 }
 
 func TestGetInvoiceByIDForwardsTheID(t *testing.T) {
-	repository := &fakeRepository{invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: "OPEN"}}
+	repository := &fakeRepository{invoice: model.Invoice{ID: 7, Series: 1, Number: 7, Status: "OPEN"}}
 	invoiceUsecase := newUsecase(repository)
 
 	invoice, err := invoiceUsecase.GetInvoiceByID(7)
 
 	require.NoError(t, err)
 	assert.Equal(t, 7, repository.receivedID)
-	assert.Equal(t, "NF-0007", invoice.Number)
+	assert.Equal(t, 7, invoice.Number)
 }
 
 func TestGetInvoiceByIDPropagatesTheRepositoryError(t *testing.T) {
@@ -162,11 +162,11 @@ func TestGetInvoiceByIDPropagatesTheRepositoryError(t *testing.T) {
 }
 
 func TestCreateInvoiceReturnsWhatWasStored(t *testing.T) {
-	stored := model.Invoice{ID: 7, Number: "NF-0001", Status: "OPEN"}
+	stored := model.Invoice{ID: 7, Series: 1, Number: 1, Status: "OPEN"}
 	repository := &fakeRepository{newID: 7, invoice: stored}
 	invoiceUsecase := newUsecase(repository)
 
-	created, err := invoiceUsecase.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "OPEN"})
+	created, err := invoiceUsecase.CreateInvoice(model.Invoice{Series: 1, Number: 1, Status: "OPEN"})
 
 	require.NoError(t, err)
 	assert.Equal(t, stored, created, "the response must be read back from the repository")
@@ -178,7 +178,7 @@ func TestCreateInvoiceHandsTheRepositoryWhatItReceived(t *testing.T) {
 	invoiceUsecase := newUsecase(repository)
 
 	invoice := model.Invoice{
-		Number: "NF-0002",
+		Series: 1, Number: 2,
 		Status: "CLOSED",
 		Items: []model.InvoiceItem{
 			{ProductCode: "PRD-0001", ProductName: "Camiseta", Unit: "UN", Quantity: 2, UnitPrice: 30.99},
@@ -194,18 +194,18 @@ func TestCreateInvoicePropagatesTheRepositoryError(t *testing.T) {
 	repository := &fakeRepository{err: errRepository}
 	invoiceUsecase := newUsecase(repository)
 
-	created, err := invoiceUsecase.CreateInvoice(model.Invoice{Number: "NF-0001", Status: "OPEN"})
+	created, err := invoiceUsecase.CreateInvoice(model.Invoice{Series: 1, Number: 1, Status: "OPEN"})
 
 	require.ErrorIs(t, err, errRepository)
 	assert.Zero(t, created, "on failure nothing partially filled should leak out")
 }
 
 func TestUpdateInvoiceReturnsWhatWasStored(t *testing.T) {
-	stored := model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen}
+	stored := model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusOpen}
 	repository := &fakeRepository{invoice: stored}
 	invoiceUsecase := newUsecase(repository)
 
-	invoice := model.Invoice{ID: 7, Number: "NF-0007"}
+	invoice := model.Invoice{ID: 7, Series: 1, Number: 7}
 	updated, err := invoiceUsecase.UpdateInvoice(invoice)
 
 	require.NoError(t, err)
@@ -216,7 +216,7 @@ func TestUpdateInvoiceReturnsWhatWasStored(t *testing.T) {
 
 func TestUpdateInvoiceHandsTheItemsToTheRepository(t *testing.T) {
 	repository := &fakeRepository{
-		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen},
+		invoice: model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusOpen},
 	}
 	invoiceUsecase := newUsecase(repository)
 
@@ -224,7 +224,7 @@ func TestUpdateInvoiceHandsTheItemsToTheRepository(t *testing.T) {
 		{ProductCode: "PRD-0001", ProductName: "Camiseta", Unit: "UN", Quantity: 2, UnitPrice: 30.99},
 	}
 
-	_, err := invoiceUsecase.UpdateInvoice(model.Invoice{ID: 7, Number: "NF-0007", Status: "OPEN", Items: items})
+	_, err := invoiceUsecase.UpdateInvoice(model.Invoice{ID: 7, Series: 1, Number: 7, Status: "OPEN", Items: items})
 
 	require.NoError(t, err)
 	assert.Equal(t, items, repository.receivedInvoice.Items)
@@ -234,7 +234,7 @@ func TestUpdateInvoicePropagatesTheRepositoryError(t *testing.T) {
 	repository := &fakeRepository{err: errRepository}
 	invoiceUsecase := newUsecase(repository)
 
-	updated, err := invoiceUsecase.UpdateInvoice(model.Invoice{ID: 7, Number: "NF-0007", Status: "OPEN"})
+	updated, err := invoiceUsecase.UpdateInvoice(model.Invoice{ID: 7, Series: 1, Number: 7, Status: "OPEN"})
 
 	require.ErrorIs(t, err, errRepository)
 	assert.Zero(t, updated, "on failure nothing partially filled should leak out")
@@ -242,7 +242,7 @@ func TestUpdateInvoicePropagatesTheRepositoryError(t *testing.T) {
 
 func TestDeleteInvoiceRemovesAnOpenOne(t *testing.T) {
 	repository := &fakeRepository{
-		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen},
+		invoice: model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusOpen},
 	}
 	invoiceUsecase := newUsecase(repository)
 
@@ -254,7 +254,7 @@ func TestDeleteInvoiceRemovesAnOpenOne(t *testing.T) {
 
 func TestDeleteInvoiceRefusesAClosedOne(t *testing.T) {
 	repository := &fakeRepository{
-		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusClosed},
+		invoice: model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusClosed},
 	}
 	invoiceUsecase := newUsecase(repository)
 
@@ -277,7 +277,7 @@ func TestDeleteInvoiceWhenMissingPropagatesTheError(t *testing.T) {
 
 func TestCloseInvoiceClosesAnOpenOne(t *testing.T) {
 	repository := &fakeRepository{
-		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen},
+		invoice: model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusOpen},
 	}
 	invoiceUsecase := newUsecase(repository)
 
@@ -289,7 +289,7 @@ func TestCloseInvoiceClosesAnOpenOne(t *testing.T) {
 
 func TestCloseInvoiceRefusesOneAlreadyClosed(t *testing.T) {
 	repository := &fakeRepository{
-		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusClosed},
+		invoice: model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusClosed},
 	}
 	invoiceUsecase := newUsecase(repository)
 
@@ -301,7 +301,7 @@ func TestCloseInvoiceRefusesOneAlreadyClosed(t *testing.T) {
 }
 
 func TestCloseInvoiceReturnsTheInvoiceAsItEndedUp(t *testing.T) {
-	stored := model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen}
+	stored := model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusOpen}
 	repository := &fakeRepository{invoice: stored}
 	invoiceUsecase := newUsecase(repository)
 
@@ -322,7 +322,7 @@ func TestCloseInvoiceWhenMissingPropagatesTheError(t *testing.T) {
 func TestCloseInvoiceRecordsTheCloseRequestedEvent(t *testing.T) {
 	stored := model.Invoice{
 		ID:     7,
-		Number: "NF-0007",
+		Series: 1, Number: 7,
 		Type:   model.InvoiceTypeOut,
 		Status: model.InvoiceStatusOpen,
 		Items: []model.InvoiceItem{
@@ -347,7 +347,7 @@ func TestCloseInvoiceRecordsTheCloseRequestedEvent(t *testing.T) {
 func TestCloseInvoicePayloadCarriesTheInventoryProductID(t *testing.T) {
 	stored := model.Invoice{
 		ID:     7,
-		Number: "NF-0007",
+		Series: 1, Number: 7,
 		Type:   model.InvoiceTypeOut,
 		Status: model.InvoiceStatusOpen,
 		Items: []model.InvoiceItem{
@@ -379,7 +379,7 @@ func TestCloseInvoicePayloadCarriesTheInventoryProductID(t *testing.T) {
 
 func TestCloseInvoiceRecordsNothingWhenAlreadyClosed(t *testing.T) {
 	repository := &fakeRepository{
-		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusClosed},
+		invoice: model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusClosed},
 	}
 	invoiceUsecase := newUsecase(repository)
 
@@ -391,7 +391,7 @@ func TestCloseInvoiceRecordsNothingWhenAlreadyClosed(t *testing.T) {
 
 func TestReopenInvoiceReopensAClosedOne(t *testing.T) {
 	repository := &fakeRepository{
-		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusClosed},
+		invoice: model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusClosed},
 	}
 	invoiceUsecase := newUsecase(repository)
 
@@ -403,7 +403,7 @@ func TestReopenInvoiceReopensAClosedOne(t *testing.T) {
 
 func TestReopenInvoiceRefusesOneAlreadyOpen(t *testing.T) {
 	repository := &fakeRepository{
-		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen},
+		invoice: model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusOpen},
 	}
 	invoiceUsecase := newUsecase(repository)
 
@@ -424,11 +424,11 @@ func TestReopenInvoiceWhenMissingPropagatesTheError(t *testing.T) {
 
 func TestUpdateInvoiceRefusesAClosedOne(t *testing.T) {
 	repository := &fakeRepository{
-		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusClosed},
+		invoice: model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusClosed},
 	}
 	invoiceUsecase := newUsecase(repository)
 
-	_, err := invoiceUsecase.UpdateInvoice(model.Invoice{ID: 7, Number: "NF-0009"})
+	_, err := invoiceUsecase.UpdateInvoice(model.Invoice{ID: 7, Series: 1, Number: 9})
 
 	require.ErrorIs(t, err, model.ErrInvoiceClosed)
 	assert.Zero(t, repository.receivedInvoice, "it stops at the read, without writing")
@@ -436,13 +436,13 @@ func TestUpdateInvoiceRefusesAClosedOne(t *testing.T) {
 }
 
 func processingInvoice() model.Invoice {
-	return model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusClosing}
+	return model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusClosing}
 }
 
 func TestUpdateInvoiceRefusesOneBeingProcessed(t *testing.T) {
 	invoiceUsecase := newUsecase(&fakeRepository{invoice: processingInvoice()})
 
-	_, err := invoiceUsecase.UpdateInvoice(model.Invoice{ID: 7, Number: "NF-0007"})
+	_, err := invoiceUsecase.UpdateInvoice(model.Invoice{ID: 7, Series: 1, Number: 7})
 
 	require.ErrorIs(t, err, model.ErrInvoiceProcessing)
 }
