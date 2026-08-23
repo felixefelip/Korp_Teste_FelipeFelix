@@ -8,6 +8,9 @@ const (
 
 	MovementOriginAdjustment = "adjustment"
 	MovementOriginInvoice    = "invoice"
+
+	InvoiceTypeIn  = "IN"
+	InvoiceTypeOut = "OUT"
 )
 
 var ErrMovementFromInvoice = errors.New("stock movement originated from an invoice")

@@ -2,8 +2,10 @@ package invoice
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
+
+	"inventory/internal/model"
+	"inventory/internal/usecase"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -23,10 +25,32 @@ type closeRequestedEvent struct {
 	Items         []itemPayload `json:"items"`
 }
 
-type Handler struct{}
+func (e closeRequestedEvent) toRequest() model.InvoiceStockRequest {
+	items := make([]model.InvoiceStockItem, 0, len(e.Items))
 
-func NewHandler() *Handler {
-	return &Handler{}
+	for _, item := range e.Items {
+		items = append(items, model.InvoiceStockItem{
+			InvoiceItemID: item.InvoiceItemID,
+			ProductID:     item.ProductID,
+			Quantity:      item.Quantity,
+		})
+	}
+
+	return model.InvoiceStockRequest{
+		InvoiceID: e.InvoiceID,
+		Type:      e.Type,
+		Items:     items,
+	}
+}
+
+type Handler struct {
+	usecase usecase.InvoiceStockUsecase
+}
+
+func NewHandler(invoiceStockUsecase usecase.InvoiceStockUsecase) *Handler {
+	return &Handler{
+		usecase: invoiceStockUsecase,
+	}
 }
 
 func (h *Handler) HandleCloseRequested(delivery amqp.Delivery) error {
@@ -36,13 +60,5 @@ func (h *Handler) HandleCloseRequested(delivery amqp.Delivery) error {
 		return err
 	}
 
-	fmt.Printf("invoice.close.requested: invoice %d (%s), type %s, event %s\n",
-		event.InvoiceID, event.InvoiceNumber, event.Type, event.EventID)
-
-	for _, item := range event.Items {
-		fmt.Printf("  item %d: product %d, quantity %d\n",
-			item.InvoiceItemID, item.ProductID, item.Quantity)
-	}
-
-	return nil
+	return h.usecase.Apply(event.toRequest())
 }

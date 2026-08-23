@@ -6,7 +6,11 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const EventsExchange = "billing.events"
+const (
+	BillingExchange   = "billing.events"
+	InventoryExchange = "inventory.events"
+	StockResultsQueue = "billing.stock-results"
+)
 
 func env(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
@@ -23,6 +27,7 @@ func URL() string {
 type Connection struct {
 	connection *amqp.Connection
 	channel    *amqp.Channel
+	returns    chan amqp.Return
 }
 
 func Connect() (*Connection, error) {
@@ -50,7 +55,9 @@ func Connect() (*Connection, error) {
 		return nil, err
 	}
 
-	return &Connection{connection: connection, channel: channel}, nil
+	returns := channel.NotifyReturn(make(chan amqp.Return, 1))
+
+	return &Connection{connection: connection, channel: channel, returns: returns}, nil
 }
 
 func (c *Connection) Closed() bool {

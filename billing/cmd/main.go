@@ -21,8 +21,7 @@ func main() {
 		panic(err)
 	}
 
-	relay := messaging.NewRelay(db.NewOutboxRepository(dbConnection))
-	relay.Start()
+	messaging.Register(dbConnection)
 
 	server := web.New(dbConnection)
 

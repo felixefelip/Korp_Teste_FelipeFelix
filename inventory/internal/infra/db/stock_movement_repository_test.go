@@ -213,3 +213,28 @@ func TestGetMovementByIDWhenMissingReturnsErrRecordNotFound(t *testing.T) {
 
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
+
+func TestApplyInvoiceRecordsTheResultEvent(t *testing.T) {
+	movementRepository, _ := newMovementRepository(t)
+
+	event, err := model.NewInvoiceStockApplied(7)
+	require.NoError(t, err)
+
+	request := model.InvoiceStockRequest{
+		InvoiceID: 7,
+		Type:      model.InvoiceTypeOut,
+		Items: []model.InvoiceStockItem{
+			{InvoiceItemID: 3, ProductID: 42, Quantity: 10},
+		},
+	}
+
+	require.NoError(t, movementRepository.ApplyInvoice(request, event))
+
+	var events []model.OutboxEvent
+	require.NoError(t, testConnection.Find(&events).Error)
+
+	require.Len(t, events, 1)
+	assert.Equal(t, model.InvoiceStockAppliedKey, events[0].RoutingKey)
+	assert.Equal(t, 7, events[0].AggregateID)
+	assert.Nil(t, events[0].PublishedAt, "it is the relay that publishes")
+}

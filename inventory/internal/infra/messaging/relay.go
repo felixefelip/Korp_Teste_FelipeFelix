@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"billing/internal/model"
+	"inventory/internal/model"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )

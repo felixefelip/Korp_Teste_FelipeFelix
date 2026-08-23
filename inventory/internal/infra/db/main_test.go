@@ -40,3 +40,11 @@ func newMovementRepository(t *testing.T) (*db.StockMovementRepository, *db.Produ
 
 	return db.NewStockMovementRepository(testConnection), db.NewProductRepository(testConnection)
 }
+
+func newOutboxRepository(t *testing.T) *db.OutboxRepository {
+	t.Helper()
+
+	dbtest.Reset(t, testConnection)
+
+	return db.NewOutboxRepository(testConnection)
+}

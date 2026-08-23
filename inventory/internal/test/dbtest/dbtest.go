@@ -32,7 +32,7 @@ func Setup() (*gorm.DB, error) {
 		return nil, fmt.Errorf("connecting to the database: %w", err)
 	}
 
-	if err := connection.AutoMigrate(&model.Product{}, &model.StockMovement{}); err != nil {
+	if err := connection.AutoMigrate(&model.Product{}, &model.StockMovement{}, &model.OutboxEvent{}); err != nil {
 		return nil, fmt.Errorf("migrating the database: %w", err)
 	}
 
@@ -42,6 +42,6 @@ func Setup() (*gorm.DB, error) {
 func Reset(t testing.TB, connection *gorm.DB) {
 	t.Helper()
 
-	err := connection.Exec("TRUNCATE TABLE product, stock_movement RESTART IDENTITY CASCADE").Error
+	err := connection.Exec("TRUNCATE TABLE product, stock_movement, outbox_event RESTART IDENTITY CASCADE").Error
 	require.NoError(t, err, "cleaning the product and stock_movement tables")
 }

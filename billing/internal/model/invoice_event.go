@@ -7,7 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const InvoiceCloseRequestedKey = "invoice.close.requested"
+const (
+	InvoiceCloseRequestedKey = "invoice.close.requested"
+	InvoiceStockAppliedKey   = "invoice.stock.applied"
+)
 
 type invoiceItemPayload struct {
 	InvoiceItemID int `json:"invoiceItemId"`

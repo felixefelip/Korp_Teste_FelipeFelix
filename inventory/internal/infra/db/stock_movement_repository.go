@@ -74,6 +74,12 @@ func (sr *StockMovementRepository) UpdateMovement(movement model.StockMovement) 
 	})
 }
 
+func (sr *StockMovementRepository) ApplyInvoice(request model.InvoiceStockRequest, event model.OutboxEvent) error {
+	return sr.connection.Transaction(func(tx *gorm.DB) error {
+		return tx.Create(&event).Error
+	})
+}
+
 func deleteStockMovementsByProductID(tx *gorm.DB, productID int) error {
 	return tx.Where("product_id = ?", productID).Delete(&model.StockMovement{}).Error
 }
