@@ -13,6 +13,8 @@ type response struct {
 	Status string         `json:"status"`
 	Items  []itemResponse `json:"items"`
 	Total  float64        `json:"total"`
+
+	FailureReason string `json:"failureReason,omitempty"`
 }
 
 func newResponse(invoice model.Invoice) response {
@@ -29,6 +31,8 @@ func newResponse(invoice model.Invoice) response {
 		Status: invoice.Status,
 		Items:  items,
 		Total:  round(invoice.Total()),
+
+		FailureReason: invoice.FailureReason,
 	}
 }
 

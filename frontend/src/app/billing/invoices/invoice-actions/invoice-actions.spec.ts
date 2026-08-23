@@ -18,6 +18,7 @@ const OPEN: Invoice = {
 };
 
 const CLOSED: Invoice = { ...OPEN, status: 'CLOSED' };
+const PROCESSING: Invoice = { ...OPEN, status: 'CLOSING' };
 
 describe('InvoiceActions', () => {
   let fixture: ComponentFixture<InvoiceActions>;
@@ -303,6 +304,24 @@ describe('InvoiceActions', () => {
 
       expect(text(primary())).toBe('Reabrir');
       expect(toggle()).toBeNull();
+    });
+  });
+
+  describe('while the invoice is being processed', () => {
+    beforeEach(async () => {
+      await mount(PROCESSING);
+    });
+
+    it('offers no action at all', () => {
+      expect(element().querySelector('.menu-button')).toBeNull();
+    });
+
+    it('does not offer printing again', () => {
+      expect(element().textContent).not.toContain('Imprimir');
+    });
+
+    it('does not offer reopening, which only makes sense once it is closed', () => {
+      expect(element().textContent).not.toContain('Reabrir');
     });
   });
 });

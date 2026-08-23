@@ -28,8 +28,8 @@ func (iu *InvoiceUsecase) UpdateInvoice(invoice model.Invoice) (model.Invoice, e
 		return model.Invoice{}, err
 	}
 
-	if stored.Closed() {
-		return model.Invoice{}, model.ErrInvoiceClosed
+	if !stored.Editable() {
+		return model.Invoice{}, blockedByStatus(stored)
 	}
 
 	if err := iu.repository.UpdateInvoice(invoice); err != nil {
@@ -54,8 +54,8 @@ func (iu *InvoiceUsecase) CloseInvoice(id int) (model.Invoice, error) {
 		return model.Invoice{}, err
 	}
 
-	if invoice.Closed() {
-		return model.Invoice{}, model.ErrInvoiceClosed
+	if !invoice.Editable() {
+		return model.Invoice{}, blockedByStatus(invoice)
 	}
 
 	event, err := model.NewInvoiceCloseRequested(invoice)
@@ -76,6 +76,10 @@ func (iu *InvoiceUsecase) ReopenInvoice(id int) (model.Invoice, error) {
 		return model.Invoice{}, err
 	}
 
+	if invoice.Processing() {
+		return model.Invoice{}, model.ErrInvoiceProcessing
+	}
+
 	if !invoice.Closed() {
 		return model.Invoice{}, model.ErrInvoiceOpen
 	}
@@ -93,9 +97,43 @@ func (iu *InvoiceUsecase) DeleteInvoice(id int) error {
 		return err
 	}
 
-	if invoice.Closed() {
-		return model.ErrInvoiceClosed
+	if !invoice.Editable() {
+		return blockedByStatus(invoice)
 	}
 
 	return iu.repository.DeleteInvoice(id)
+}
+
+func (iu *InvoiceUsecase) ConfirmClose(invoiceID int) error {
+	applied, err := iu.repository.ConfirmClose(invoiceID)
+	if err != nil {
+		return err
+	}
+
+	if !applied {
+		return model.ErrInvoiceNotProcessing
+	}
+
+	return nil
+}
+
+func (iu *InvoiceUsecase) RejectClose(invoiceID int, reason string) error {
+	applied, err := iu.repository.RejectClose(invoiceID, reason)
+	if err != nil {
+		return err
+	}
+
+	if !applied {
+		return model.ErrInvoiceNotProcessing
+	}
+
+	return nil
+}
+
+func blockedByStatus(invoice model.Invoice) error {
+	if invoice.Processing() {
+		return model.ErrInvoiceProcessing
+	}
+
+	return model.ErrInvoiceClosed
 }

@@ -10,6 +10,8 @@ const (
 	BillingExchange   = "billing.events"
 	InventoryExchange = "inventory.events"
 	StockResultsQueue = "billing.stock-results"
+
+	prefetchCount = 1
 )
 
 func env(key, fallback string) string {
@@ -44,6 +46,12 @@ func Connect() (*Connection, error) {
 	}
 
 	if err := declareTopology(channel); err != nil {
+		connection.Close()
+
+		return nil, err
+	}
+
+	if err := channel.Qos(prefetchCount, 0, false); err != nil {
 		connection.Close()
 
 		return nil, err

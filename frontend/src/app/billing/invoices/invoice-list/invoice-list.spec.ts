@@ -9,7 +9,7 @@ import { Observable, of, tap, throwError } from 'rxjs';
 import { Invoice } from '../invoice.model';
 import { FlashService } from '../../../shared/flash/flash.service';
 import { InvoiceService } from '../invoice.service';
-import { InvoiceList } from './invoice-list';
+import { POLL_INTERVAL, InvoiceList } from './invoice-list';
 
 registerLocaleData(localePt, 'pt-BR');
 
@@ -223,6 +223,61 @@ describe('InvoiceList', () => {
     });
   });
 
+  describe('while an invoice is being processed', () => {
+    const processing = (): Invoice[] => [{ ...INVOICES[0], status: 'CLOSING' }];
+    const settled = (): Invoice[] => [{ ...INVOICES[0], status: 'CLOSED' }];
 
+    it('translates the status as processing', async () => {
+      await mount(() => of(processing()));
 
+      expect(cells(rows()[0])[2]).toBe('Processando');
+    });
+
+    it('keeps asking the API while the invoice has not settled', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+
+      try {
+        const service = await mount(() => of(processing()));
+        const initial = service.list.mock.calls.length;
+
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL * 3);
+
+        expect(service.list.mock.calls.length).toBeGreaterThan(initial);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('stops asking once nothing is being processed', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+
+      try {
+        let answered = false;
+
+        const service = await mount(() => {
+          const list = answered ? settled() : processing();
+          answered = true;
+
+          return of(list);
+        });
+
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL * 2);
+        const afterSettling = service.list.mock.calls.length;
+
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL * 3);
+
+        expect(service.list.mock.calls.length).toBe(afterSettling);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('shows the reason when the stock refused the invoice', async () => {
+      await mount(() =>
+        of([{ ...INVOICES[0], status: 'OPEN' as const, failureReason: 'INSUFFICIENT_STOCK' }])
+      );
+
+      expect(text(element().querySelector('.table__failure'))).toBe('Estoque insuficiente');
+    });
+  });
 });

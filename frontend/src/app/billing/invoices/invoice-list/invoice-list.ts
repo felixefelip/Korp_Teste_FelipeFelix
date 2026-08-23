@@ -1,16 +1,19 @@
 import { CurrencyPipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { InvoiceActions } from '../invoice-actions/invoice-actions';
 
 import {
+  INVOICE_FAILURE_LABELS,
   INVOICE_STATUS_LABELS,
   INVOICE_TYPE_LABELS,
   InvoiceStatus,
   InvoiceType
 } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
+
+export const POLL_INTERVAL = 1500;
 
 
 @Component({
@@ -38,18 +41,27 @@ export class InvoiceList {
   });
 
 
+  protected readonly processing = computed(() =>
+    this.invoiceService.invoices().some((invoice) => invoice.status === 'CLOSING')
+  );
+
   constructor() {
     this.load();
+
+    effect((onCleanup) => {
+      if (!this.processing()) {
+        return;
+      }
+
+      const timer = setInterval(() => this.refresh(), POLL_INTERVAL);
+
+      onCleanup(() => clearInterval(timer));
+    });
   }
 
-
-
-
-
-
-
-
-
+  private refresh(): void {
+    this.invoiceService.list().subscribe({ error: () => undefined });
+  }
 
   protected typeLabel(type: InvoiceType): string {
     return INVOICE_TYPE_LABELS[type] ?? type;
@@ -57,6 +69,10 @@ export class InvoiceList {
 
   protected statusLabel(status: InvoiceStatus): string {
     return INVOICE_STATUS_LABELS[status] ?? status;
+  }
+
+  protected failureLabel(reason: string): string {
+    return INVOICE_FAILURE_LABELS[reason] ?? reason;
   }
 
   protected load(): void {

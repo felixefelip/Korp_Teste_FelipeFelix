@@ -1,4 +1,4 @@
-export type InvoiceStatus = 'OPEN' | 'CLOSED';
+export type InvoiceStatus = 'OPEN' | 'CLOSING' | 'CLOSED';
 export type InvoiceType = 'IN' | 'OUT';
 
 export interface InvoiceItem {
@@ -20,6 +20,7 @@ export interface Invoice {
   status: InvoiceStatus;
   items: InvoiceItem[];
   total: number;
+  failureReason?: string;
 }
 
 export interface InvoiceItemPayload {
@@ -46,6 +47,12 @@ export const INVOICE_TYPES = Object.keys(INVOICE_TYPE_LABELS) as InvoiceType[];
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   OPEN: 'Aberta',
+  CLOSING: 'Processando',
   CLOSED: 'Fechada'
+};
+
+export const INVOICE_FAILURE_LABELS: Record<string, string> = {
+  INSUFFICIENT_STOCK: 'Estoque insuficiente',
+  PRODUCT_NOT_FOUND: 'Produto não encontrado no estoque'
 };
 

@@ -6,13 +6,16 @@ const (
 	InvoiceTypeIn  = "IN"
 	InvoiceTypeOut = "OUT"
 
-	InvoiceStatusOpen   = "OPEN"
-	InvoiceStatusClosed = "CLOSED"
+	InvoiceStatusOpen    = "OPEN"
+	InvoiceStatusClosing = "CLOSING"
+	InvoiceStatusClosed  = "CLOSED"
 )
 
 var (
-	ErrInvoiceClosed = errors.New("closed invoice")
-	ErrInvoiceOpen   = errors.New("open invoice")
+	ErrInvoiceClosed        = errors.New("closed invoice")
+	ErrInvoiceOpen          = errors.New("open invoice")
+	ErrInvoiceProcessing    = errors.New("invoice being processed")
+	ErrInvoiceNotProcessing = errors.New("invoice is not being processed")
 )
 
 type Invoice struct {
@@ -21,10 +24,20 @@ type Invoice struct {
 	Type   string        `json:"type"   gorm:"type:varchar(3);not null;default:'OUT'"`
 	Status string        `json:"status" gorm:"type:varchar(10);not null"`
 	Items  []InvoiceItem `json:"items"  gorm:"foreignKey:InvoiceID"`
+
+	FailureReason string `json:"failureReason" gorm:"type:varchar(30);not null;default:''"`
 }
 
 func (i Invoice) Closed() bool {
 	return i.Status == InvoiceStatusClosed
+}
+
+func (i Invoice) Processing() bool {
+	return i.Status == InvoiceStatusClosing
+}
+
+func (i Invoice) Editable() bool {
+	return i.Status == InvoiceStatusOpen
 }
 
 func (i Invoice) MovesStockOut() bool {

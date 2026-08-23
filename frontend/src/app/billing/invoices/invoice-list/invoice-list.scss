@@ -24,3 +24,15 @@
   background: rgba(30, 135, 75, 0.12);
   color: var(--success-500);
 }
+
+.badge--processing {
+  background: rgba(70, 110, 190, 0.12);
+  color: var(--info-500, #3a63b0);
+}
+
+.table__failure {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--warning-500);
+}

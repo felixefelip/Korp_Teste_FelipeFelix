@@ -3,6 +3,7 @@ package db_test
 import (
 	"testing"
 
+	"billing/internal/infra/db"
 	"billing/internal/model"
 
 	"github.com/stretchr/testify/assert"
@@ -570,7 +571,8 @@ func TestCloseInvoiceMovesTheStatus(t *testing.T) {
 	var saved model.Invoice
 	require.NoError(t, testConnection.First(&saved, id).Error)
 
-	assert.Equal(t, model.InvoiceStatusClosed, saved.Status)
+	assert.Equal(t, model.InvoiceStatusClosing, saved.Status,
+		"the invoice waits for the inventory before being closed")
 	assert.Equal(t, "NF-0001", saved.Number, "closing touches the status and nothing else")
 }
 
@@ -627,6 +629,89 @@ func TestCloseInvoiceWhenMissingRecordsNoEvent(t *testing.T) {
 	require.NoError(t, testConnection.Find(&events).Error)
 
 	assert.Empty(t, events, "status and event are written in the same transaction")
+}
+
+func TestConfirmCloseMovesFromClosingToClosed(t *testing.T) {
+	repository := newRepository(t)
+	id := closingInvoice(t, repository)
+
+	moved, err := repository.ConfirmClose(id)
+	require.NoError(t, err)
+	assert.True(t, moved)
+
+	var saved model.Invoice
+	require.NoError(t, testConnection.First(&saved, id).Error)
+	assert.Equal(t, model.InvoiceStatusClosed, saved.Status)
+}
+
+func TestConfirmCloseDoesNothingWhenTheInvoiceIsNotClosing(t *testing.T) {
+	repository := newRepository(t)
+
+	id, err := repository.CreateInvoice(model.Invoice{
+		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
+	})
+	require.NoError(t, err)
+
+	moved, err := repository.ConfirmClose(id)
+	require.NoError(t, err)
+	assert.False(t, moved, "a repeated or late result must not move an open invoice")
+
+	var saved model.Invoice
+	require.NoError(t, testConnection.First(&saved, id).Error)
+	assert.Equal(t, model.InvoiceStatusOpen, saved.Status)
+}
+
+func TestConfirmCloseIsIdempotent(t *testing.T) {
+	repository := newRepository(t)
+	id := closingInvoice(t, repository)
+
+	first, err := repository.ConfirmClose(id)
+	require.NoError(t, err)
+	require.True(t, first)
+
+	second, err := repository.ConfirmClose(id)
+	require.NoError(t, err)
+	assert.False(t, second, "the second delivery of the same result changes nothing")
+}
+
+func TestRejectCloseSendsTheInvoiceBackToOpenWithTheReason(t *testing.T) {
+	repository := newRepository(t)
+	id := closingInvoice(t, repository)
+
+	moved, err := repository.RejectClose(id, "INSUFFICIENT_STOCK")
+	require.NoError(t, err)
+	assert.True(t, moved)
+
+	var saved model.Invoice
+	require.NoError(t, testConnection.First(&saved, id).Error)
+	assert.Equal(t, model.InvoiceStatusOpen, saved.Status)
+	assert.Equal(t, "INSUFFICIENT_STOCK", saved.FailureReason)
+}
+
+func TestCloseInvoiceClearsThePreviousFailure(t *testing.T) {
+	repository := newRepository(t)
+	id := closingInvoice(t, repository)
+
+	_, err := repository.RejectClose(id, "INSUFFICIENT_STOCK")
+	require.NoError(t, err)
+
+	require.NoError(t, repository.CloseInvoice(id, closeEventFor(t, id)))
+
+	var saved model.Invoice
+	require.NoError(t, testConnection.First(&saved, id).Error)
+	assert.Empty(t, saved.FailureReason, "a new attempt starts without the old reason")
+}
+
+func closingInvoice(t *testing.T, repository *db.InvoiceRepository) int {
+	t.Helper()
+
+	id, err := repository.CreateInvoice(model.Invoice{
+		Number: "NF-0001", Type: model.InvoiceTypeOut, Status: model.InvoiceStatusOpen,
+	})
+	require.NoError(t, err)
+	require.NoError(t, repository.CloseInvoice(id, closeEventFor(t, id)))
+
+	return id
 }
 
 func closeEventFor(t *testing.T, id int) model.OutboxEvent {

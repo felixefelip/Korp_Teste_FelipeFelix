@@ -10,6 +10,7 @@ import (
 const (
 	InvoiceCloseRequestedKey = "invoice.close.requested"
 	InvoiceStockAppliedKey   = "invoice.stock.applied"
+	InvoiceStockRejectedKey  = "invoice.stock.rejected"
 )
 
 type invoiceItemPayload struct {

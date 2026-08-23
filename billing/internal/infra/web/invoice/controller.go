@@ -74,6 +74,13 @@ func (i *Controller) UpdateInvoice(ctx *gin.Context) {
 
 	updatedInvoice, err := i.invoiceUsecase.UpdateInvoice(request.toModel(id))
 	if err != nil {
+		if errors.Is(err, model.ErrInvoiceProcessing) {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"message": "Esta nota fiscal está em processamento.",
+			})
+			return
+		}
+
 		if errors.Is(err, model.ErrInvoiceClosed) {
 			ctx.JSON(http.StatusConflict, gin.H{
 				"message": "Notas fiscais fechadas não podem ser alteradas.",
@@ -122,6 +129,13 @@ func (i *Controller) DeleteInvoice(ctx *gin.Context) {
 	}
 
 	if err := i.invoiceUsecase.DeleteInvoice(id); err != nil {
+		if errors.Is(err, model.ErrInvoiceProcessing) {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"message": "Esta nota fiscal está em processamento.",
+			})
+			return
+		}
+
 		if errors.Is(err, model.ErrInvoiceClosed) {
 			ctx.JSON(http.StatusConflict, gin.H{
 				"message": "Notas fiscais fechadas não podem ser excluídas.",
@@ -150,6 +164,13 @@ func (i *Controller) CloseInvoice(ctx *gin.Context) {
 
 	closedInvoice, err := i.invoiceUsecase.CloseInvoice(id)
 	if err != nil {
+		if errors.Is(err, model.ErrInvoiceProcessing) {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"message": "Esta nota fiscal está em processamento.",
+			})
+			return
+		}
+
 		if errors.Is(err, model.ErrInvoiceClosed) {
 			ctx.JSON(http.StatusConflict, gin.H{
 				"message": "Esta nota fiscal já está fechada.",
@@ -166,7 +187,7 @@ func (i *Controller) CloseInvoice(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, newResponse(closedInvoice))
+	ctx.JSON(http.StatusAccepted, newResponse(closedInvoice))
 }
 
 func (i *Controller) ReopenInvoice(ctx *gin.Context) {
@@ -178,6 +199,13 @@ func (i *Controller) ReopenInvoice(ctx *gin.Context) {
 
 	reopenedInvoice, err := i.invoiceUsecase.ReopenInvoice(id)
 	if err != nil {
+		if errors.Is(err, model.ErrInvoiceProcessing) {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"message": "Esta nota fiscal está em processamento.",
+			})
+			return
+		}
+
 		if errors.Is(err, model.ErrInvoiceOpen) {
 			ctx.JSON(http.StatusConflict, gin.H{
 				"message": "Esta nota fiscal já está aberta.",

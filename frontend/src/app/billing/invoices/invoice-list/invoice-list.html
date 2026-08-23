@@ -59,10 +59,14 @@
                   <span
                     class="badge"
                     [class.badge--open]="invoice.status === 'OPEN'"
+                    [class.badge--processing]="invoice.status === 'CLOSING'"
                     [class.badge--closed]="invoice.status === 'CLOSED'"
                   >
                     {{ statusLabel(invoice.status) }}
                   </span>
+                  @if (invoice.failureReason && invoice.status === 'OPEN') {
+                    <small class="table__failure">{{ failureLabel(invoice.failureReason) }}</small>
+                  }
                 </td>
                 <td class="table__num">
                   {{ invoice.total | currency: 'BRL' : 'symbol' : '1.2-2' }}

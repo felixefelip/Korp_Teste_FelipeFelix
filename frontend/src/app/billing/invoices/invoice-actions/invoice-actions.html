@@ -1,4 +1,6 @@
-<app-menu-button [items]="actions()" />
+@if (actions().length) {
+  <app-menu-button [items]="actions()" />
+}
 
 @if (confirmingPrint()) {
   <app-confirm-dialog

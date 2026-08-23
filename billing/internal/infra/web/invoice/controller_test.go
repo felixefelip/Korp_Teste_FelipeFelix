@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"billing/internal/infra/db"
 	"billing/internal/model"
 	"billing/internal/test/webtest"
 
@@ -902,7 +903,7 @@ func TestDeleteInvoiceRemovesItsItems(t *testing.T) {
 func TestDeleteAClosedInvoiceReturns409(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
-	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+	closeInvoiceCompletely(t, server, id)
 
 	response := webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "")
 
@@ -913,7 +914,7 @@ func TestDeleteAClosedInvoiceReturns409(t *testing.T) {
 func TestDeleteAClosedInvoiceKeepsItStored(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
-	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+	closeInvoiceCompletely(t, server, id)
 
 	require.Equal(t, http.StatusConflict,
 		webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "").Code)
@@ -943,31 +944,55 @@ func closeInvoice(t *testing.T, server *gin.Engine, id int) *httptest.ResponseRe
 	return webtest.Post(t, server, fmt.Sprintf("/invoices/%d/close", id), "")
 }
 
-func TestCloseInvoiceReturns200WithTheClosedInvoice(t *testing.T) {
+// closeInvoiceCompletely pede o fechamento e aplica o resultado do inventory,
+// que em producao chegaria pela fila billing.stock-results.
+func closeInvoiceCompletely(t *testing.T, server *gin.Engine, id int) {
+	t.Helper()
+
+	require.Equal(t, http.StatusAccepted, closeInvoice(t, server, id).Code)
+
+	moved, err := db.NewInvoiceRepository(testConnection).ConfirmClose(id)
+	require.NoError(t, err)
+	require.True(t, moved)
+}
+
+func TestCloseInvoiceReturns202WithTheInvoiceBeingProcessed(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
 	response := closeInvoice(t, server, id)
 
+	require.Equal(t, http.StatusAccepted, response.Code)
+
+	closing := decodeInvoice(t, response.Body.Bytes())
+
+	assert.Equal(t, id, closing.ID)
+	assert.Equal(t, "CLOSING", closing.Status, "the stock has not been taken yet")
+	assert.Equal(t, "NF-0001", closing.Number, "closing changes the status and nothing else")
+}
+
+func TestCloseInvoiceOnlyReachesClosedWhenTheStockIsApplied(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	closeInvoiceCompletely(t, server, id)
+
+	response := webtest.Get(t, server, fmt.Sprintf("/invoices/%d", id))
 	require.Equal(t, http.StatusOK, response.Code)
 
-	closed := decodeInvoice(t, response.Body.Bytes())
-
-	assert.Equal(t, id, closed.ID)
-	assert.Equal(t, "CLOSED", closed.Status)
-	assert.Equal(t, "NF-0001", closed.Number, "closing changes the status and nothing else")
+	assert.Equal(t, "CLOSED", decodeInvoice(t, response.Body.Bytes()).Status)
 }
 
 func TestCloseInvoicePersistsToTheDatabase(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+	require.Equal(t, http.StatusAccepted, closeInvoice(t, server, id).Code)
 
 	var saved model.Invoice
 	require.NoError(t, testConnection.First(&saved, id).Error)
 
-	assert.Equal(t, "CLOSED", saved.Status)
+	assert.Equal(t, "CLOSING", saved.Status)
 }
 
 func TestCloseInvoiceKeepsTheItemsAndTheTotal(t *testing.T) {
@@ -976,24 +1001,51 @@ func TestCloseInvoiceKeepsTheItemsAndTheTotal(t *testing.T) {
 
 	response := closeInvoice(t, server, id)
 
-	require.Equal(t, http.StatusOK, response.Code)
+	require.Equal(t, http.StatusAccepted, response.Code)
 
-	closed := decodeInvoice(t, response.Body.Bytes())
+	closing := decodeInvoice(t, response.Body.Bytes())
 
-	assert.Len(t, closed.Items, 2)
-	assert.Equal(t, 81.88, closed.Total)
+	assert.Len(t, closing.Items, 2)
+	assert.Equal(t, 81.88, closing.Total)
 }
 
 func TestCloseAnAlreadyClosedInvoiceReturns409(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+	closeInvoiceCompletely(t, server, id)
 
 	response := closeInvoice(t, server, id)
 
 	require.Equal(t, http.StatusConflict, response.Code)
 	assert.Contains(t, response.Body.String(), "já está fechada")
+}
+
+func TestCloseAnInvoiceBeingProcessedReturns409(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusAccepted, closeInvoice(t, server, id).Code)
+
+	response := closeInvoice(t, server, id)
+
+	require.Equal(t, http.StatusConflict, response.Code)
+	assert.Contains(t, response.Body.String(), "em processamento")
+}
+
+func TestAnInvoiceBeingProcessedCannotBeEditedOrDeleted(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusAccepted, closeInvoice(t, server, id).Code)
+
+	update := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), validInvoice)
+	require.Equal(t, http.StatusConflict, update.Code)
+	assert.Contains(t, update.Body.String(), "em processamento")
+
+	remove := webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "")
+	require.Equal(t, http.StatusConflict, remove.Code)
+	assert.Contains(t, remove.Body.String(), "em processamento")
 }
 
 func TestCloseInvoiceWhenMissingReturns404(t *testing.T) {
@@ -1016,7 +1068,7 @@ func TestAClosedInvoiceCannotBeDeleted(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+	closeInvoiceCompletely(t, server, id)
 
 	assert.Equal(t, http.StatusConflict,
 		webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "").Code)
@@ -1032,7 +1084,7 @@ func TestReopenInvoiceReturns200WithTheOpenInvoice(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+	closeInvoiceCompletely(t, server, id)
 
 	response := reopenInvoice(t, server, id)
 
@@ -1075,7 +1127,7 @@ func TestAReopenedInvoiceCanBeDeletedAgain(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+	closeInvoiceCompletely(t, server, id)
 	require.Equal(t, http.StatusOK, reopenInvoice(t, server, id).Code)
 
 	assert.Equal(t, http.StatusNoContent,
@@ -1103,7 +1155,7 @@ func TestUpdateAClosedInvoiceReturns409(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+	closeInvoiceCompletely(t, server, id)
 
 	response := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), updatedInvoice)
 
@@ -1115,7 +1167,7 @@ func TestUpdateAClosedInvoiceKeepsItAsItWas(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, invoiceWithItems)
 
-	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+	closeInvoiceCompletely(t, server, id)
 
 	require.Equal(t, http.StatusConflict,
 		webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id),
@@ -1131,7 +1183,7 @@ func TestAReopenedInvoiceCanBeUpdatedAgain(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
-	require.Equal(t, http.StatusOK, closeInvoice(t, server, id).Code)
+	closeInvoiceCompletely(t, server, id)
 	require.Equal(t, http.StatusOK, reopenInvoice(t, server, id).Code)
 
 	assert.Equal(t, http.StatusOK,

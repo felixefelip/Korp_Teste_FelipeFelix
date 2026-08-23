@@ -22,6 +22,10 @@ type fakeRepository struct {
 	receivedInvoice model.Invoice
 	closedID        int
 	recordedEvent   model.OutboxEvent
+	confirmedID     int
+	rejectedID      int
+	rejectedReason  string
+	transitionMoved bool
 	reopenedID      int
 	deletedID       int
 	calls           int
@@ -55,6 +59,19 @@ func (f *fakeRepository) CloseInvoice(id int, event model.OutboxEvent) error {
 	f.closedID = id
 	f.recordedEvent = event
 	return f.err
+}
+
+func (f *fakeRepository) ConfirmClose(id int) (bool, error) {
+	f.calls++
+	f.confirmedID = id
+	return f.transitionMoved, f.err
+}
+
+func (f *fakeRepository) RejectClose(id int, reason string) (bool, error) {
+	f.calls++
+	f.rejectedID = id
+	f.rejectedReason = reason
+	return f.transitionMoved, f.err
 }
 
 func (f *fakeRepository) ReopenInvoice(id int) error {
@@ -173,7 +190,9 @@ func TestUpdateInvoiceReturnsWhatWasStored(t *testing.T) {
 }
 
 func TestUpdateInvoiceHandsTheItemsToTheRepository(t *testing.T) {
-	repository := &fakeRepository{}
+	repository := &fakeRepository{
+		invoice: model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusOpen},
+	}
 	invoiceUsecase := newUsecase(repository)
 
 	items := []model.InvoiceItem{
@@ -389,4 +408,73 @@ func TestUpdateInvoiceRefusesAClosedOne(t *testing.T) {
 	require.ErrorIs(t, err, model.ErrInvoiceClosed)
 	assert.Zero(t, repository.receivedInvoice, "it stops at the read, without writing")
 	assert.Equal(t, 1, repository.calls)
+}
+
+func processingInvoice() model.Invoice {
+	return model.Invoice{ID: 7, Number: "NF-0007", Status: model.InvoiceStatusClosing}
+}
+
+func TestUpdateInvoiceRefusesOneBeingProcessed(t *testing.T) {
+	invoiceUsecase := newUsecase(&fakeRepository{invoice: processingInvoice()})
+
+	_, err := invoiceUsecase.UpdateInvoice(model.Invoice{ID: 7, Number: "NF-0007"})
+
+	require.ErrorIs(t, err, model.ErrInvoiceProcessing)
+}
+
+func TestDeleteInvoiceRefusesOneBeingProcessed(t *testing.T) {
+	invoiceUsecase := newUsecase(&fakeRepository{invoice: processingInvoice()})
+
+	require.ErrorIs(t, invoiceUsecase.DeleteInvoice(7), model.ErrInvoiceProcessing)
+}
+
+func TestCloseInvoiceRefusesOneAlreadyBeingProcessed(t *testing.T) {
+	repository := &fakeRepository{invoice: processingInvoice()}
+	invoiceUsecase := newUsecase(repository)
+
+	_, err := invoiceUsecase.CloseInvoice(7)
+
+	require.ErrorIs(t, err, model.ErrInvoiceProcessing)
+	assert.Empty(t, repository.recordedEvent.RoutingKey, "it does not ask for the stock twice")
+}
+
+func TestReopenInvoiceRefusesOneBeingProcessed(t *testing.T) {
+	invoiceUsecase := newUsecase(&fakeRepository{invoice: processingInvoice()})
+
+	_, err := invoiceUsecase.ReopenInvoice(7)
+
+	require.ErrorIs(t, err, model.ErrInvoiceProcessing)
+}
+
+func TestConfirmCloseMovesTheInvoice(t *testing.T) {
+	repository := &fakeRepository{transitionMoved: true}
+	invoiceUsecase := newUsecase(repository)
+
+	require.NoError(t, invoiceUsecase.ConfirmClose(7))
+	assert.Equal(t, 7, repository.confirmedID)
+}
+
+func TestConfirmCloseReportsWhenTheInvoiceMovedAlready(t *testing.T) {
+	invoiceUsecase := newUsecase(&fakeRepository{transitionMoved: false})
+
+	err := invoiceUsecase.ConfirmClose(7)
+
+	require.ErrorIs(t, err, model.ErrInvoiceNotProcessing,
+		"a repeated result must be recognised, not applied twice")
+}
+
+func TestRejectCloseCarriesTheReason(t *testing.T) {
+	repository := &fakeRepository{transitionMoved: true}
+	invoiceUsecase := newUsecase(repository)
+
+	require.NoError(t, invoiceUsecase.RejectClose(7, "INSUFFICIENT_STOCK"))
+
+	assert.Equal(t, 7, repository.rejectedID)
+	assert.Equal(t, "INSUFFICIENT_STOCK", repository.rejectedReason)
+}
+
+func TestRejectCloseReportsWhenTheInvoiceMovedAlready(t *testing.T) {
+	invoiceUsecase := newUsecase(&fakeRepository{transitionMoved: false})
+
+	require.ErrorIs(t, invoiceUsecase.RejectClose(7, "INSUFFICIENT_STOCK"), model.ErrInvoiceNotProcessing)
 }

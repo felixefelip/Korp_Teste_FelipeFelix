@@ -31,6 +31,10 @@ export class InvoiceActions {
   protected readonly actions = computed<MenuItem[]>(() => {
     const invoice = this.invoice();
 
+    if (invoice.status === 'CLOSING') {
+      return [];
+    }
+
     if (invoice.status === 'CLOSED') {
       return [{ label: 'Reabrir', action: () => this.reopen() }];
     }
