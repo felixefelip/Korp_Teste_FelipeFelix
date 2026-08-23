@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
-import { ProductService } from '../../../inventory/products/product.service';
+import { CatalogService } from '../catalog.service';
 import { FlashService } from '../../../shared/flash/flash.service';
 import { ApiFailure, readApiFailure } from '../../../shared/forms/http-errors';
 import { InvoiceForm, SAVE_FAILURE } from '../invoice-form/invoice-form';
@@ -19,11 +19,11 @@ const PRODUCTS_FAILURE = 'Não foi possível carregar os produtos. Tente novamen
 })
 export class InvoiceNew {
   private readonly invoiceService = inject(InvoiceService);
-  private readonly productService = inject(ProductService);
+  private readonly catalogService = inject(CatalogService);
   private readonly router = inject(Router);
   private readonly flash = inject(FlashService);
 
-  protected readonly products = this.productService.products;
+  protected readonly products = this.catalogService.products;
   protected readonly productsFailed = signal(false);
   protected readonly saving = signal(false);
   protected readonly failure = signal<ApiFailure | null>(null);
@@ -49,7 +49,7 @@ export class InvoiceNew {
   }
 
   private loadProducts(): void {
-    this.productService.list().subscribe({
+    this.catalogService.list().subscribe({
       error: () => {
         this.productsFailed.set(true);
         this.flash.error(PRODUCTS_FAILURE);

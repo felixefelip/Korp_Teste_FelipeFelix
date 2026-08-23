@@ -24,6 +24,22 @@ func declareTopology(channel *amqp.Channel) error {
 		return err
 	}
 
+	_, err = channel.QueueDeclare(CatalogQueue, true, false, false, false, amqp.Table{
+		"x-queue-type": "quorum",
+	})
+	if err != nil {
+		return err
+	}
+
+	err = bindQueue(channel, CatalogQueue, InventoryExchange,
+		model.ProductCreatedKey,
+		model.ProductUpdatedKey,
+		model.ProductDeletedKey,
+	)
+	if err != nil {
+		return err
+	}
+
 	return bindQueue(channel, StockResultsQueue, InventoryExchange,
 		model.InvoiceStockAppliedKey,
 		model.InvoiceStockRejectedKey,

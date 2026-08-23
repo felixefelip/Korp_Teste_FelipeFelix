@@ -4,16 +4,16 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { Observable, Subject, of, tap, throwError } from 'rxjs';
 
-import { Product } from '../../../inventory/products/product.model';
-import { ProductService } from '../../../inventory/products/product.service';
+import { CatalogProduct } from '../catalog.model';
+import { CatalogService } from '../catalog.service';
 import { FlashService } from '../../../shared/flash/flash.service';
 import { Invoice, InvoiceItemPayload, InvoicePayload } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 import { InvoiceEdit } from './invoice-edit';
 
-const PRODUCTS: Product[] = [
-  { id: 3, code: 'PRD-0003', name: 'Cadeira Gamer', unit: 'UN', price: 150.5, stock: 10 },
-  { id: 5, code: 'PRD-0005', name: 'Mesa de Escritório', unit: 'CX', price: 899, stock: 4 }
+const PRODUCTS: CatalogProduct[] = [
+  { id: 3, code: 'PRD-0003', name: 'Cadeira Gamer', unit: 'UN', price: 150.5 },
+  { id: 5, code: 'PRD-0005', name: 'Mesa de Escritório', unit: 'CX', price: 899 }
 ];
 
 const EXISTING_ITEM: InvoiceItemPayload = {
@@ -41,7 +41,7 @@ describe('InvoiceEdit', () => {
     get: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
-  let productService: { products: ReturnType<typeof signal<Product[]>>; list: ReturnType<typeof vi.fn> };
+  let catalogService: { products: ReturnType<typeof signal<CatalogProduct[]>>; list: ReturnType<typeof vi.fn> };
   let navigate: ReturnType<typeof vi.spyOn>;
   let flash: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
 
@@ -98,7 +98,7 @@ describe('InvoiceEdit', () => {
   const mount = async (
     load: () => Observable<Invoice> = () => of(EXISTING),
     id = '7',
-    loadProducts: () => Observable<Product[]> = () => of(PRODUCTS)
+    loadProducts: () => Observable<CatalogProduct[]> = () => of(PRODUCTS)
   ) => {
     TestBed.resetTestingModule();
 
@@ -110,10 +110,10 @@ describe('InvoiceEdit', () => {
       )
     };
 
-    productService = {
-      products: signal<Product[]>([]),
+    catalogService = {
+      products: signal<CatalogProduct[]>([]),
       list: vi.fn(() =>
-        loadProducts().pipe(tap((products) => productService.products.set(products)))
+        loadProducts().pipe(tap((products) => catalogService.products.set(products)))
       )
     };
 
@@ -124,7 +124,7 @@ describe('InvoiceEdit', () => {
       providers: [
         provideRouter([]),
         { provide: InvoiceService, useValue: service },
-        { provide: ProductService, useValue: productService },
+        { provide: CatalogService, useValue: catalogService },
         { provide: FlashService, useValue: flash },
         {
           provide: ActivatedRoute,
@@ -286,8 +286,8 @@ describe('InvoiceEdit', () => {
       expect(field<HTMLInputElement>('item-0-quantity').value).toBe('2');
     });
 
-    it('asks the inventory for the products it can offer', () => {
-      expect(productService.list).toHaveBeenCalledTimes(1);
+    it('asks the billing catalog for the products it can offer', () => {
+      expect(catalogService.list).toHaveBeenCalledTimes(1);
     });
 
     it('sends the item that was added on top of the existing one', async () => {

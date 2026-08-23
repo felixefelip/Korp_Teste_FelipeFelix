@@ -2,7 +2,7 @@ import { Component, effect, inject, input, output, signal } from '@angular/core'
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
-import { Product } from '../../../inventory/products/product.model';
+import { CatalogProduct } from '../catalog.model';
 import { CustomFormValidation } from '../../../shared/forms/custom-form-validation';
 import { ApiFailure } from '../../../shared/forms/http-errors';
 import { InvoiceItemsForm, newItemArray } from '../invoice-items-form/invoice-items-form';
@@ -26,7 +26,7 @@ export class InvoiceForm {
   private readonly fb = inject(FormBuilder);
 
   readonly value = input<Invoice | null>(null);
-  readonly products = input<Product[]>([]);
+  readonly products = input<CatalogProduct[]>([]);
   readonly productsFailed = input(false);
   readonly loading = input(false);
   readonly saving = input(false);

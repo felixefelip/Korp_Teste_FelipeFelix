@@ -48,7 +48,7 @@ func (ir *InvoiceRepository) CreateInvoice(invoice model.Invoice) (int, error) {
 			return err
 		}
 
-		return saveItems(tx, invoice.ID, items, invoice.Type)
+		return saveItems(tx, invoice.ID, items)
 	})
 	if err != nil {
 		return 0, err
@@ -75,16 +75,11 @@ func (ir *InvoiceRepository) UpdateInvoice(invoice model.Invoice) error {
 			return nil
 		}
 
-		var stored model.Invoice
-		if err := tx.Select("type").First(&stored, invoice.ID).Error; err != nil {
-			return err
-		}
-
 		if err := deleteInvoiceItemsByInvoiceID(tx, invoice.ID); err != nil {
 			return err
 		}
 
-		return saveItems(tx, invoice.ID, invoice.Items, stored.Type)
+		return saveItems(tx, invoice.ID, invoice.Items)
 	})
 }
 
@@ -182,9 +177,9 @@ func withItems(connection *gorm.DB) *gorm.DB {
 		Preload("Items.Product")
 }
 
-func saveItems(tx *gorm.DB, invoiceID int, items []model.InvoiceItem, invoiceType string) error {
+func saveItems(tx *gorm.DB, invoiceID int, items []model.InvoiceItem) error {
 	for _, item := range items {
-		product, err := saveProduct(tx, item.Product, invoiceType)
+		product, err := ensureProduct(tx, item.Product)
 		if err != nil {
 			return err
 		}
@@ -201,24 +196,23 @@ func saveItems(tx *gorm.DB, invoiceID int, items []model.InvoiceItem, invoiceTyp
 	return nil
 }
 
-func saveProduct(tx *gorm.DB, product model.Product, invoiceType string) (model.Product, error) {
+func ensureProduct(tx *gorm.DB, product model.Product) (model.Product, error) {
 	err := tx.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "inventory_id"}},
-		DoUpdates: clause.AssignmentColumns(replicaColumns(invoiceType)),
+		DoNothing: true,
 	}).Create(&product).Error
 	if err != nil {
 		return model.Product{}, err
 	}
 
-	return product, nil
-}
-
-func replicaColumns(invoiceType string) []string {
-	columns := []string{"code", "name", "unit"}
-
-	if invoiceType == model.InvoiceTypeOut {
-		columns = append(columns, "price")
+	if product.ID != 0 {
+		return product, nil
 	}
 
-	return columns
+	var stored model.Product
+	if err := tx.Where("inventory_id = ?", product.InventoryID).First(&stored).Error; err != nil {
+		return model.Product{}, err
+	}
+
+	return stored, nil
 }

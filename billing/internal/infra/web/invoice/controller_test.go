@@ -831,18 +831,6 @@ func replicaOf(t *testing.T, inventoryID int) model.Product {
 	return product
 }
 
-func TestOutboundInvoiceRewritesThePriceOfTheReplica(t *testing.T) {
-	server := newServer(t)
-
-	require.Equal(t, http.StatusCreated, webtest.Post(t, server, "/invoices",
-		itemBody(`{"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":1,"unitPrice":30.99}`)).Code)
-
-	require.Equal(t, http.StatusCreated, webtest.Post(t, server, "/invoices",
-		itemBody(`{"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":1,"unitPrice":45.5}`)).Code)
-
-	assert.Equal(t, 45.5, replicaOf(t, 11).Price, "a sale price is the catalogue price")
-}
-
 func TestInboundInvoiceKeepsThePriceOfTheReplica(t *testing.T) {
 	server := newServer(t)
 
@@ -856,23 +844,6 @@ func TestInboundInvoiceKeepsThePriceOfTheReplica(t *testing.T) {
 
 	assert.Equal(t, 30.99, replicaOf(t, 11).Price,
 		"a purchase price must not become the catalogue price")
-}
-
-func TestInboundInvoiceStillRefreshesTheRestOfTheReplica(t *testing.T) {
-	server := newServer(t)
-
-	require.Equal(t, http.StatusCreated, webtest.Post(t, server, "/invoices",
-		itemBody(`{"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":1,"unitPrice":30.99}`)).Code)
-
-	inbound := `{"number":"NF-0009","type":"IN","status":"OPEN","items":[
-        {"inventoryId":11,"code":"PRD-0001","name":"Camiseta polo","unit":"CX","quantity":10,"unitPrice":12.5}
-    ]}`
-	require.Equal(t, http.StatusCreated, webtest.Post(t, server, "/invoices", inbound).Code)
-
-	replica := replicaOf(t, 11)
-
-	assert.Equal(t, "Camiseta polo", replica.Name)
-	assert.Equal(t, "CX", replica.Unit)
 }
 
 func TestDeleteInvoiceReturns204AndRemovesIt(t *testing.T) {

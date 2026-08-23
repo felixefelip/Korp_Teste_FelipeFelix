@@ -40,3 +40,11 @@ func newOutboxRepository(t *testing.T) *db.OutboxRepository {
 
 	return db.NewOutboxRepository(testConnection)
 }
+
+func newProductRepository(t *testing.T) *db.ProductRepository {
+	t.Helper()
+
+	dbtest.Reset(t, testConnection)
+
+	return db.NewProductRepository(testConnection)
+}

@@ -273,20 +273,58 @@ func TestCreateInvoiceReusesTheProductAlreadyRegistered(t *testing.T) {
 	assert.Equal(t, firstInvoice.Items[0].ProductID, secondInvoice.Items[0].ProductID)
 }
 
-func TestCreateInvoiceRefreshesTheProductAlreadyRegistered(t *testing.T) {
+func TestCreateInvoiceLeavesAnAlreadySyncedProductAlone(t *testing.T) {
 	repository := newRepository(t)
 
-	_, err := repository.CreateInvoice(invoiceWithItems(itemOf(11, "PRD-0001", "Camiseta", 2, 30.99)))
-	require.NoError(t, err)
+	require.NoError(t, testConnection.Create(&model.Product{
+		InventoryID: 11, Code: "PRD-0001", Name: "Camiseta", Unit: "UN", Price: 30.99, Active: true,
+	}).Error)
 
-	_, err = repository.CreateInvoice(invoiceWithItems(itemOf(11, "PRD-0001", "Camiseta polo", 1, 45.5)))
+	_, err := repository.CreateInvoice(invoiceWithItems(
+		itemOf(11, "PRD-0001", "Camiseta polo", 1, 45.5),
+	))
 	require.NoError(t, err)
 
 	var product model.Product
 	require.NoError(t, testConnection.Where("inventory_id = ?", 11).First(&product).Error)
 
-	assert.Equal(t, "Camiseta polo", product.Name)
-	assert.Equal(t, 45.5, product.Price)
+	assert.Equal(t, "Camiseta", product.Name, "the catalog belongs to the inventory sync")
+	assert.Equal(t, 30.99, product.Price)
+}
+
+func TestCreateInvoiceRegistersAProductTheSyncHasNotBroughtYet(t *testing.T) {
+	repository := newRepository(t)
+
+	_, err := repository.CreateInvoice(invoiceWithItems(
+		itemOf(11, "PRD-0001", "Camiseta", 2, 30.99),
+	))
+	require.NoError(t, err)
+
+	var product model.Product
+	require.NoError(t, testConnection.Where("inventory_id = ?", 11).First(&product).Error)
+
+	assert.Equal(t, "PRD-0001", product.Code, "the item still needs a product row to point at")
+}
+
+func TestInvoiceItemKeepsItsOwnSnapshotOfTheProduct(t *testing.T) {
+	repository := newRepository(t)
+
+	require.NoError(t, testConnection.Create(&model.Product{
+		InventoryID: 11, Code: "PRD-0001", Name: "Camiseta", Unit: "UN", Price: 30.99, Active: true,
+	}).Error)
+
+	id, err := repository.CreateInvoice(invoiceWithItems(
+		itemOf(11, "PRD-0001", "Camiseta polo", 1, 45.5),
+	))
+	require.NoError(t, err)
+
+	invoice, err := repository.GetInvoiceByID(id)
+	require.NoError(t, err)
+
+	require.Len(t, invoice.Items, 1)
+	assert.Equal(t, "Camiseta polo", invoice.Items[0].ProductName,
+		"the item froze what was emitted, the replica keeps the catalog")
+	assert.Equal(t, 45.5, invoice.Items[0].UnitPrice)
 }
 
 func TestCreateInvoiceKeepsTheItemAsItWasSold(t *testing.T) {
@@ -466,29 +504,6 @@ func TestUpdateInvoiceNeverFlipsTheDirection(t *testing.T) {
 
 	assert.Equal(t, model.InvoiceTypeIn, saved.Type,
 		"the direction is settled at issue; it is not a field an edit can swing")
-}
-
-func TestUpdateInvoiceKeepsUsingTheStoredTypeForTheReplicaPrice(t *testing.T) {
-	repository := newRepository(t)
-
-	id, err := repository.CreateInvoice(invoiceWithItems(
-		itemOf(11, "PRD-0001", "Camiseta", 1, 30.99),
-	))
-	require.NoError(t, err)
-
-	err = repository.UpdateInvoice(model.Invoice{
-		ID:     id,
-		Number: "NF-0001",
-		Status: "OPEN",
-		Items:  []model.InvoiceItem{itemOf(11, "PRD-0001", "Camiseta", 1, 45.5)},
-	})
-	require.NoError(t, err)
-
-	var product model.Product
-	require.NoError(t, testConnection.Where("inventory_id = ?", 11).First(&product).Error)
-
-	assert.Equal(t, 45.5, product.Price,
-		"the request carries no type, so the update must read the stored one")
 }
 
 func TestDeleteInvoiceRemovesTheRowAndItsItems(t *testing.T) {

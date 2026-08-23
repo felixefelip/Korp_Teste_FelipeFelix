@@ -2,7 +2,7 @@ import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 
-import { ProductService } from '../../../inventory/products/product.service';
+import { CatalogService } from '../catalog.service';
 import { FlashService } from '../../../shared/flash/flash.service';
 import { ApiFailure, readApiFailure } from '../../../shared/forms/http-errors';
 import { InvoiceForm, SAVE_FAILURE } from '../invoice-form/invoice-form';
@@ -23,14 +23,14 @@ const PROCESSING_FAILURE = 'Esta nota fiscal está em processamento e não pode 
 })
 export class InvoiceEdit {
   private readonly invoiceService = inject(InvoiceService);
-  private readonly productService = inject(ProductService);
+  private readonly catalogService = inject(CatalogService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly flash = inject(FlashService);
 
   private readonly invoiceId = Number(this.route.snapshot.paramMap.get('id'));
 
-  protected readonly products = this.productService.products;
+  protected readonly products = this.catalogService.products;
   protected readonly productsFailed = signal(false);
   protected readonly invoice = signal<Invoice | null>(null);
   protected readonly loading = signal(true);
@@ -80,7 +80,7 @@ export class InvoiceEdit {
   }
 
   private loadProducts(): void {
-    this.productService.list().subscribe({
+    this.catalogService.list().subscribe({
       error: () => {
         this.productsFailed.set(true);
         this.flash.error(PRODUCTS_FAILURE);

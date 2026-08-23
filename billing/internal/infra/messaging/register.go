@@ -3,6 +3,7 @@ package messaging
 import (
 	"billing/internal/infra/db"
 	"billing/internal/infra/messaging/invoice"
+	"billing/internal/infra/messaging/product"
 	"billing/internal/model"
 	"billing/internal/usecase"
 
@@ -22,6 +23,15 @@ func Register(connection *gorm.DB) {
 
 		model.InvoiceStockRevertedKey:       invoiceHandler.HandleStockReverted,
 		model.InvoiceStockRevertRejectedKey: invoiceHandler.HandleStockRevertRejected,
+	}).Start()
+
+	productUsecase := usecase.NewProductUsecase(db.NewProductRepository(connection))
+	productHandler := product.NewHandler(productUsecase)
+
+	NewConsumer(CatalogQueue, Routes{
+		model.ProductCreatedKey: productHandler.HandleProductSaved,
+		model.ProductUpdatedKey: productHandler.HandleProductSaved,
+		model.ProductDeletedKey: productHandler.HandleProductDeleted,
 	}).Start()
 
 	NewRelay(outboxRepository, BillingExchange).Start()

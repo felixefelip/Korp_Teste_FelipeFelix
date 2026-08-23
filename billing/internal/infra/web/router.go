@@ -5,6 +5,7 @@ import (
 
 	"billing/internal/infra/db"
 	"billing/internal/infra/web/invoice"
+	"billing/internal/infra/web/product"
 	"billing/internal/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -24,9 +25,15 @@ func Register(server *gin.Engine, connection *gorm.DB) {
 	invoiceUsecase := usecase.NewInvoiceUsecase(invoiceRepository)
 	invoiceController := invoice.NewController(invoiceUsecase)
 
+	productRepository := db.NewProductRepository(connection)
+	productUsecase := usecase.NewProductUsecase(productRepository)
+	productController := product.NewController(productUsecase)
+
 	server.GET("/ping", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"message": "pong"})
 	})
+
+	server.GET("/products", productController.GetProducts)
 
 	server.GET("/invoices", invoiceController.GetInvoices)
 	server.GET("/invoices/:id", invoiceController.GetInvoiceByID)

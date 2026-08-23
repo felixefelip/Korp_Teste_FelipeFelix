@@ -8,7 +8,7 @@ import {
   Validators
 } from '@angular/forms';
 
-import { Product } from '../../../inventory/products/product.model';
+import { CatalogProduct } from '../catalog.model';
 import { CustomFormValidation } from '../../../shared/forms/custom-form-validation';
 import { CustomValidators } from '../../../shared/forms/validators';
 import { InvoiceItem } from '../invoice.model';
@@ -55,7 +55,7 @@ export function newItemArray(items: InvoiceItem[] = []): FormArray<ItemGroup> {
 })
 export class InvoiceItemsForm {
   readonly items = input.required<FormArray<ItemGroup>>();
-  readonly products = input<Product[]>([]);
+  readonly products = input<CatalogProduct[]>([]);
   readonly productsFailed = input(false);
   readonly submitted = input(false);
 

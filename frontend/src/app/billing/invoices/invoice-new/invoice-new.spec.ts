@@ -4,15 +4,15 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { Observable, Subject, of, tap, throwError } from 'rxjs';
 
-import { Product } from '../../../inventory/products/product.model';
-import { ProductService } from '../../../inventory/products/product.service';
+import { CatalogProduct } from '../catalog.model';
+import { CatalogService } from '../catalog.service';
 import { FlashService } from '../../../shared/flash/flash.service';
 import { Invoice, InvoicePayload } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 import { InvoiceNew } from './invoice-new';
 
-const PRODUCTS: Product[] = [
-  { id: 3, code: 'PRD-0003', name: 'Cadeira Gamer', unit: 'UN', price: 150.5, stock: 10 }
+const PRODUCTS: CatalogProduct[] = [
+  { id: 3, code: 'PRD-0003', name: 'Cadeira Gamer', unit: 'UN', price: 150.5 }
 ];
 
 describe('InvoiceNew', () => {
@@ -22,7 +22,7 @@ describe('InvoiceNew', () => {
     get: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
-  let productService: { products: ReturnType<typeof signal<Product[]>>; list: ReturnType<typeof vi.fn> };
+  let catalogService: { products: ReturnType<typeof signal<CatalogProduct[]>>; list: ReturnType<typeof vi.fn> };
   let flash: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
   let navigate: ReturnType<typeof vi.spyOn>;
 
@@ -81,7 +81,7 @@ describe('InvoiceNew', () => {
   };
 
   const mount = async (
-    loadProducts: () => Observable<Product[]> = () => of(PRODUCTS)
+    loadProducts: () => Observable<CatalogProduct[]> = () => of(PRODUCTS)
   ) => {
     TestBed.resetTestingModule();
 
@@ -91,10 +91,10 @@ describe('InvoiceNew', () => {
       update: vi.fn()
     };
 
-    productService = {
-      products: signal<Product[]>([]),
+    catalogService = {
+      products: signal<CatalogProduct[]>([]),
       list: vi.fn(() =>
-        loadProducts().pipe(tap((products) => productService.products.set(products)))
+        loadProducts().pipe(tap((products) => catalogService.products.set(products)))
       )
     };
 
@@ -105,7 +105,7 @@ describe('InvoiceNew', () => {
       providers: [
         provideRouter([]),
         { provide: InvoiceService, useValue: service },
-        { provide: ProductService, useValue: productService },
+        { provide: CatalogService, useValue: catalogService },
         { provide: FlashService, useValue: flash }
       ]
     }).compileComponents();
@@ -176,9 +176,9 @@ describe('InvoiceNew', () => {
     });
   });
 
-  describe('products of the inventory', () => {
-    it('asks the inventory for the products it can offer', () => {
-      expect(productService.list).toHaveBeenCalledTimes(1);
+  describe('products of the catalog', () => {
+    it('asks the billing catalog for the products it can offer', () => {
+      expect(catalogService.list).toHaveBeenCalledTimes(1);
     });
 
     it('offers in the item row the products that came back', async () => {

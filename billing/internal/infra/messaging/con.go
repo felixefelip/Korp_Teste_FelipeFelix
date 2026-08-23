@@ -10,6 +10,7 @@ const (
 	BillingExchange   = "billing.events"
 	InventoryExchange = "inventory.events"
 	StockResultsQueue = "billing.stock-results"
+	CatalogQueue      = "billing.catalog"
 
 	prefetchCount = 1
 )

@@ -7,4 +7,5 @@ type Product struct {
 	Name        string  `gorm:"type:varchar(255);not null"`
 	Unit        string  `gorm:"type:varchar(10);not null"`
 	Price       float64 `gorm:"not null"`
+	Active      bool    `gorm:"not null;default:true"`
 }
