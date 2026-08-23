@@ -83,8 +83,9 @@ export const STUCK_AFTER = 5 * 60_000;
 export const PROCESSING_STAGE_MESSAGES: Record<ProcessingStage, string> = {
   normal: '',
   unstable:
-    'Estamos com instabilidade. A nota fiscal continua sendo processada, você não precisa fazer nada.',
-  stuck: 'Não foi possível concluir o processamento desta nota fiscal.'
+    'Estamos com instabilidade. A nota fiscal continua sendo processada. Aguarde alguns instantes.',
+  stuck:
+    'Não foi possível concluir o processamento desta nota fiscal. Tente novamente ou entre em contato com o suporte.'
 };
 
 export function processingStage(invoice: Invoice, now: number): ProcessingStage {

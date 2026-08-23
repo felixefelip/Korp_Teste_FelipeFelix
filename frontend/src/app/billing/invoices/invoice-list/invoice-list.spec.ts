@@ -349,7 +349,7 @@ describe('InvoiceList', () => {
       await mount(() => of(processingFor(UNSTABLE_AFTER + 1000)));
 
       expect(note()).toContain('instabilidade');
-      expect(note()).toContain('não precisa fazer nada');
+      expect(note()).toContain('Aguarde alguns instantes');
     });
 
     it('offers no action while the retries are still running', async () => {
@@ -361,7 +361,9 @@ describe('InvoiceList', () => {
     it('reports the failure once the retries are exhausted', async () => {
       await mount(() => of(processingFor(STUCK_AFTER + 1000)));
 
-      expect(note()).toBe('Não foi possível concluir o processamento desta nota fiscal.');
+      expect(note()).toBe(
+        'Não foi possível concluir o processamento desta nota fiscal. Tente novamente ou entre em contato com o suporte.'
+      );
     });
 
     it('only then offers retrying', async () => {

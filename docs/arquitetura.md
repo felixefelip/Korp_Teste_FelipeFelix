@@ -483,8 +483,8 @@ está de fato fazendo por dentro:
 | Tempo em processamento | O que acontece por dentro | O que a tela mostra |
 |---|---|---|
 | até 30s | fluxo normal, ou mensagem esperando na fila | só "Processando" |
-| 30s a 5min | o consumidor está retentando, com espera crescente | "Estamos com instabilidade. A nota fiscal continua sendo processada, você não precisa fazer nada." |
-| acima de 5min | o orçamento de tentativas acabou, a mensagem foi para a fila morta | "Não foi possível concluir o processamento desta nota fiscal." + **Tentar novamente** |
+| 30s a 5min | o consumidor está retentando, com espera crescente | "Estamos com instabilidade. A nota fiscal continua sendo processada. Aguarde alguns instantes." |
+| acima de 5min | o orçamento de tentativas acabou, a mensagem foi para a fila morta | "Não foi possível concluir o processamento desta nota fiscal. Tente novamente ou entre em contato com o suporte." + **Tentar novamente** |
 
 A faixa do meio é a que justifica o desenho: ali o sistema está trabalhando, e
 o botão só produziria um segundo pedido em cima de um que ainda vai dar certo.
