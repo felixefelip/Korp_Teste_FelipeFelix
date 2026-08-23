@@ -11,6 +11,7 @@ import { InvoiceService } from '../invoice.service';
 export const DELETE_FAILURE = 'Não foi possível excluir a nota fiscal. Tente novamente.';
 export const CLOSE_FAILURE = 'Não foi possível imprimir a nota fiscal. Tente novamente.';
 export const REOPEN_FAILURE = 'Não foi possível reabrir a nota fiscal. Tente novamente.';
+export const RETRY_FAILURE = 'Não foi possível reenviar a nota fiscal. Tente novamente.';
 
 @Component({
   selector: 'app-invoice-actions',
@@ -34,7 +35,7 @@ export class InvoiceActions {
     const invoice = this.invoice();
 
     if (isProcessing(invoice)) {
-      return [];
+      return [{ label: 'Tentar novamente', action: () => this.retry() }];
     }
 
     if (invoice.status === 'CLOSED') {
@@ -99,6 +100,16 @@ export class InvoiceActions {
     const url = this.invoiceService.danfeUrl(this.invoice().id);
 
     this.document.defaultView?.open(url, '_blank', 'noopener');
+  }
+
+  private retry(): void {
+    const invoice = this.invoice();
+
+    this.invoiceService.retry(invoice.id).subscribe({
+      next: () => this.flash.success(`Nota fiscal ${invoice.formattedNumber} reenviada.`),
+      error: (response: HttpErrorResponse) =>
+        this.flash.error(response.error?.message ?? RETRY_FAILURE)
+    });
   }
 
   private reopen(): void {

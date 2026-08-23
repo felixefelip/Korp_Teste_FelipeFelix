@@ -1302,3 +1302,83 @@ func TestPrintDanfeWithAnIdThatIsNotANumberReturns400(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, webtest.Get(t, server, "/invoices/abc/danfe").Code)
 }
+
+func retryInvoice(t *testing.T, server *gin.Engine, id int) *httptest.ResponseRecorder {
+	t.Helper()
+
+	return webtest.Post(t, server, fmt.Sprintf("/invoices/%d/retry", id), "")
+}
+
+func recordedEvents(t *testing.T, invoiceID int, routingKey string) []model.OutboxEvent {
+	t.Helper()
+
+	var events []model.OutboxEvent
+
+	err := testConnection.
+		Where("aggregate_id = ? AND routing_key = ?", invoiceID, routingKey).
+		Order("id").
+		Find(&events).Error
+	require.NoError(t, err)
+
+	return events
+}
+
+func TestRetryInvoiceReturns202AndAsksTheInventoryAgain(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusAccepted, closeInvoice(t, server, id).Code)
+
+	response := retryInvoice(t, server, id)
+
+	require.Equal(t, http.StatusAccepted, response.Code)
+
+	retried := decodeInvoice(t, response.Body.Bytes())
+
+	assert.Equal(t, "CLOSING", retried.Status, "retrying resends the request, it does not settle it")
+
+	events := recordedEvents(t, id, model.InvoiceCloseRequestedKey)
+
+	require.Len(t, events, 2, "the second request is the one the inventory never answered")
+	assert.NotEqual(t, events[0].EventID, events[1].EventID)
+}
+
+func TestRetryAnInvoiceBeingReopenedAsksForTheRevertAgain(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	closeInvoiceCompletely(t, server, id)
+	require.Equal(t, http.StatusAccepted, reopenInvoice(t, server, id).Code)
+
+	require.Equal(t, http.StatusAccepted, retryInvoice(t, server, id).Code)
+
+	assert.Len(t, recordedEvents(t, id, model.InvoiceReopenRequestedKey), 2)
+	assert.Len(t, recordedEvents(t, id, model.InvoiceCloseRequestedKey), 1, "the close is not resent")
+}
+
+func TestRetryAnInvoiceThatIsNotBeingProcessedReturns409(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	response := retryInvoice(t, server, id)
+
+	require.Equal(t, http.StatusConflict, response.Code)
+	assert.Contains(t, response.Body.String(), "não está em processamento")
+	assert.Empty(t, recordedEvents(t, id, model.InvoiceCloseRequestedKey))
+}
+
+func TestRetryInvoiceWhenMissingReturns404(t *testing.T) {
+	server := newServer(t)
+
+	response := retryInvoice(t, server, 9999)
+
+	assert.Equal(t, http.StatusNotFound, response.Code)
+}
+
+func TestRetryInvoiceWithANonNumericIDReturns400(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices/abc/retry", "")
+
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+}

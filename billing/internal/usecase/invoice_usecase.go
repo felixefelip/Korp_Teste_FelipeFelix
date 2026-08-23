@@ -96,6 +96,36 @@ func (iu *InvoiceUsecase) ReopenInvoice(id int) (model.Invoice, error) {
 	return iu.repository.GetInvoiceByID(id)
 }
 
+func (iu *InvoiceUsecase) RetryInvoice(id int) (model.Invoice, error) {
+	invoice, err := iu.repository.GetInvoiceByID(id)
+	if err != nil {
+		return model.Invoice{}, err
+	}
+
+	if !invoice.Processing() {
+		return model.Invoice{}, model.ErrInvoiceNotProcessing
+	}
+
+	event, err := retryEvent(invoice)
+	if err != nil {
+		return model.Invoice{}, err
+	}
+
+	if err := iu.repository.RetryInvoice(id, invoice.Status, event); err != nil {
+		return model.Invoice{}, err
+	}
+
+	return iu.repository.GetInvoiceByID(id)
+}
+
+func retryEvent(invoice model.Invoice) (model.OutboxEvent, error) {
+	if invoice.Status == model.InvoiceStatusReopening {
+		return model.NewInvoiceReopenRequested(invoice)
+	}
+
+	return model.NewInvoiceCloseRequested(invoice)
+}
+
 func (iu *InvoiceUsecase) GetInvoiceToPrint(id int) (model.Invoice, error) {
 	invoice, err := iu.repository.GetInvoiceByID(id)
 	if err != nil {

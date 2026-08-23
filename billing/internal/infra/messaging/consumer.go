@@ -7,10 +7,18 @@ import (
 	"strings"
 	"time"
 
+	"billing/internal/infra/messaging/msgerr"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const reconnectInterval = 3 * time.Second
+const (
+	reconnectInterval = 3 * time.Second
+
+	retryLimit       = 10
+	retryBackoffBase = 2 * time.Second
+	retryBackoffCap  = 30 * time.Second
+)
 
 var errDeliveriesClosed = errors.New("connection to the broker was lost")
 
@@ -33,12 +41,14 @@ func (r Routes) keys() []string {
 type Consumer struct {
 	queue  string
 	routes Routes
+	wait   func(time.Duration)
 }
 
 func NewConsumer(queue string, routes Routes) *Consumer {
 	return &Consumer{
 		queue:  queue,
 		routes: routes,
+		wait:   time.Sleep,
 	}
 }
 
@@ -86,12 +96,57 @@ func (c *Consumer) dispatch(delivery amqp.Delivery) {
 		return
 	}
 
-	if err := handle(delivery); err != nil {
-		fmt.Printf("message %s refused: %v\n", delivery.MessageId, err)
+	err := handle(delivery)
+	if err == nil {
+		delivery.Ack(false)
+
+		return
+	}
+
+	if msgerr.IsPoison(err) {
+		fmt.Printf("message %s dead-lettered without retrying: %v\n", delivery.MessageId, err)
 		delivery.Nack(false, false)
 
 		return
 	}
 
-	delivery.Ack(false)
+	attempts := acquiredCount(delivery)
+
+	if attempts >= retryLimit {
+		fmt.Printf("message %s dead-lettered after %d attempts: %v\n", delivery.MessageId, attempts, err)
+		delivery.Nack(false, false)
+
+		return
+	}
+
+	delay := retryDelay(attempts)
+
+	fmt.Printf("message %s returned to %s, retrying in %s: %v\n", delivery.MessageId, c.queue, delay, err)
+	c.wait(delay)
+	delivery.Nack(false, true)
+}
+
+func retryDelay(attempts int) time.Duration {
+	delay := retryBackoffBase << attempts
+
+	if delay > retryBackoffCap || delay <= 0 {
+		return retryBackoffCap
+	}
+
+	return delay
+}
+
+func acquiredCount(delivery amqp.Delivery) int {
+	for _, header := range []string{"x-acquired-count", "x-delivery-count"} {
+		switch count := delivery.Headers[header].(type) {
+		case int32:
+			return int(count)
+		case int64:
+			return int(count)
+		case int:
+			return count
+		}
+	}
+
+	return 0
 }

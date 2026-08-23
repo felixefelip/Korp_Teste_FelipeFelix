@@ -62,7 +62,11 @@ export class InvoiceService {
     return this.transition(id, 'reopen');
   }
 
-  private transition(id: number, action: 'close' | 'reopen'): Observable<Invoice> {
+  retry(id: number): Observable<Invoice> {
+    return this.transition(id, 'retry');
+  }
+
+  private transition(id: number, action: 'close' | 'reopen' | 'retry'): Observable<Invoice> {
     return this.http.post<Invoice>(`${RESOURCE}/${id}/${action}`, {}).pipe(
       tap((moved) =>
         this._invoices.update((invoices) =>

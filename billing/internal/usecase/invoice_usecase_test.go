@@ -28,6 +28,8 @@ type fakeRepository struct {
 	rejectedShortages []model.InvoiceShortage
 	transitionMoved   bool
 	reopenedID        int
+	retriedID         int
+	retriedStatus     string
 	deletedID         int
 	calls             int
 }
@@ -101,6 +103,14 @@ func (f *fakeRepository) RejectReopen(
 func (f *fakeRepository) ReopenInvoice(id int, event model.OutboxEvent) error {
 	f.calls++
 	f.reopenedID = id
+	f.recordedEvent = event
+	return f.err
+}
+
+func (f *fakeRepository) RetryInvoice(id int, status string, event model.OutboxEvent) error {
+	f.calls++
+	f.retriedID = id
+	f.retriedStatus = status
 	f.recordedEvent = event
 	return f.err
 }
@@ -515,4 +525,59 @@ func TestRejectCloseCarriesTheShortagesToTheRepository(t *testing.T) {
 	require.NoError(t, invoiceUsecase.RejectClose(7, "INSUFFICIENT_STOCK", shortages))
 
 	assert.Equal(t, shortages, repository.rejectedShortages)
+}
+
+func TestRetryInvoiceRepublishesTheCloseRequest(t *testing.T) {
+	stored := model.Invoice{
+		ID:     7,
+		Series: 1, Number: 7,
+		Type:   model.InvoiceTypeOut,
+		Status: model.InvoiceStatusClosing,
+		Items: []model.InvoiceItem{
+			{ID: 3, ProductID: 1, Quantity: 10, Product: model.Product{InventoryID: 42}},
+		},
+	}
+	repository := &fakeRepository{invoice: stored}
+	invoiceUsecase := newUsecase(repository)
+
+	_, err := invoiceUsecase.RetryInvoice(7)
+
+	require.NoError(t, err)
+	assert.Equal(t, 7, repository.retriedID)
+	assert.Equal(t, model.InvoiceStatusClosing, repository.retriedStatus, "the status is the guard, not a transition")
+	assert.Equal(t, model.InvoiceCloseRequestedKey, repository.recordedEvent.RoutingKey)
+}
+
+func TestRetryInvoiceRepublishesTheReopenRequest(t *testing.T) {
+	repository := &fakeRepository{
+		invoice: model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusReopening},
+	}
+	invoiceUsecase := newUsecase(repository)
+
+	_, err := invoiceUsecase.RetryInvoice(7)
+
+	require.NoError(t, err)
+	assert.Equal(t, model.InvoiceStatusReopening, repository.retriedStatus)
+	assert.Equal(t, model.InvoiceReopenRequestedKey, repository.recordedEvent.RoutingKey)
+}
+
+func TestRetryInvoiceRefusesOneThatIsNotBeingProcessed(t *testing.T) {
+	repository := &fakeRepository{
+		invoice: model.Invoice{ID: 7, Series: 1, Number: 7, Status: model.InvoiceStatusOpen},
+	}
+	invoiceUsecase := newUsecase(repository)
+
+	_, err := invoiceUsecase.RetryInvoice(7)
+
+	require.ErrorIs(t, err, model.ErrInvoiceNotProcessing)
+	assert.Zero(t, repository.retriedID, "it stops at the read, without writing")
+	assert.Equal(t, 1, repository.calls)
+}
+
+func TestRetryInvoiceWhenMissingPropagatesTheError(t *testing.T) {
+	invoiceUsecase := newUsecase(&fakeRepository{err: errRepository})
+
+	_, err := invoiceUsecase.RetryInvoice(7)
+
+	assert.ErrorIs(t, err, errRepository)
 }

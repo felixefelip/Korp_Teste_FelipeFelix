@@ -17,16 +17,16 @@ func declareTopology(channel *amqp.Channel) error {
 		return err
 	}
 
-	_, err = channel.QueueDeclare(StockResultsQueue, true, false, false, false, amqp.Table{
-		"x-queue-type": "quorum",
-	})
+	if err := declareDeadLetter(channel); err != nil {
+		return err
+	}
+
+	_, err = channel.QueueDeclare(StockResultsQueue, true, false, false, false, consumedQueueArguments())
 	if err != nil {
 		return err
 	}
 
-	_, err = channel.QueueDeclare(CatalogQueue, true, false, false, false, amqp.Table{
-		"x-queue-type": "quorum",
-	})
+	_, err = channel.QueueDeclare(CatalogQueue, true, false, false, false, consumedQueueArguments())
 	if err != nil {
 		return err
 	}
@@ -46,6 +46,29 @@ func declareTopology(channel *amqp.Channel) error {
 		model.InvoiceStockRevertedKey,
 		model.InvoiceStockRevertRejectedKey,
 	)
+}
+
+func consumedQueueArguments() amqp.Table {
+	return amqp.Table{
+		"x-queue-type":           "quorum",
+		"x-dead-letter-exchange": DeadLetterExchange,
+	}
+}
+
+func declareDeadLetter(channel *amqp.Channel) error {
+	err := channel.ExchangeDeclare(DeadLetterExchange, amqp.ExchangeTopic, true, false, false, false, nil)
+	if err != nil {
+		return err
+	}
+
+	_, err = channel.QueueDeclare(DeadLetterQueue, true, false, false, false, amqp.Table{
+		"x-queue-type": "quorum",
+	})
+	if err != nil {
+		return err
+	}
+
+	return bindQueue(channel, DeadLetterQueue, DeadLetterExchange, "#")
 }
 
 func bindQueue(channel *amqp.Channel, queue, exchange string, routingKeys ...string) error {

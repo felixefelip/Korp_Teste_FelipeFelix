@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"inventory/internal/infra/messaging/msgerr"
 	"inventory/internal/model"
 	"inventory/internal/usecase"
 
@@ -75,7 +76,7 @@ func (h *Handler) HandleCloseRequested(delivery amqp.Delivery) error {
 	var event closeRequestedEvent
 
 	if err := json.Unmarshal(delivery.Body, &event); err != nil {
-		return err
+		return msgerr.Poison(err)
 	}
 
 	result, err := h.usecase.Apply(event.toRequest())
@@ -93,7 +94,7 @@ func (h *Handler) HandleReopenRequested(delivery amqp.Delivery) error {
 	var event reopenRequestedEvent
 
 	if err := json.Unmarshal(delivery.Body, &event); err != nil {
-		return err
+		return msgerr.Poison(err)
 	}
 
 	result, err := h.usecase.Revert(event.toRequest())

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"billing/internal/infra/messaging/msgerr"
 	"billing/internal/model"
 	"billing/internal/usecase"
 
@@ -62,7 +63,7 @@ func decode(delivery amqp.Delivery) (productEvent, error) {
 	var event productEvent
 
 	if err := json.Unmarshal(delivery.Body, &event); err != nil {
-		return productEvent{}, err
+		return productEvent{}, msgerr.Poison(err)
 	}
 
 	return event, nil

@@ -388,4 +388,29 @@ describe('InvoiceService', () => {
       expect(service.invoices()[1].status).toBe('CLOSED');
     });
   });
+
+  describe('retry', () => {
+    it('posts to the retry action of that invoice', () => {
+      service.retry(7).subscribe();
+
+      const request = http.expectOne('/api/billing/invoices/7/retry');
+
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({});
+      request.flush({ ...invoices[1], id: 7, status: 'CLOSING' });
+    });
+
+    it('keeps the invoice in the listing, still being processed', () => {
+      load();
+
+      service.retry(2).subscribe();
+      http.expectOne('/api/billing/invoices/2/retry').flush({
+        ...invoices[1],
+        status: 'CLOSING'
+      });
+
+      expect(service.invoices()[1].status).toBe('CLOSING');
+      expect(service.invoices()).toHaveLength(2);
+    });
+  });
 });

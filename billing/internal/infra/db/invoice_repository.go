@@ -127,6 +127,26 @@ func (ir *InvoiceRepository) ReopenInvoice(id int, event model.OutboxEvent) erro
 	})
 }
 
+func (ir *InvoiceRepository) RetryInvoice(id int, status string, event model.OutboxEvent) error {
+	return ir.connection.Transaction(func(tx *gorm.DB) error {
+		var processing int64
+
+		err := tx.
+			Model(&model.Invoice{}).
+			Where("id = ? AND status = ?", id, status).
+			Count(&processing).Error
+		if err != nil {
+			return err
+		}
+
+		if processing == 0 {
+			return model.ErrInvoiceNotProcessing
+		}
+
+		return tx.Create(&event).Error
+	})
+}
+
 func (ir *InvoiceRepository) ConfirmReopen(id int) (bool, error) {
 	return ir.moveFrom(id, model.InvoiceStatusReopening, model.InvoiceStatusOpen, "", nil)
 }

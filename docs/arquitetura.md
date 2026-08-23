@@ -70,15 +70,20 @@ stateDiagram-v2
     CLOSED --> REOPENING: POST /invoices/:id/reopen
     REOPENING --> OPEN: invoice.stock.reverted
     REOPENING --> CLOSED: invoice.stock.revert.rejected
+    CLOSING --> CLOSING: POST /invoices/:id/retry
+    REOPENING --> REOPENING: POST /invoices/:id/retry
     OPEN --> [*]: DELETE
 ```
 
-| Estado | Rótulo na tela | Editar | Excluir | Fechar | Reabrir |
-|---|---|:-:|:-:|:-:|:-:|
-| `OPEN` | Aberta | sim | sim | sim | — |
-| `CLOSING` | Processando | não | não | não | não |
-| `CLOSED` | Fechada | não | não | — | sim |
-| `REOPENING` | Processando | não | não | não | não |
+| Estado | Rótulo na tela | Editar | Excluir | Fechar | Reabrir | Reenviar |
+|---|---|:-:|:-:|:-:|:-:|:-:|
+| `OPEN` | Aberta | sim | sim | sim | — | — |
+| `CLOSING` | Processando | não | não | não | não | sim |
+| `CLOSED` | Fechada | não | não | — | sim | — |
+| `REOPENING` | Processando | não | não | não | não | sim |
+
+O reenvio não é uma transição: repete o pedido que a nota já fez, mantendo o
+status. Está descrito em [Nova tentativa e fila morta](#nova-tentativa-e-fila-morta).
 
 No modelo isso vive em três predicados: `Editable()` (só `OPEN`), `Closed()` e
 `Processing()` (`CLOSING` ou `REOPENING`). A reabertura é assíncrona pelo mesmo
@@ -372,7 +377,18 @@ inventory.events (topic, durable)
   ├── product.created ──┐
   ├── product.updated ──┼→ billing.catalog (quorum, durable)
   └── product.deleted ──┘
+
+billing.dead-letter (topic, durable)
+  └── # ──→ billing.dead-letter (quorum, durable)
+
+inventory.dead-letter (topic, durable)
+  └── # ──→ inventory.dead-letter (quorum, durable)
 ```
+
+Cada serviço tem sua própria fila morta, para onde o broker manda o que o
+consumidor recusar. A binding aqui é `#` de propósito: é o único lugar onde
+não se sabe de antemão o que vai chegar, e a chave original é preservada no
+dead-letter.
 
 **Bindings são explícitas, uma por routing key** — sem curingas. Assim a chave
 aparece nas duas pontas para um `grep`, e a fila declara exatamente o que
@@ -385,7 +401,7 @@ roteou, o relay trata como erro e a causa fica gravada em
 
 Configuração das filas:
 
-- **Filas quorum, duráveis**, com `delivery_limit` 20 (padrão do RabbitMQ 4.x).
+- **Filas quorum, duráveis**, com dead-letter exchange configurada.
 - **Mensagens persistentes** (`delivery_mode=2`).
 - **Publisher confirms**: o relay só marca como publicado depois do ack.
 - **Ack manual** com `prefetch=1`.
@@ -394,7 +410,70 @@ Configuração das filas:
   retorna.
 
 A topologia é declarada na subida de cada serviço — operações idempotentes que
-dispensam script de provisionamento.
+dispensam script de provisionamento. A ressalva é que **argumento de fila não
+se altera por redeclaração**: uma fila que já existe com outros argumentos faz
+o broker responder `PRECONDITION_FAILED` e o serviço fica em laço de
+reconexão. Ao introduzir a DLX foi preciso apagar as filas antigas com os dois
+serviços parados:
+
+```bash
+curl -u guest:guest -X DELETE http://localhost:15672/api/queues/%2F/billing.stock-results
+curl -u guest:guest -X DELETE http://localhost:15672/api/queues/%2F/billing.catalog
+curl -u guest:guest -X DELETE http://localhost:15672/api/queues/%2F/inventory.invoice-requests
+```
+
+## Nova tentativa e fila morta
+
+Um handler que devolve erro não diz a mesma coisa em todos os casos. O
+consumidor separa dois:
+
+- **Mensagem venenosa** — o corpo não decodifica. Nova entrega nunca vai
+  funcionar. Vai para a fila morta na hora, sem espera. É o que o
+  `msgerr.Poison` marca, e o único lugar que o marca hoje é o `json.Unmarshal`
+  dos handlers.
+- **Falha transitória** — banco fora do ar, deadlock, timeout. A mesma
+  mensagem tem chance na próxima entrega. Volta para a fila com
+  `requeue=true`, depois de uma espera que dobra a cada tentativa (2s, teto de
+  30s), até `retryLimit` tentativas; esgotado o orçamento, vai para a fila
+  morta.
+
+**O orçamento de tentativas é do consumidor, não do broker.** A intenção
+original era usar o `delivery_limit` das filas quorum, mas no RabbitMQ 4.x ele
+não conta retorno explícito: `basic.nack` com `requeue=true` incrementa
+`x-acquired-count` e deixa `delivery-count` parado — a mensagem volta
+indefinidamente e o limite nunca dispara. Está verificado contra o broker real
+em `topology_test.go`. O consumidor então lê o `x-acquired-count` da entrega
+(ou `x-delivery-count`, em broker mais antigo) e decide ele mesmo quando parar.
+
+O `delivery_limit` continua valendo como rede para o que o consumidor não
+controla: entrega perdida por queda de canal ou de conexão.
+
+A espera acontece **dentro do consumidor**, antes de devolver a mensagem. Com
+`prefetch=1` isso segura a fila inteira enquanto a tentativa está pendurada —
+o que é o comportamento desejado quando a causa é o banco fora do ar, já que a
+próxima mensagem falharia igual. O custo é que uma falha específica de uma
+mensagem atrasa as de trás; o teto de 30s por tentativa existe para manter
+esse atraso limitado, bem abaixo do `consumer_timeout` de 30 minutos do broker.
+
+Nada disso recupera a nota sozinho depois que a mensagem morre — para isso
+existe o reenvio.
+
+## Reenvio de nota travada
+
+`POST /invoices/:id/retry` grava no outbox **um novo evento igual ao que a
+nota já pediu** — `invoice.close.requested` para `CLOSING`,
+`invoice.reopen.requested` para `REOPENING` — sem mexer no status. O resto do
+caminho é o normal: relay publica, inventory consome, resultado volta.
+
+Repetir o pedido é seguro porque o inventory é idempotente: `alreadyApplied`
+sob lock reconhece a nota já baixada e responde `invoice.stock.applied` de
+novo, sem gravar movimento em dobro. O mesmo vale para o estorno, que não acha
+mais movimento e responde `invoice.stock.reverted`.
+
+Vale tanto para a mensagem que morreu na DLQ quanto para a que se perdeu por
+qualquer outro motivo — o reenvio não precisa saber onde ela parou. Na
+interface é a ação **Tentar novamente**, a única oferecida enquanto a nota
+está em processamento.
 
 ## Outbox transacional
 
@@ -607,20 +686,45 @@ para `CLOSED`.
 Um resultado que chega para uma nota que já saiu do estado de processamento é
 reconhecido, confirmado e ignorado — sem mover a nota e sem parar a fila.
 
+### E. Banco fora do ar no meio do fluxo
+
+O caso que a DLX existe para cobrir. O `billing_db` cai na janela em que um
+`invoice.stock.applied` chega: o `ConfirmClose` devolve erro, mas o inventory
+já gravou os movimentos.
+
+```bash
+docker compose stop billing_db
+# fechar uma nota: o inventory baixa o estoque e publica o resultado
+# o billing loga "message ... returned to billing.stock-results, retrying in 2s"
+docker compose start billing_db
+# a entrega seguinte passa e a nota vai de CLOSING para CLOSED
+```
+
+Se o banco não voltar dentro do orçamento de tentativas, a mensagem vai para
+`billing.dead-letter` — onde dá para vê-la, em vez de sumir — e a nota fica em
+`CLOSING`. O caminho de volta é a ação **Tentar novamente**, que refaz o pedido
+para o inventory.
+
+### F. Mensagem venenosa
+
+Um corpo que não decodifica vai direto para a fila morta, sem repetir entrega e
+sem travar a fila. Nenhuma nota se move; a nota que originou a mensagem fica em
+processamento até alguém reenviar.
+
 ---
 
 # O que ainda não está feito
 
-- **Dead-letter exchange.** As filas têm `delivery_limit` 20 por padrão, mas
-  **não há DLX configurada**: uma mensagem que esgota as entregas é descartada
-  em silêncio. É a lacuna mais urgente da lista.
 - **Índice parcial no outbox.** A consulta do relay filtra
   `published_at IS NULL`, mas o índice é só em `next_attempt_at` — e todo
   evento já publicado também satisfaz `next_attempt_at <= now()`. Conforme a
   tabela cresce, o índice deixa de filtrar. Correção:
   `CREATE INDEX ... ON outbox_event (id) WHERE published_at IS NULL`.
 - **Poda do outbox.** Eventos publicados nunca são apagados.
-- **Ação "tentar novamente"** para nota travada em processamento.
+- **Consumidor da fila morta.** As mensagens ficam em
+  `billing.dead-letter` e `inventory.dead-letter` para inspeção, mas nada as
+  lê: descobrir que uma nota travou ainda depende de olhar a tela ou o broker.
+- **Reenvio em lote.** A ação "tentar novamente" é uma nota por vez.
 
 # Decisões deliberadas de não fazer
 

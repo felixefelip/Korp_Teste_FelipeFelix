@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"inventory/internal/infra/messaging/msgerr"
+	"billing/internal/infra/messaging/msgerr"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 

@@ -26,6 +26,7 @@ describe('InvoiceActions', () => {
   let service: {
     close: ReturnType<typeof vi.fn>;
     reopen: ReturnType<typeof vi.fn>;
+    retry: ReturnType<typeof vi.fn>;
     remove: ReturnType<typeof vi.fn>;
     danfeUrl: ReturnType<typeof vi.fn>;
   };
@@ -75,6 +76,7 @@ describe('InvoiceActions', () => {
     responses: {
       close?: () => Observable<Invoice>;
       reopen?: () => Observable<Invoice>;
+      retry?: () => Observable<Invoice>;
       remove?: () => Observable<void>;
     } = {}
   ) => {
@@ -83,6 +85,7 @@ describe('InvoiceActions', () => {
     service = {
       close: vi.fn(responses.close ?? (() => of(CLOSED))),
       reopen: vi.fn(responses.reopen ?? (() => of(OPEN))),
+      retry: vi.fn(responses.retry ?? (() => of(PROCESSING))),
       remove: vi.fn(responses.remove ?? (() => of(undefined))),
       danfeUrl: vi.fn((id: number) => `/api/billing/invoices/${id}/danfe`)
     };
@@ -349,8 +352,12 @@ describe('InvoiceActions', () => {
       await mount(PROCESSING);
     });
 
-    it('offers no action at all', () => {
-      expect(element().querySelector('.menu-button')).toBeNull();
+    it('offers retrying as the button itself, for the result that never came', () => {
+      expect(text(primary())).toBe('Tentar novamente');
+    });
+
+    it('offers nothing else behind a chevron', () => {
+      expect(toggle()).toBeNull();
     });
 
     it('does not offer printing again', () => {
@@ -360,6 +367,11 @@ describe('InvoiceActions', () => {
     it('does not offer reopening, which only makes sense once it is closed', () => {
       expect(element().textContent).not.toContain('Reabrir');
     });
+
+    it('does not offer editing or deleting', () => {
+      expect(element().textContent).not.toContain('Editar');
+      expect(element().textContent).not.toContain('Excluir');
+    });
   });
 
   describe('while the invoice is being reopened', () => {
@@ -367,12 +379,50 @@ describe('InvoiceActions', () => {
       await mount(REOPENING);
     });
 
-    it('offers no action either', () => {
-      expect(element().querySelector('.menu-button')).toBeNull();
+    it('offers retrying as well', () => {
+      expect(text(primary())).toBe('Tentar novamente');
     });
 
     it('does not offer reopening again', () => {
       expect(element().textContent).not.toContain('Reabrir');
+    });
+  });
+
+  describe('retrying', () => {
+    it('resends the request without asking, since it settles nothing', async () => {
+      await mount(PROCESSING);
+      await click(primary());
+
+      expect(dialog()).toBeNull();
+      expect(service.retry).toHaveBeenCalledWith(7);
+      expect(flash.success).toHaveBeenCalledWith('Nota fiscal 001/000007 reenviada.');
+    });
+
+    it('shows what the API said when it refuses', async () => {
+      await mount(PROCESSING, {
+        retry: () =>
+          throwError(
+            () =>
+              new HttpErrorResponse({
+                status: 409,
+                error: { message: 'Esta nota fiscal não está em processamento.' }
+              })
+          )
+      });
+      await click(primary());
+
+      expect(flash.error).toHaveBeenCalledWith('Esta nota fiscal não está em processamento.');
+    });
+
+    it('falls back to its own message when the API names none', async () => {
+      await mount(PROCESSING, {
+        retry: () => throwError(() => new HttpErrorResponse({ status: 500 }))
+      });
+      await click(primary());
+
+      expect(flash.error).toHaveBeenCalledWith(
+        'Não foi possível reenviar a nota fiscal. Tente novamente.'
+      );
     });
   });
 });

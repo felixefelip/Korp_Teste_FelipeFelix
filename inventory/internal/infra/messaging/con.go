@@ -11,6 +11,9 @@ const (
 	InventoryExchange    = "inventory.events"
 	InvoiceRequestsQueue = "inventory.invoice-requests"
 
+	DeadLetterExchange = "inventory.dead-letter"
+	DeadLetterQueue    = "inventory.dead-letter"
+
 	prefetchCount = 1
 )
 

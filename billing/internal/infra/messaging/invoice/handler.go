@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"billing/internal/infra/messaging/msgerr"
 	"billing/internal/model"
 	"billing/internal/usecase"
 
@@ -105,7 +106,7 @@ func decode(delivery amqp.Delivery) (stockResultEvent, error) {
 	var event stockResultEvent
 
 	if err := json.Unmarshal(delivery.Body, &event); err != nil {
-		return stockResultEvent{}, err
+		return stockResultEvent{}, msgerr.Poison(err)
 	}
 
 	return event, nil

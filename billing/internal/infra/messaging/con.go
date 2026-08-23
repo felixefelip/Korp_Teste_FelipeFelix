@@ -12,6 +12,9 @@ const (
 	StockResultsQueue = "billing.stock-results"
 	CatalogQueue      = "billing.catalog"
 
+	DeadLetterExchange = "billing.dead-letter"
+	DeadLetterQueue    = "billing.dead-letter"
+
 	prefetchCount = 1
 )
 

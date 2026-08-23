@@ -287,3 +287,31 @@ func (i *Controller) ReopenInvoice(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusAccepted, newResponse(reopenedInvoice))
 }
+
+func (i *Controller) RetryInvoice(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "o id da nota fiscal precisa ser um numero inteiro"})
+		return
+	}
+
+	retriedInvoice, err := i.invoiceUsecase.RetryInvoice(id)
+	if err != nil {
+		if errors.Is(err, model.ErrInvoiceNotProcessing) {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"message": "Esta nota fiscal não está em processamento.",
+			})
+			return
+		}
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"message": "nota fiscal nao encontrada"})
+			return
+		}
+
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao reenviar a nota fiscal"})
+		return
+	}
+
+	ctx.JSON(http.StatusAccepted, newResponse(retriedInvoice))
+}
