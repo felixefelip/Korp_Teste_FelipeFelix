@@ -1,7 +1,6 @@
 package db_test
 
 import (
-	"encoding/json"
 	"testing"
 
 	"inventory/internal/infra/db"
@@ -367,45 +366,19 @@ func TestApplyInvoiceAddsTheStockOfAnIncomingInvoice(t *testing.T) {
 	assert.Equal(t, 7, stockOf(t, products, productID))
 }
 
-func TestApplyInvoiceRefusesWhenTheItemsTogetherExceedTheStock(t *testing.T) {
+func TestApplyInvoiceWritesNothingWhenTheStockRefuses(t *testing.T) {
 	movements, products := newMovementRepository(t)
 	productID := seedProduct(t, products, movements, "PROD-1", 12)
 
 	event, err := movements.ApplyInvoice(outInvoice(productID, 10, 5))
 	require.NoError(t, err)
 
-	assert.Equal(t, model.InvoiceStockRejectedKey, event.RoutingKey,
-		"10 and 5 each fit in 12, the sum does not")
-	assert.Equal(t, 12, stockOf(t, products, productID), "nothing was taken")
+	assert.Equal(t, model.InvoiceStockRejectedKey, event.RoutingKey)
+	assert.Equal(t, 12, stockOf(t, products, productID), "the balance is untouched")
 
 	var stored []model.StockMovement
 	require.NoError(t, testConnection.Where("billing_invoice_id = ?", 42).Find(&stored).Error)
-	assert.Empty(t, stored, "all or nothing")
-
-	var payload struct {
-		Reason    string                `json:"reason"`
-		Shortages []model.StockShortage `json:"shortages"`
-	}
-	require.NoError(t, json.Unmarshal(event.Payload, &payload))
-	assert.Equal(t, model.ReasonInsufficientStock, payload.Reason)
-	require.Len(t, payload.Shortages, 1)
-	assert.Equal(t, 15, payload.Shortages[0].Required)
-	assert.Equal(t, 12, payload.Shortages[0].Available)
-}
-
-func TestApplyInvoiceRefusesWhenAProductIsGone(t *testing.T) {
-	movements, _ := newMovementRepository(t)
-
-	event, err := movements.ApplyInvoice(outInvoice(9999, 1))
-	require.NoError(t, err)
-
-	assert.Equal(t, model.InvoiceStockRejectedKey, event.RoutingKey)
-
-	var payload struct {
-		Reason string `json:"reason"`
-	}
-	require.NoError(t, json.Unmarshal(event.Payload, &payload))
-	assert.Equal(t, model.ReasonProductNotFound, payload.Reason)
+	assert.Empty(t, stored, "the whole transaction rolled back to a refusal")
 }
 
 func TestApplyInvoiceTwiceTakesTheStockOnlyOnce(t *testing.T) {

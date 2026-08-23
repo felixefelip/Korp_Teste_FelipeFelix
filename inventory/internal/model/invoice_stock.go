@@ -58,6 +58,16 @@ func (r InvoiceStockRequest) ProductIDs() []int {
 	return ids
 }
 
+func (r InvoiceStockRequest) MissingProducts(products map[int]Product) bool {
+	for _, productID := range r.ProductIDs() {
+		if _, known := products[productID]; !known {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (r InvoiceStockRequest) Movements() []StockMovement {
 	movementType := MovementIn
 	if r.MovesStockOut() {
@@ -127,6 +137,56 @@ func ShortagesFor(request InvoiceStockRequest, products map[int]Product) []Stock
 	}
 
 	return shortages
+}
+
+type InvoiceStockDecision struct {
+	Movements []StockMovement
+	Event     OutboxEvent
+}
+
+func ResolveInvoiceStock(
+	request InvoiceStockRequest,
+	products map[int]Product,
+	alreadyApplied bool,
+) (InvoiceStockDecision, error) {
+	if alreadyApplied {
+		return appliedDecision(request, nil)
+	}
+
+	if request.MissingProducts(products) {
+		return rejectedDecision(request, ReasonProductNotFound, nil)
+	}
+
+	if shortages := ShortagesFor(request, products); len(shortages) > 0 {
+		return rejectedDecision(request, ReasonInsufficientStock, shortages)
+	}
+
+	return appliedDecision(request, request.Movements())
+}
+
+func appliedDecision(
+	request InvoiceStockRequest,
+	movements []StockMovement,
+) (InvoiceStockDecision, error) {
+	event, err := NewInvoiceStockApplied(request)
+	if err != nil {
+		return InvoiceStockDecision{}, err
+	}
+
+	return InvoiceStockDecision{Movements: movements, Event: event}, nil
+}
+
+func rejectedDecision(
+	request InvoiceStockRequest,
+	reason string,
+	shortages []StockShortage,
+) (InvoiceStockDecision, error) {
+	event, err := NewInvoiceStockRejected(request, reason, shortages)
+	if err != nil {
+		return InvoiceStockDecision{}, err
+	}
+
+	return InvoiceStockDecision{Event: event}, nil
 }
 
 type invoiceStockResultPayload struct {

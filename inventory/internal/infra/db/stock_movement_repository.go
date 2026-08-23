@@ -78,7 +78,7 @@ func (sr *StockMovementRepository) UpdateMovement(movement model.StockMovement) 
 func (sr *StockMovementRepository) ApplyInvoice(
 	request model.InvoiceStockRequest,
 ) (model.OutboxEvent, error) {
-	var event model.OutboxEvent
+	var decision model.InvoiceStockDecision
 
 	err := sr.connection.Transaction(func(tx *gorm.DB) error {
 		products, err := lockProducts(tx, request.ProductIDs())
@@ -86,47 +86,27 @@ func (sr *StockMovementRepository) ApplyInvoice(
 			return err
 		}
 
-		event, err = resolveInvoice(tx, request, products)
+		applied, err := alreadyApplied(tx, request.InvoiceID)
 		if err != nil {
 			return err
 		}
 
-		return tx.Create(&event).Error
+		decision, err = model.ResolveInvoiceStock(request, products, applied)
+		if err != nil {
+			return err
+		}
+
+		if err := writeMovements(tx, decision.Movements); err != nil {
+			return err
+		}
+
+		return tx.Create(&decision.Event).Error
 	})
 	if err != nil {
 		return model.OutboxEvent{}, err
 	}
 
-	return event, nil
-}
-
-func resolveInvoice(
-	tx *gorm.DB,
-	request model.InvoiceStockRequest,
-	products map[int]model.Product,
-) (model.OutboxEvent, error) {
-	applied, err := alreadyApplied(tx, request.InvoiceID)
-	if err != nil {
-		return model.OutboxEvent{}, err
-	}
-
-	if applied {
-		return model.NewInvoiceStockApplied(request)
-	}
-
-	if missing := missingProducts(request, products); missing {
-		return model.NewInvoiceStockRejected(request, model.ReasonProductNotFound, nil)
-	}
-
-	if shortages := model.ShortagesFor(request, products); len(shortages) > 0 {
-		return model.NewInvoiceStockRejected(request, model.ReasonInsufficientStock, shortages)
-	}
-
-	if err := writeInvoiceMovements(tx, request); err != nil {
-		return model.OutboxEvent{}, err
-	}
-
-	return model.NewInvoiceStockApplied(request)
+	return decision.Event, nil
 }
 
 func lockProducts(tx *gorm.DB, ids []int) (map[int]model.Product, error) {
@@ -165,24 +145,22 @@ func alreadyApplied(tx *gorm.DB, invoiceID int) (bool, error) {
 	return count > 0, err
 }
 
-func missingProducts(request model.InvoiceStockRequest, products map[int]model.Product) bool {
-	for _, productID := range request.ProductIDs() {
-		if _, known := products[productID]; !known {
-			return true
-		}
+func writeMovements(tx *gorm.DB, movements []model.StockMovement) error {
+	if len(movements) == 0 {
+		return nil
 	}
 
-	return false
-}
+	touched := make(map[int]struct{}, len(movements))
 
-func writeInvoiceMovements(tx *gorm.DB, request model.InvoiceStockRequest) error {
-	for _, movement := range request.Movements() {
+	for _, movement := range movements {
 		if err := tx.Create(&movement).Error; err != nil {
 			return err
 		}
+
+		touched[movement.ProductID] = struct{}{}
 	}
 
-	for _, productID := range request.ProductIDs() {
+	for productID := range touched {
 		if err := refreshStock(tx, productID); err != nil {
 			return err
 		}
