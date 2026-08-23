@@ -26,6 +26,7 @@ func declareTopology(channel *amqp.Channel) error {
 
 	return bindQueue(channel, InvoiceRequestsQueue, BillingExchange,
 		model.InvoiceCloseRequestedKey,
+		model.InvoiceReopenRequestedKey,
 	)
 }
 

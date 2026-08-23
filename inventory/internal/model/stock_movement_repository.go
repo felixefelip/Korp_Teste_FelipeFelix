@@ -6,4 +6,5 @@ type StockMovementRepository interface {
 	CreateMovement(movement StockMovement) (int, error)
 	UpdateMovement(movement StockMovement) error
 	ApplyInvoice(request InvoiceStockRequest) (OutboxEvent, error)
+	RevertInvoice(request InvoiceStockRevertRequest) (OutboxEvent, error)
 }

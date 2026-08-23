@@ -400,3 +400,95 @@ func TestApplyInvoiceTwiceTakesTheStockOnlyOnce(t *testing.T) {
 	require.NoError(t, testConnection.Where("billing_invoice_id = ?", 42).Find(&stored).Error)
 	assert.Len(t, stored, 1)
 }
+
+func revertOf(invoiceID int) model.InvoiceStockRevertRequest {
+	return model.InvoiceStockRevertRequest{
+		InvoiceID:     invoiceID,
+		InvoiceNumber: "NF-0042",
+		CausationID:   "cause-2",
+	}
+}
+
+func TestRevertInvoiceErasesTheMovementsAndGivesTheStockBack(t *testing.T) {
+	movements, products := newMovementRepository(t)
+	productID := seedProduct(t, products, movements, "PROD-1", 20)
+
+	_, err := movements.ApplyInvoice(outInvoice(productID, 8))
+	require.NoError(t, err)
+	require.Equal(t, 12, stockOf(t, products, productID))
+
+	event, err := movements.RevertInvoice(revertOf(42))
+	require.NoError(t, err)
+
+	assert.Equal(t, model.InvoiceStockRevertedKey, event.RoutingKey)
+	assert.Equal(t, 20, stockOf(t, products, productID), "the balance is back where it was")
+
+	var stored []model.StockMovement
+	require.NoError(t, testConnection.Where("billing_invoice_id = ?", 42).Find(&stored).Error)
+	assert.Empty(t, stored, "the ledger keeps no trace of an invoice that went back to open")
+}
+
+func TestRevertInvoiceLetsTheInvoiceBeClosedAgainWithNewQuantities(t *testing.T) {
+	movements, products := newMovementRepository(t)
+	productID := seedProduct(t, products, movements, "PROD-1", 20)
+
+	_, err := movements.ApplyInvoice(outInvoice(productID, 5))
+	require.NoError(t, err)
+
+	_, err = movements.RevertInvoice(revertOf(42))
+	require.NoError(t, err)
+
+	_, err = movements.ApplyInvoice(outInvoice(productID, 12))
+	require.NoError(t, err)
+
+	assert.Equal(t, 8, stockOf(t, products, productID),
+		"the second close takes the corrected quantity, not the old one")
+}
+
+func TestRevertInvoiceTwiceIsSafe(t *testing.T) {
+	movements, products := newMovementRepository(t)
+	productID := seedProduct(t, products, movements, "PROD-1", 20)
+
+	_, err := movements.ApplyInvoice(outInvoice(productID, 8))
+	require.NoError(t, err)
+
+	_, err = movements.RevertInvoice(revertOf(42))
+	require.NoError(t, err)
+
+	event, err := movements.RevertInvoice(revertOf(42))
+	require.NoError(t, err)
+
+	assert.Equal(t, model.InvoiceStockRevertedKey, event.RoutingKey)
+	assert.Equal(t, 20, stockOf(t, products, productID), "the second revert gives nothing back twice")
+}
+
+func TestRevertInvoiceRefusesWhenTheIncomingStockWasAlreadyUsed(t *testing.T) {
+	movements, products := newMovementRepository(t)
+	productID := seedProduct(t, products, movements, "PROD-1", 0)
+
+	incoming := outInvoice(productID, 10)
+	incoming.Type = model.InvoiceTypeIn
+
+	_, err := movements.ApplyInvoice(incoming)
+	require.NoError(t, err)
+	require.Equal(t, 10, stockOf(t, products, productID))
+
+	_, err = movements.CreateMovement(model.StockMovement{
+		ProductID: productID,
+		Type:      model.MovementOut,
+		Origin:    model.MovementOriginAdjustment,
+		Quantity:  7,
+		Confirmed: true,
+	})
+	require.NoError(t, err)
+
+	event, err := movements.RevertInvoice(revertOf(42))
+	require.NoError(t, err)
+
+	assert.Equal(t, model.InvoiceStockRevertRejectedKey, event.RoutingKey)
+	assert.Equal(t, 3, stockOf(t, products, productID), "the balance is untouched")
+
+	var stored []model.StockMovement
+	require.NoError(t, testConnection.Where("billing_invoice_id = ?", 42).Find(&stored).Error)
+	assert.Len(t, stored, 1, "the movements stay, the invoice stays closed")
+}

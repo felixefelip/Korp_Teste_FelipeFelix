@@ -62,6 +62,29 @@ func (h *Handler) HandleStockRejected(delivery amqp.Delivery) error {
 	return settle(h.usecase.RejectClose(event.InvoiceID, event.Reason), event.InvoiceID)
 }
 
+func (h *Handler) HandleStockReverted(delivery amqp.Delivery) error {
+	event, err := decode(delivery)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("invoice %d: stock reverted, caused by %s\n", event.InvoiceID, event.CausationID)
+
+	return settle(h.usecase.ConfirmReopen(event.InvoiceID), event.InvoiceID)
+}
+
+func (h *Handler) HandleStockRevertRejected(delivery amqp.Delivery) error {
+	event, err := decode(delivery)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("invoice %d: revert refused (%s), caused by %s\n",
+		event.InvoiceID, event.Reason, event.CausationID)
+
+	return settle(h.usecase.RejectReopen(event.InvoiceID, event.Reason), event.InvoiceID)
+}
+
 func decode(delivery amqp.Delivery) (stockResultEvent, error) {
 	var event stockResultEvent
 

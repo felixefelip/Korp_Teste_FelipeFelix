@@ -84,7 +84,12 @@ func (iu *InvoiceUsecase) ReopenInvoice(id int) (model.Invoice, error) {
 		return model.Invoice{}, model.ErrInvoiceOpen
 	}
 
-	if err := iu.repository.ReopenInvoice(id); err != nil {
+	event, err := model.NewInvoiceReopenRequested(invoice)
+	if err != nil {
+		return model.Invoice{}, err
+	}
+
+	if err := iu.repository.ReopenInvoice(id, event); err != nil {
 		return model.Invoice{}, err
 	}
 
@@ -119,6 +124,32 @@ func (iu *InvoiceUsecase) ConfirmClose(invoiceID int) error {
 
 func (iu *InvoiceUsecase) RejectClose(invoiceID int, reason string) error {
 	applied, err := iu.repository.RejectClose(invoiceID, reason)
+	if err != nil {
+		return err
+	}
+
+	if !applied {
+		return model.ErrInvoiceNotProcessing
+	}
+
+	return nil
+}
+
+func (iu *InvoiceUsecase) ConfirmReopen(invoiceID int) error {
+	applied, err := iu.repository.ConfirmReopen(invoiceID)
+	if err != nil {
+		return err
+	}
+
+	if !applied {
+		return model.ErrInvoiceNotProcessing
+	}
+
+	return nil
+}
+
+func (iu *InvoiceUsecase) RejectReopen(invoiceID int, reason string) error {
+	applied, err := iu.repository.RejectReopen(invoiceID, reason)
 	if err != nil {
 		return err
 	}

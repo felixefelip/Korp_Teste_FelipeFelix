@@ -6,7 +6,7 @@ import { ProductService } from '../../../inventory/products/product.service';
 import { FlashService } from '../../../shared/flash/flash.service';
 import { ApiFailure, readApiFailure } from '../../../shared/forms/http-errors';
 import { InvoiceForm, SAVE_FAILURE } from '../invoice-form/invoice-form';
-import { Invoice, InvoicePayload } from '../invoice.model';
+import { Invoice, InvoicePayload, isProcessing } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 
 const NOT_FOUND_FAILURE = 'Nota fiscal não encontrada.';
@@ -62,7 +62,7 @@ export class InvoiceEdit {
     this.invoiceService.get(this.invoiceId).subscribe({
       next: (invoice) => {
         if (invoice.status !== 'OPEN') {
-          this.flash.error(invoice.status === 'CLOSING' ? PROCESSING_FAILURE : CLOSED_FAILURE);
+          this.flash.error(isProcessing(invoice) ? PROCESSING_FAILURE : CLOSED_FAILURE);
           this.router.navigate(['/billing/invoices']);
           return;
         }

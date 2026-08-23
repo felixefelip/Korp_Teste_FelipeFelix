@@ -20,6 +20,7 @@ type fakeMovementRepository struct {
 	receivedID       int
 	receivedMovement model.StockMovement
 	receivedRequest  model.InvoiceStockRequest
+	receivedRevert   model.InvoiceStockRevertRequest
 	recordedEvent    model.OutboxEvent
 	calls            int
 }
@@ -27,6 +28,14 @@ type fakeMovementRepository struct {
 func (f *fakeMovementRepository) ApplyInvoice(request model.InvoiceStockRequest) (model.OutboxEvent, error) {
 	f.calls++
 	f.receivedRequest = request
+	return f.recordedEvent, f.err
+}
+
+func (f *fakeMovementRepository) RevertInvoice(
+	request model.InvoiceStockRevertRequest,
+) (model.OutboxEvent, error) {
+	f.calls++
+	f.receivedRevert = request
 	return f.recordedEvent, f.err
 }
 

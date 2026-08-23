@@ -280,4 +280,39 @@ describe('InvoiceList', () => {
       expect(text(element().querySelector('.table__failure'))).toBe('Estoque insuficiente');
     });
   });
+
+  describe('while an invoice is being reopened', () => {
+    const reopening = (): Invoice[] => [{ ...INVOICES[1], status: 'REOPENING' }];
+
+    it('translates the status as processing too', async () => {
+      await mount(() => of(reopening()));
+
+      expect(cells(rows()[0])[2]).toBe('Processando');
+    });
+
+    it('keeps asking the API, the same as a closing invoice', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+
+      try {
+        const service = await mount(() => of(reopening()));
+        const initial = service.list.mock.calls.length;
+
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL * 3);
+
+        expect(service.list.mock.calls.length).toBeGreaterThan(initial);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('shows the reason when the stock could not be given back', async () => {
+      await mount(() =>
+        of([{ ...INVOICES[1], status: 'CLOSED' as const, failureReason: 'STOCK_ALREADY_USED' }])
+      );
+
+      expect(text(element().querySelector('.table__failure'))).toBe(
+        'O estoque desta nota já foi utilizado'
+      );
+    });
+  });
 });

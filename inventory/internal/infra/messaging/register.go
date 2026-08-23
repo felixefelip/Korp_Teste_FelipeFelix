@@ -17,7 +17,8 @@ func Register(connection *gorm.DB) {
 	invoiceHandler := invoice.NewHandler(invoiceStockUsecase)
 
 	NewConsumer(InvoiceRequestsQueue, Routes{
-		model.InvoiceCloseRequestedKey: invoiceHandler.HandleCloseRequested,
+		model.InvoiceCloseRequestedKey:  invoiceHandler.HandleCloseRequested,
+		model.InvoiceReopenRequestedKey: invoiceHandler.HandleReopenRequested,
 	}).Start()
 
 	NewRelay(outboxRepository, InventoryExchange).Start()

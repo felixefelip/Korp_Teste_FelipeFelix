@@ -2,7 +2,10 @@ package model
 
 import "sort"
 
-const InvoiceCloseRequestedKey = "invoice.close.requested"
+const (
+	InvoiceCloseRequestedKey  = "invoice.close.requested"
+	InvoiceReopenRequestedKey = "invoice.reopen.requested"
+)
 
 type InvoiceStockItem struct {
 	BillingInvoiceItemID int
@@ -33,10 +36,13 @@ func (r InvoiceStockRequest) QuantityRequiredByProduct() map[int]int {
 }
 
 func (r InvoiceStockRequest) ProductIDs() []int {
-	required := r.QuantityRequiredByProduct()
-	ids := make([]int, 0, len(required))
+	return sortedProductIDs(r.QuantityRequiredByProduct())
+}
 
-	for productID := range required {
+func sortedProductIDs(byProduct map[int]int) []int {
+	ids := make([]int, 0, len(byProduct))
+
+	for productID := range byProduct {
 		ids = append(ids, productID)
 	}
 

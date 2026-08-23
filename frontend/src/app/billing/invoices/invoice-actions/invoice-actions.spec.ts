@@ -19,6 +19,7 @@ const OPEN: Invoice = {
 
 const CLOSED: Invoice = { ...OPEN, status: 'CLOSED' };
 const PROCESSING: Invoice = { ...OPEN, status: 'CLOSING' };
+const REOPENING: Invoice = { ...OPEN, status: 'REOPENING' };
 
 describe('InvoiceActions', () => {
   let fixture: ComponentFixture<InvoiceActions>;
@@ -321,6 +322,20 @@ describe('InvoiceActions', () => {
     });
 
     it('does not offer reopening, which only makes sense once it is closed', () => {
+      expect(element().textContent).not.toContain('Reabrir');
+    });
+  });
+
+  describe('while the invoice is being reopened', () => {
+    beforeEach(async () => {
+      await mount(REOPENING);
+    });
+
+    it('offers no action either', () => {
+      expect(element().querySelector('.menu-button')).toBeNull();
+    });
+
+    it('does not offer reopening again', () => {
       expect(element().textContent).not.toContain('Reabrir');
     });
   });

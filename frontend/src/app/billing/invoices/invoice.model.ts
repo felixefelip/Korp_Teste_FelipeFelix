@@ -1,4 +1,4 @@
-export type InvoiceStatus = 'OPEN' | 'CLOSING' | 'CLOSED';
+export type InvoiceStatus = 'OPEN' | 'CLOSING' | 'CLOSED' | 'REOPENING';
 export type InvoiceType = 'IN' | 'OUT';
 
 export interface InvoiceItem {
@@ -48,11 +48,17 @@ export const INVOICE_TYPES = Object.keys(INVOICE_TYPE_LABELS) as InvoiceType[];
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   OPEN: 'Aberta',
   CLOSING: 'Processando',
+  REOPENING: 'Processando',
   CLOSED: 'Fechada'
 };
 
 export const INVOICE_FAILURE_LABELS: Record<string, string> = {
   INSUFFICIENT_STOCK: 'Estoque insuficiente',
-  PRODUCT_NOT_FOUND: 'Produto não encontrado no estoque'
+  PRODUCT_NOT_FOUND: 'Produto não encontrado no estoque',
+  STOCK_ALREADY_USED: 'O estoque desta nota já foi utilizado'
 };
+
+export function isProcessing(invoice: Invoice): boolean {
+  return invoice.status === 'CLOSING' || invoice.status === 'REOPENING';
+}
 

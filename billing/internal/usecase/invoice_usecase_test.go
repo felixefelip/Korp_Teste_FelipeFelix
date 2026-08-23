@@ -74,9 +74,23 @@ func (f *fakeRepository) RejectClose(id int, reason string) (bool, error) {
 	return f.transitionMoved, f.err
 }
 
-func (f *fakeRepository) ReopenInvoice(id int) error {
+func (f *fakeRepository) ConfirmReopen(id int) (bool, error) {
+	f.calls++
+	f.confirmedID = id
+	return f.transitionMoved, f.err
+}
+
+func (f *fakeRepository) RejectReopen(id int, reason string) (bool, error) {
+	f.calls++
+	f.rejectedID = id
+	f.rejectedReason = reason
+	return f.transitionMoved, f.err
+}
+
+func (f *fakeRepository) ReopenInvoice(id int, event model.OutboxEvent) error {
 	f.calls++
 	f.reopenedID = id
+	f.recordedEvent = event
 	return f.err
 }
 

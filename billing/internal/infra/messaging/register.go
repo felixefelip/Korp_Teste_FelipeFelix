@@ -19,6 +19,9 @@ func Register(connection *gorm.DB) {
 	NewConsumer(StockResultsQueue, Routes{
 		model.InvoiceStockAppliedKey:  invoiceHandler.HandleStockApplied,
 		model.InvoiceStockRejectedKey: invoiceHandler.HandleStockRejected,
+
+		model.InvoiceStockRevertedKey:       invoiceHandler.HandleStockReverted,
+		model.InvoiceStockRevertRejectedKey: invoiceHandler.HandleStockRevertRejected,
 	}).Start()
 
 	NewRelay(outboxRepository, BillingExchange).Start()

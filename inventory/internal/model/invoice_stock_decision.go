@@ -8,11 +8,14 @@ import (
 )
 
 const (
-	InvoiceStockAppliedKey  = "invoice.stock.applied"
-	InvoiceStockRejectedKey = "invoice.stock.rejected"
+	InvoiceStockAppliedKey        = "invoice.stock.applied"
+	InvoiceStockRejectedKey       = "invoice.stock.rejected"
+	InvoiceStockRevertedKey       = "invoice.stock.reverted"
+	InvoiceStockRevertRejectedKey = "invoice.stock.revert.rejected"
 
 	ReasonInsufficientStock = "INSUFFICIENT_STOCK"
 	ReasonProductNotFound   = "PRODUCT_NOT_FOUND"
+	ReasonStockAlreadyUsed  = "STOCK_ALREADY_USED"
 )
 
 type InvoiceStockDecision struct {
@@ -75,7 +78,9 @@ type invoiceStockResultPayload struct {
 }
 
 func NewInvoiceStockApplied(request InvoiceStockRequest) (OutboxEvent, error) {
-	return newInvoiceStockResult(request, InvoiceStockAppliedKey, "", nil)
+	return newInvoiceStockResult(
+		request.InvoiceID, request.CausationID, InvoiceStockAppliedKey, "", nil,
+	)
 }
 
 func NewInvoiceStockRejected(
@@ -83,11 +88,30 @@ func NewInvoiceStockRejected(
 	reason string,
 	shortages []StockShortage,
 ) (OutboxEvent, error) {
-	return newInvoiceStockResult(request, InvoiceStockRejectedKey, reason, shortages)
+	return newInvoiceStockResult(
+		request.InvoiceID, request.CausationID, InvoiceStockRejectedKey, reason, shortages,
+	)
+}
+
+func NewInvoiceStockReverted(request InvoiceStockRevertRequest) (OutboxEvent, error) {
+	return newInvoiceStockResult(
+		request.InvoiceID, request.CausationID, InvoiceStockRevertedKey, "", nil,
+	)
+}
+
+func NewInvoiceStockRevertRejected(
+	request InvoiceStockRevertRequest,
+	reason string,
+	shortages []StockShortage,
+) (OutboxEvent, error) {
+	return newInvoiceStockResult(
+		request.InvoiceID, request.CausationID, InvoiceStockRevertRejectedKey, reason, shortages,
+	)
 }
 
 func newInvoiceStockResult(
-	request InvoiceStockRequest,
+	invoiceID int,
+	causationID string,
 	routingKey, reason string,
 	shortages []StockShortage,
 ) (OutboxEvent, error) {
@@ -96,9 +120,9 @@ func newInvoiceStockResult(
 
 	payload, err := json.Marshal(invoiceStockResultPayload{
 		EventID:     eventID,
-		CausationID: request.CausationID,
+		CausationID: causationID,
 		OccurredAt:  occurredAt,
-		InvoiceID:   request.InvoiceID,
+		InvoiceID:   invoiceID,
 		Reason:      reason,
 		Shortages:   shortages,
 	})
@@ -108,9 +132,9 @@ func newInvoiceStockResult(
 
 	return OutboxEvent{
 		EventID:       eventID,
-		CausationID:   request.CausationID,
+		CausationID:   causationID,
 		AggregateType: OutboxAggregateInvoice,
-		AggregateID:   request.InvoiceID,
+		AggregateID:   invoiceID,
 		RoutingKey:    routingKey,
 		Payload:       payload,
 		CreatedAt:     occurredAt,

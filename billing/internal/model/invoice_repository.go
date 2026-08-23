@@ -8,6 +8,8 @@ type InvoiceRepository interface {
 	CloseInvoice(id int, event OutboxEvent) error
 	ConfirmClose(id int) (bool, error)
 	RejectClose(id int, reason string) (bool, error)
-	ReopenInvoice(id int) error
+	ReopenInvoice(id int, event OutboxEvent) error
+	ConfirmReopen(id int) (bool, error)
+	RejectReopen(id int, reason string) (bool, error)
 	DeleteInvoice(id int) error
 }

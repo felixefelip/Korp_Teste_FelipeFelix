@@ -109,6 +109,95 @@ func (sr *StockMovementRepository) ApplyInvoice(
 	return decision.Event, nil
 }
 
+func (sr *StockMovementRepository) RevertInvoice(
+	request model.InvoiceStockRevertRequest,
+) (model.OutboxEvent, error) {
+	var decision model.InvoiceRevertDecision
+
+	err := sr.connection.Transaction(func(tx *gorm.DB) error {
+		productIDs, err := productsTouchedByInvoice(tx, request.InvoiceID)
+		if err != nil {
+			return err
+		}
+
+		products, err := lockProducts(tx, productIDs)
+		if err != nil {
+			return err
+		}
+
+		movements, err := movementsOfInvoice(tx, request.InvoiceID)
+		if err != nil {
+			return err
+		}
+
+		decision, err = model.ResolveInvoiceRevert(request, movements, products)
+		if err != nil {
+			return err
+		}
+
+		if err := eraseMovements(tx, decision.Movements); err != nil {
+			return err
+		}
+
+		return tx.Create(&decision.Event).Error
+	})
+	if err != nil {
+		return model.OutboxEvent{}, err
+	}
+
+	return decision.Event, nil
+}
+
+func productsTouchedByInvoice(tx *gorm.DB, invoiceID int) ([]int, error) {
+	var ids []int
+
+	err := tx.
+		Model(&model.StockMovement{}).
+		Where("billing_invoice_id = ?", invoiceID).
+		Distinct().
+		Order("product_id").
+		Pluck("product_id", &ids).Error
+
+	return ids, err
+}
+
+func movementsOfInvoice(tx *gorm.DB, invoiceID int) ([]model.StockMovement, error) {
+	var movements []model.StockMovement
+
+	err := tx.
+		Where("billing_invoice_id = ?", invoiceID).
+		Order("id").
+		Find(&movements).Error
+
+	return movements, err
+}
+
+func eraseMovements(tx *gorm.DB, movements []model.StockMovement) error {
+	if len(movements) == 0 {
+		return nil
+	}
+
+	ids := make([]int, 0, len(movements))
+	touched := make(map[int]struct{}, len(movements))
+
+	for _, movement := range movements {
+		ids = append(ids, movement.ID)
+		touched[movement.ProductID] = struct{}{}
+	}
+
+	if err := tx.Where("id IN ?", ids).Delete(&model.StockMovement{}).Error; err != nil {
+		return err
+	}
+
+	for productID := range touched {
+		if err := refreshStock(tx, productID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func lockProducts(tx *gorm.DB, ids []int) (map[int]model.Product, error) {
 	locked := make(map[int]model.Product, len(ids))
 

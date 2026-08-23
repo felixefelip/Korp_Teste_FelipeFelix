@@ -6,9 +6,10 @@ const (
 	InvoiceTypeIn  = "IN"
 	InvoiceTypeOut = "OUT"
 
-	InvoiceStatusOpen    = "OPEN"
-	InvoiceStatusClosing = "CLOSING"
-	InvoiceStatusClosed  = "CLOSED"
+	InvoiceStatusOpen      = "OPEN"
+	InvoiceStatusClosing   = "CLOSING"
+	InvoiceStatusClosed    = "CLOSED"
+	InvoiceStatusReopening = "REOPENING"
 )
 
 var (
@@ -33,7 +34,7 @@ func (i Invoice) Closed() bool {
 }
 
 func (i Invoice) Processing() bool {
-	return i.Status == InvoiceStatusClosing
+	return i.Status == InvoiceStatusClosing || i.Status == InvoiceStatusReopening
 }
 
 func (i Invoice) Editable() bool {

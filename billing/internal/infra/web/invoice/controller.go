@@ -222,5 +222,5 @@ func (i *Controller) ReopenInvoice(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, newResponse(reopenedInvoice))
+	ctx.JSON(http.StatusAccepted, newResponse(reopenedInvoice))
 }

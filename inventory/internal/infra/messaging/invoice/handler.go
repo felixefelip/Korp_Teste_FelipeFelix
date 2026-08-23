@@ -46,6 +46,21 @@ func (e closeRequestedEvent) toRequest() model.InvoiceStockRequest {
 	}
 }
 
+type reopenRequestedEvent struct {
+	EventID       string    `json:"eventId"`
+	OccurredAt    time.Time `json:"occurredAt"`
+	InvoiceID     int       `json:"invoiceId"`
+	InvoiceNumber string    `json:"invoiceNumber"`
+}
+
+func (e reopenRequestedEvent) toRequest() model.InvoiceStockRevertRequest {
+	return model.InvoiceStockRevertRequest{
+		InvoiceID:     e.InvoiceID,
+		InvoiceNumber: e.InvoiceNumber,
+		CausationID:   e.EventID,
+	}
+}
+
 type Handler struct {
 	usecase usecase.InvoiceStockUsecase
 }
@@ -64,6 +79,24 @@ func (h *Handler) HandleCloseRequested(delivery amqp.Delivery) error {
 	}
 
 	result, err := h.usecase.Apply(event.toRequest())
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("invoice %d (%s): %s, caused by %s\n",
+		event.InvoiceID, event.InvoiceNumber, result.RoutingKey, event.EventID)
+
+	return nil
+}
+
+func (h *Handler) HandleReopenRequested(delivery amqp.Delivery) error {
+	var event reopenRequestedEvent
+
+	if err := json.Unmarshal(delivery.Body, &event); err != nil {
+		return err
+	}
+
+	result, err := h.usecase.Revert(event.toRequest())
 	if err != nil {
 		return err
 	}

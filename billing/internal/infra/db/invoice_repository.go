@@ -90,18 +90,8 @@ func (ir *InvoiceRepository) UpdateInvoice(invoice model.Invoice) error {
 
 func (ir *InvoiceRepository) CloseInvoice(id int, event model.OutboxEvent) error {
 	return ir.connection.Transaction(func(tx *gorm.DB) error {
-		result := tx.
-			Model(&model.Invoice{ID: id}).
-			Updates(map[string]any{
-				"status":         model.InvoiceStatusClosing,
-				"failure_reason": "",
-			})
-		if result.Error != nil {
-			return result.Error
-		}
-
-		if result.RowsAffected == 0 {
-			return gorm.ErrRecordNotFound
+		if err := startTransition(tx, id, model.InvoiceStatusClosing); err != nil {
+			return err
 		}
 
 		return tx.Create(&event).Error
@@ -109,18 +99,36 @@ func (ir *InvoiceRepository) CloseInvoice(id int, event model.OutboxEvent) error
 }
 
 func (ir *InvoiceRepository) ConfirmClose(id int) (bool, error) {
-	return ir.moveFromClosing(id, model.InvoiceStatusClosed, "")
+	return ir.moveFrom(id, model.InvoiceStatusClosing, model.InvoiceStatusClosed, "")
 }
 
 func (ir *InvoiceRepository) RejectClose(id int, reason string) (bool, error) {
-	return ir.moveFromClosing(id, model.InvoiceStatusOpen, reason)
+	return ir.moveFrom(id, model.InvoiceStatusClosing, model.InvoiceStatusOpen, reason)
 }
 
-func (ir *InvoiceRepository) moveFromClosing(id int, status, reason string) (bool, error) {
+func (ir *InvoiceRepository) ReopenInvoice(id int, event model.OutboxEvent) error {
+	return ir.connection.Transaction(func(tx *gorm.DB) error {
+		if err := startTransition(tx, id, model.InvoiceStatusReopening); err != nil {
+			return err
+		}
+
+		return tx.Create(&event).Error
+	})
+}
+
+func (ir *InvoiceRepository) ConfirmReopen(id int) (bool, error) {
+	return ir.moveFrom(id, model.InvoiceStatusReopening, model.InvoiceStatusOpen, "")
+}
+
+func (ir *InvoiceRepository) RejectReopen(id int, reason string) (bool, error) {
+	return ir.moveFrom(id, model.InvoiceStatusReopening, model.InvoiceStatusClosed, reason)
+}
+
+func (ir *InvoiceRepository) moveFrom(id int, from, to, reason string) (bool, error) {
 	result := ir.connection.
 		Model(&model.Invoice{}).
-		Where("id = ? AND status = ?", id, model.InvoiceStatusClosing).
-		Updates(map[string]any{"status": status, "failure_reason": reason})
+		Where("id = ? AND status = ?", id, from).
+		Updates(map[string]any{"status": to, "failure_reason": reason})
 	if result.Error != nil {
 		return false, result.Error
 	}
@@ -128,10 +136,10 @@ func (ir *InvoiceRepository) moveFromClosing(id int, status, reason string) (boo
 	return result.RowsAffected > 0, nil
 }
 
-func (ir *InvoiceRepository) ReopenInvoice(id int) error {
-	result := ir.connection.
+func startTransition(tx *gorm.DB, id int, status string) error {
+	result := tx.
 		Model(&model.Invoice{ID: id}).
-		Update("status", model.InvoiceStatusOpen)
+		Updates(map[string]any{"status": status, "failure_reason": ""})
 	if result.Error != nil {
 		return result.Error
 	}

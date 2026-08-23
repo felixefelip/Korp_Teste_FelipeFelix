@@ -8,15 +8,51 @@ import (
 )
 
 const (
-	InvoiceCloseRequestedKey = "invoice.close.requested"
-	InvoiceStockAppliedKey   = "invoice.stock.applied"
-	InvoiceStockRejectedKey  = "invoice.stock.rejected"
+	InvoiceCloseRequestedKey  = "invoice.close.requested"
+	InvoiceReopenRequestedKey = "invoice.reopen.requested"
+
+	InvoiceStockAppliedKey        = "invoice.stock.applied"
+	InvoiceStockRejectedKey       = "invoice.stock.rejected"
+	InvoiceStockRevertedKey       = "invoice.stock.reverted"
+	InvoiceStockRevertRejectedKey = "invoice.stock.revert.rejected"
 )
 
 type invoiceItemPayload struct {
 	InvoiceItemID int `json:"invoiceItemId"`
 	ProductID     int `json:"productId"`
 	Quantity      int `json:"quantity"`
+}
+
+type reopenRequestedPayload struct {
+	EventID       string    `json:"eventId"`
+	OccurredAt    time.Time `json:"occurredAt"`
+	InvoiceID     int       `json:"invoiceId"`
+	InvoiceNumber string    `json:"invoiceNumber"`
+}
+
+func NewInvoiceReopenRequested(invoice Invoice) (OutboxEvent, error) {
+	eventID := uuid.NewString()
+	occurredAt := time.Now().UTC()
+
+	payload, err := json.Marshal(reopenRequestedPayload{
+		EventID:       eventID,
+		OccurredAt:    occurredAt,
+		InvoiceID:     invoice.ID,
+		InvoiceNumber: invoice.Number,
+	})
+	if err != nil {
+		return OutboxEvent{}, err
+	}
+
+	return OutboxEvent{
+		EventID:       eventID,
+		AggregateType: OutboxAggregateInvoice,
+		AggregateID:   invoice.ID,
+		RoutingKey:    InvoiceReopenRequestedKey,
+		Payload:       payload,
+		CreatedAt:     occurredAt,
+		NextAttemptAt: occurredAt,
+	}, nil
 }
 
 type invoiceCloseRequestedPayload struct {

@@ -1074,13 +1074,23 @@ func TestAClosedInvoiceCannotBeDeleted(t *testing.T) {
 		webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "").Code)
 }
 
+func reopenInvoiceCompletely(t *testing.T, server *gin.Engine, id int) {
+	t.Helper()
+
+	require.Equal(t, http.StatusAccepted, reopenInvoice(t, server, id).Code)
+
+	moved, err := db.NewInvoiceRepository(testConnection).ConfirmReopen(id)
+	require.NoError(t, err)
+	require.True(t, moved)
+}
+
 func reopenInvoice(t *testing.T, server *gin.Engine, id int) *httptest.ResponseRecorder {
 	t.Helper()
 
 	return webtest.Post(t, server, fmt.Sprintf("/invoices/%d/reopen", id), "")
 }
 
-func TestReopenInvoiceReturns200WithTheOpenInvoice(t *testing.T) {
+func TestReopenInvoiceReturns202WithTheInvoiceBeingProcessed(t *testing.T) {
 	server := newServer(t)
 	id := createInvoice(t, server, validInvoice)
 
@@ -1088,13 +1098,29 @@ func TestReopenInvoiceReturns200WithTheOpenInvoice(t *testing.T) {
 
 	response := reopenInvoice(t, server, id)
 
-	require.Equal(t, http.StatusOK, response.Code)
+	require.Equal(t, http.StatusAccepted, response.Code)
 
-	reopened := decodeInvoice(t, response.Body.Bytes())
+	reopening := decodeInvoice(t, response.Body.Bytes())
 
-	assert.Equal(t, id, reopened.ID)
-	assert.Equal(t, "OPEN", reopened.Status)
-	assert.Equal(t, "NF-0001", reopened.Number)
+	assert.Equal(t, id, reopening.ID)
+	assert.Equal(t, "REOPENING", reopening.Status, "the stock has not been given back yet")
+	assert.Equal(t, "NF-0001", reopening.Number)
+}
+
+func TestAnInvoiceBeingReopenedCannotBeEditedOrDeleted(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	closeInvoiceCompletely(t, server, id)
+	require.Equal(t, http.StatusAccepted, reopenInvoice(t, server, id).Code)
+
+	update := webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), validInvoice)
+	require.Equal(t, http.StatusConflict, update.Code)
+	assert.Contains(t, update.Body.String(), "em processamento")
+
+	remove := webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "")
+	require.Equal(t, http.StatusConflict, remove.Code)
+	assert.Contains(t, remove.Body.String(), "em processamento")
 }
 
 func TestReopenAnAlreadyOpenInvoiceReturns409(t *testing.T) {
@@ -1128,7 +1154,7 @@ func TestAReopenedInvoiceCanBeDeletedAgain(t *testing.T) {
 	id := createInvoice(t, server, validInvoice)
 
 	closeInvoiceCompletely(t, server, id)
-	require.Equal(t, http.StatusOK, reopenInvoice(t, server, id).Code)
+	reopenInvoiceCompletely(t, server, id)
 
 	assert.Equal(t, http.StatusNoContent,
 		webtest.Do(t, server, http.MethodDelete, fmt.Sprintf("/invoices/%d", id), "").Code)
@@ -1184,7 +1210,7 @@ func TestAReopenedInvoiceCanBeUpdatedAgain(t *testing.T) {
 	id := createInvoice(t, server, validInvoice)
 
 	closeInvoiceCompletely(t, server, id)
-	require.Equal(t, http.StatusOK, reopenInvoice(t, server, id).Code)
+	reopenInvoiceCompletely(t, server, id)
 
 	assert.Equal(t, http.StatusOK,
 		webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), updatedInvoice).Code)

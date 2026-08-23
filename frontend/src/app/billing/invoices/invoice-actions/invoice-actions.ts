@@ -4,7 +4,7 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import { ConfirmDialog } from '../../../shared/confirm-dialog/confirm-dialog';
 import { FlashService } from '../../../shared/flash/flash.service';
 import { MenuButton, MenuItem } from '../../../shared/menu-button/menu-button';
-import { Invoice } from '../invoice.model';
+import { Invoice, isProcessing } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 
 export const DELETE_FAILURE = 'Não foi possível excluir a nota fiscal. Tente novamente.';
@@ -31,7 +31,7 @@ export class InvoiceActions {
   protected readonly actions = computed<MenuItem[]>(() => {
     const invoice = this.invoice();
 
-    if (invoice.status === 'CLOSING') {
+    if (isProcessing(invoice)) {
       return [];
     }
 

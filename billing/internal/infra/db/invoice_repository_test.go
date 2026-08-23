@@ -714,6 +714,60 @@ func closingInvoice(t *testing.T, repository *db.InvoiceRepository) int {
 	return id
 }
 
+func TestConfirmReopenMovesFromReopeningToOpen(t *testing.T) {
+	repository := newRepository(t)
+	id := closingInvoice(t, repository)
+
+	_, err := repository.ConfirmClose(id)
+	require.NoError(t, err)
+	require.NoError(t, repository.ReopenInvoice(id, reopenEventFor(t, id)))
+
+	moved, err := repository.ConfirmReopen(id)
+	require.NoError(t, err)
+	assert.True(t, moved)
+
+	var saved model.Invoice
+	require.NoError(t, testConnection.First(&saved, id).Error)
+	assert.Equal(t, model.InvoiceStatusOpen, saved.Status)
+}
+
+func TestRejectReopenSendsTheInvoiceBackToClosedWithTheReason(t *testing.T) {
+	repository := newRepository(t)
+	id := closingInvoice(t, repository)
+
+	_, err := repository.ConfirmClose(id)
+	require.NoError(t, err)
+	require.NoError(t, repository.ReopenInvoice(id, reopenEventFor(t, id)))
+
+	moved, err := repository.RejectReopen(id, "STOCK_ALREADY_USED")
+	require.NoError(t, err)
+	assert.True(t, moved)
+
+	var saved model.Invoice
+	require.NoError(t, testConnection.First(&saved, id).Error)
+	assert.Equal(t, model.InvoiceStatusClosed, saved.Status,
+		"a refused revert leaves the invoice closed, as it was")
+	assert.Equal(t, "STOCK_ALREADY_USED", saved.FailureReason)
+}
+
+func TestConfirmReopenDoesNothingWhenTheInvoiceIsNotReopening(t *testing.T) {
+	repository := newRepository(t)
+	id := closingInvoice(t, repository)
+
+	moved, err := repository.ConfirmReopen(id)
+	require.NoError(t, err)
+	assert.False(t, moved, "a closing invoice must not be moved by a revert result")
+}
+
+func reopenEventFor(t *testing.T, id int) model.OutboxEvent {
+	t.Helper()
+
+	event, err := model.NewInvoiceReopenRequested(model.Invoice{ID: id, Number: "NF-0001"})
+	require.NoError(t, err)
+
+	return event
+}
+
 func closeEventFor(t *testing.T, id int) model.OutboxEvent {
 	t.Helper()
 
@@ -733,12 +787,13 @@ func TestReopenInvoiceMovesTheStatusBack(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, repository.ReopenInvoice(id))
+	require.NoError(t, repository.ReopenInvoice(id, reopenEventFor(t, id)))
 
 	var saved model.Invoice
 	require.NoError(t, testConnection.First(&saved, id).Error)
 
-	assert.Equal(t, model.InvoiceStatusOpen, saved.Status)
+	assert.Equal(t, model.InvoiceStatusReopening, saved.Status,
+		"the invoice waits for the inventory to give the stock back")
 	assert.Equal(t, "NF-0001", saved.Number, "reopening touches the status and nothing else")
 }
 
@@ -751,7 +806,7 @@ func TestReopenInvoiceKeepsTheItems(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, repository.CloseInvoice(id, closeEventFor(t, id)))
-	require.NoError(t, repository.ReopenInvoice(id))
+	require.NoError(t, repository.ReopenInvoice(id, reopenEventFor(t, id)))
 
 	invoice, err := repository.GetInvoiceByID(id)
 	require.NoError(t, err)
@@ -762,7 +817,7 @@ func TestReopenInvoiceKeepsTheItems(t *testing.T) {
 func TestReopenInvoiceWhenMissingReturnsErrRecordNotFound(t *testing.T) {
 	repository := newRepository(t)
 
-	err := repository.ReopenInvoice(9999)
+	err := repository.ReopenInvoice(9999, reopenEventFor(t, 9999))
 
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }

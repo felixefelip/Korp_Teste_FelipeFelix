@@ -5,9 +5,11 @@ import { RouterLink } from '@angular/router';
 import { InvoiceActions } from '../invoice-actions/invoice-actions';
 
 import {
+  isProcessing,
   INVOICE_FAILURE_LABELS,
   INVOICE_STATUS_LABELS,
   INVOICE_TYPE_LABELS,
+  Invoice,
   InvoiceStatus,
   InvoiceType
 } from '../invoice.model';
@@ -42,7 +44,7 @@ export class InvoiceList {
 
 
   protected readonly processing = computed(() =>
-    this.invoiceService.invoices().some((invoice) => invoice.status === 'CLOSING')
+    this.invoiceService.invoices().some(isProcessing)
   );
 
   constructor() {
@@ -69,6 +71,10 @@ export class InvoiceList {
 
   protected statusLabel(status: InvoiceStatus): string {
     return INVOICE_STATUS_LABELS[status] ?? status;
+  }
+
+  protected isProcessing(invoice: Invoice): boolean {
+    return isProcessing(invoice);
   }
 
   protected failureLabel(reason: string): string {
