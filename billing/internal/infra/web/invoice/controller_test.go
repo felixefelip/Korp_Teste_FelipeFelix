@@ -1,6 +1,7 @@
 package invoice_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -1216,4 +1217,88 @@ func TestAReopenedInvoiceCanBeUpdatedAgain(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK,
 		webtest.Put(t, server, fmt.Sprintf("/invoices/%d", id), updatedInvoice).Code)
+}
+
+func printDanfe(t *testing.T, server *gin.Engine, id int) *httptest.ResponseRecorder {
+	t.Helper()
+
+	return webtest.Get(t, server, fmt.Sprintf("/invoices/%d/danfe", id))
+}
+
+func TestPrintDanfeOfAClosedInvoiceReturns200WithAPdf(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, invoiceWithItems)
+
+	closeInvoiceCompletely(t, server, id)
+
+	response := printDanfe(t, server, id)
+
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, "application/pdf", response.Header().Get("Content-Type"))
+	assert.True(t, bytes.HasPrefix(response.Body.Bytes(), []byte("%PDF-")))
+}
+
+func TestPrintDanfeNamesTheFileAfterTheInvoiceNumber(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	closeInvoiceCompletely(t, server, id)
+
+	response := printDanfe(t, server, id)
+
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t,
+		`inline; filename="danfe-001-000001.pdf"`,
+		response.Header().Get("Content-Disposition"),
+		"the slash of the formatted number would break the file name",
+	)
+}
+
+func TestPrintDanfeOfAnOpenInvoiceReturns409(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	response := printDanfe(t, server, id)
+
+	assert.Equal(t, http.StatusConflict, response.Code, "there is nothing to print yet")
+}
+
+func TestPrintDanfeOfAnInvoiceBeingProcessedReturns409(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	require.Equal(t, http.StatusAccepted, closeInvoice(t, server, id).Code)
+
+	response := printDanfe(t, server, id)
+
+	assert.Equal(t, http.StatusConflict, response.Code, "the stock has not been taken yet")
+}
+
+func TestPrintDanfeOfAReopenedInvoiceReturns409(t *testing.T) {
+	server := newServer(t)
+	id := createInvoice(t, server, validInvoice)
+
+	closeInvoiceCompletely(t, server, id)
+	require.Equal(t, http.StatusAccepted,
+		webtest.Post(t, server, fmt.Sprintf("/invoices/%d/reopen", id), "").Code)
+
+	moved, err := db.NewInvoiceRepository(testConnection).ConfirmReopen(id)
+	require.NoError(t, err)
+	require.True(t, moved)
+
+	response := printDanfe(t, server, id)
+
+	assert.Equal(t, http.StatusConflict, response.Code, "reopening takes the danfe away")
+}
+
+func TestPrintDanfeOfAnInvoiceThatDoesNotExistReturns404(t *testing.T) {
+	server := newServer(t)
+
+	assert.Equal(t, http.StatusNotFound, printDanfe(t, server, 9999).Code)
+}
+
+func TestPrintDanfeWithAnIdThatIsNotANumberReturns400(t *testing.T) {
+	server := newServer(t)
+
+	assert.Equal(t, http.StatusBadRequest, webtest.Get(t, server, "/invoices/abc/danfe").Code)
 }

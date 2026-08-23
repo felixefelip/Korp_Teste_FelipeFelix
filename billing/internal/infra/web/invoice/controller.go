@@ -2,9 +2,12 @@ package invoice
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
+	"billing/internal/infra/pdf"
 	"billing/internal/infra/web/apierr"
 	"billing/internal/model"
 	"billing/internal/usecase"
@@ -202,6 +205,52 @@ func (i *Controller) CloseInvoice(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusAccepted, newResponse(closedInvoice))
+}
+
+func (i *Controller) PrintInvoice(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "o id da nota fiscal precisa ser um numero inteiro"})
+		return
+	}
+
+	invoice, err := i.invoiceUsecase.GetInvoiceToPrint(id)
+	if err != nil {
+		if errors.Is(err, model.ErrInvoiceProcessing) {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"message": "Esta nota fiscal está em processamento.",
+			})
+			return
+		}
+
+		if errors.Is(err, model.ErrInvoiceOpen) {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"message": "A DANFE só pode ser impressa depois que a nota fiscal for fechada.",
+			})
+			return
+		}
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"message": "nota fiscal nao encontrada"})
+			return
+		}
+
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao buscar a nota fiscal"})
+		return
+	}
+
+	document, err := pdf.Danfe(invoice)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao gerar a DANFE"})
+		return
+	}
+
+	ctx.Header("Content-Disposition", fmt.Sprintf(`inline; filename="danfe-%s.pdf"`, filename(invoice)))
+	ctx.Data(http.StatusOK, "application/pdf", document)
+}
+
+func filename(invoice model.Invoice) string {
+	return strings.ReplaceAll(invoice.FormattedNumber(), "/", "-")
 }
 
 func (i *Controller) ReopenInvoice(ctx *gin.Context) {

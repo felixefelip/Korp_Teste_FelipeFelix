@@ -96,6 +96,23 @@ func (iu *InvoiceUsecase) ReopenInvoice(id int) (model.Invoice, error) {
 	return iu.repository.GetInvoiceByID(id)
 }
 
+func (iu *InvoiceUsecase) GetInvoiceToPrint(id int) (model.Invoice, error) {
+	invoice, err := iu.repository.GetInvoiceByID(id)
+	if err != nil {
+		return model.Invoice{}, err
+	}
+
+	if invoice.Processing() {
+		return model.Invoice{}, model.ErrInvoiceProcessing
+	}
+
+	if !invoice.Closed() {
+		return model.Invoice{}, model.ErrInvoiceOpen
+	}
+
+	return invoice, nil
+}
+
 func (iu *InvoiceUsecase) DeleteInvoice(id int) error {
 	invoice, err := iu.repository.GetInvoiceByID(id)
 	if err != nil {

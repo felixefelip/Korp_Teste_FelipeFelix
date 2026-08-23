@@ -50,6 +50,10 @@ export class InvoiceService {
       );
   }
 
+  danfeUrl(id: number): string {
+    return `${RESOURCE}/${id}/danfe`;
+  }
+
   close(id: number): Observable<Invoice> {
     return this.transition(id, 'close');
   }

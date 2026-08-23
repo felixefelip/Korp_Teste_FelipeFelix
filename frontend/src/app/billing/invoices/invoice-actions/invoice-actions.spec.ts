@@ -27,7 +27,9 @@ describe('InvoiceActions', () => {
     close: ReturnType<typeof vi.fn>;
     reopen: ReturnType<typeof vi.fn>;
     remove: ReturnType<typeof vi.fn>;
+    danfeUrl: ReturnType<typeof vi.fn>;
   };
+  let openWindow: ReturnType<typeof vi.spyOn>;
   let flash: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
 
   const element = () => fixture.nativeElement as HTMLElement;
@@ -81,8 +83,11 @@ describe('InvoiceActions', () => {
     service = {
       close: vi.fn(responses.close ?? (() => of(CLOSED))),
       reopen: vi.fn(responses.reopen ?? (() => of(OPEN))),
-      remove: vi.fn(responses.remove ?? (() => of(undefined)))
+      remove: vi.fn(responses.remove ?? (() => of(undefined))),
+      danfeUrl: vi.fn((id: number) => `/api/billing/invoices/${id}/danfe`)
     };
+
+    openWindow = vi.spyOn(window, 'open').mockReturnValue(null);
 
     flash = { error: vi.fn(), success: vi.fn() };
 
@@ -126,14 +131,20 @@ describe('InvoiceActions', () => {
       await mount(CLOSED);
     });
 
-    it('offers nothing but reopening', () => {
-      expect(text(primary())).toBe('Reabrir');
-      expect(toggle()).toBeNull();
+    it('offers the danfe as the button itself', () => {
+      expect(text(primary())).toBe('Ver DANFE');
+      expect(primary().getAttribute('href')).toBeNull();
     });
 
-    it('never offers editing, printing or deleting', () => {
-      expect(primary().getAttribute('href')).toBeNull();
-      expect(element().querySelectorAll('.menu-button__item')).toHaveLength(0);
+    it('keeps reopening behind the chevron, since it gives the stock back', async () => {
+      await openMenu();
+
+      expect(menuLabels()).toEqual(['Reabrir']);
+    });
+
+    it('never offers editing or deleting', () => {
+      expect(element().textContent).not.toContain('Editar');
+      expect(element().textContent).not.toContain('Excluir');
     });
   });
 
@@ -258,10 +269,36 @@ describe('InvoiceActions', () => {
     });
   });
 
+  describe('viewing the danfe', () => {
+    beforeEach(async () => {
+      await mount(CLOSED);
+    });
+
+    it('opens the danfe of the invoice in another tab', async () => {
+      await click(primary());
+
+      expect(service.danfeUrl).toHaveBeenCalledWith(7);
+      expect(openWindow).toHaveBeenCalledWith(
+        '/api/billing/invoices/7/danfe',
+        '_blank',
+        'noopener'
+      );
+    });
+
+    it('asks nothing and changes nothing, since opening the danfe only reads', async () => {
+      await click(primary());
+
+      expect(dialog()).toBeNull();
+      expect(service.close).not.toHaveBeenCalled();
+      expect(service.reopen).not.toHaveBeenCalled();
+      expect(flash.error).not.toHaveBeenCalled();
+    });
+  });
+
   describe('reopening', () => {
     it('reopens without asking, since it settles nothing', async () => {
       await mount(CLOSED);
-      await click(primary());
+      await choose('Reabrir');
 
       expect(dialog()).toBeNull();
       expect(service.reopen).toHaveBeenCalledWith(7);
@@ -279,7 +316,7 @@ describe('InvoiceActions', () => {
               })
           )
       });
-      await click(primary());
+      await choose('Reabrir');
 
       expect(flash.error).toHaveBeenCalledWith('Esta nota fiscal já está aberta.');
     });
@@ -288,7 +325,7 @@ describe('InvoiceActions', () => {
       await mount(CLOSED, {
         reopen: () => throwError(() => new HttpErrorResponse({ status: 500 }))
       });
-      await click(primary());
+      await choose('Reabrir');
 
       expect(flash.error).toHaveBeenCalledWith(
         'Não foi possível reabrir a nota fiscal. Tente novamente.'
@@ -303,8 +340,7 @@ describe('InvoiceActions', () => {
       fixture.componentRef.setInput('invoice', CLOSED);
       await fixture.whenStable();
 
-      expect(text(primary())).toBe('Reabrir');
-      expect(toggle()).toBeNull();
+      expect(text(primary())).toBe('Ver DANFE');
     });
   });
 

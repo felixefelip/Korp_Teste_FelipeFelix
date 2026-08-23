@@ -41,5 +41,6 @@ func Register(server *gin.Engine, connection *gorm.DB) {
 	server.PUT("/invoices/:id", invoiceController.UpdateInvoice)
 	server.POST("/invoices/:id/close", invoiceController.CloseInvoice)
 	server.POST("/invoices/:id/reopen", invoiceController.ReopenInvoice)
+	server.GET("/invoices/:id/danfe", invoiceController.PrintInvoice)
 	server.DELETE("/invoices/:id", invoiceController.DeleteInvoice)
 }

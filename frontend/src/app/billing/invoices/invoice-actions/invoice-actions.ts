@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, signal } from '@angular/core';
 
@@ -20,6 +21,7 @@ export const REOPEN_FAILURE = 'Não foi possível reabrir a nota fiscal. Tente n
 export class InvoiceActions {
   private readonly invoiceService = inject(InvoiceService);
   private readonly flash = inject(FlashService);
+  private readonly document = inject(DOCUMENT);
 
   readonly invoice = input.required<Invoice>();
 
@@ -36,7 +38,10 @@ export class InvoiceActions {
     }
 
     if (invoice.status === 'CLOSED') {
-      return [{ label: 'Reabrir', action: () => this.reopen() }];
+      return [
+        { label: 'Ver DANFE', action: () => this.viewDanfe() },
+        { label: 'Reabrir', action: () => this.reopen() }
+      ];
     }
 
     return [
@@ -88,6 +93,12 @@ export class InvoiceActions {
       error: (response: HttpErrorResponse) =>
         this.settleDeletion(null, response.error?.message ?? DELETE_FAILURE)
     });
+  }
+
+  private viewDanfe(): void {
+    const url = this.invoiceService.danfeUrl(this.invoice().id);
+
+    this.document.defaultView?.open(url, '_blank', 'noopener');
   }
 
   private reopen(): void {

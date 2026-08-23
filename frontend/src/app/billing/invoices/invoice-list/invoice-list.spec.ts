@@ -144,8 +144,8 @@ describe('InvoiceList', () => {
     });
 
     it('never offers to edit a closed invoice', () => {
-      expect(text(rows()[1].querySelector('.menu-button__action'))).toBe('Reabrir');
-      expect(rows()[1].querySelector('.menu-button__toggle')).toBeNull();
+      expect(text(rows()[1].querySelector('.menu-button__action'))).toBe('Ver DANFE');
+      expect(text(rows()[1])).not.toContain('Editar');
     });
 
     it('offers the create action pointing to the form', () => {
