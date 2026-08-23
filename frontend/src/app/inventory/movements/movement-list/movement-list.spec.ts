@@ -29,7 +29,8 @@ const MOVEMENTS: Movement[] = [
     quantity: 4,
     confirmed: false,
     billingInvoiceItemId: 33,
-    billingInvoiceId: 42
+    billingInvoiceId: 42,
+    invoiceNumber: '001/000042'
   },
   {
     id: 2,
@@ -152,7 +153,22 @@ describe('MovementList', () => {
     });
 
     it('translates the type and the origin', () => {
+      expect(cells(rows()[0]).slice(0, 2)).toEqual(['Saída', 'Nota fiscal 001/000042']);
+    });
+
+    it('names the invoice that generated the movement', () => {
+      expect(text(rows()[0].querySelector('.table__origin'))).toBe('001/000042');
+    });
+
+    it('shows no number for a movement that came from an adjustment', () => {
+      expect(rows()[1].querySelector('.table__origin')).toBeNull();
+    });
+
+    it('shows no number for an invoice movement recorded before the number was kept', async () => {
+      await mount(() => of([{ ...MOVEMENTS[0], invoiceNumber: undefined }]));
+
       expect(cells(rows()[0]).slice(0, 2)).toEqual(['Saída', 'Nota fiscal']);
+      expect(rows()[0].querySelector('.table__origin')).toBeNull();
     });
 
     it('names the product it belongs to', () => {

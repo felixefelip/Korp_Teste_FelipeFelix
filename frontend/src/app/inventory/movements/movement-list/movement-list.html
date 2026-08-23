@@ -67,7 +67,12 @@
             @for (movement of movements(); track movement.id) {
               <tr>
                 <td>{{ typeLabel(movement.type) }}</td>
-                <td>{{ originLabel(movement.origin) }}</td>
+                <td>
+                  {{ originLabel(movement.origin) }}
+                  @if (movement.invoiceNumber) {
+                    <small class="table__origin">{{ movement.invoiceNumber }}</small>
+                  }
+                </td>
                 <td class="table__num">{{ movement.quantity }}</td>
                 <td>
                   <span
