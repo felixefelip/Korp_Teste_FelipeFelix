@@ -7,7 +7,7 @@ import { Observable, Subject, of, tap, throwError } from 'rxjs';
 import { CatalogProduct } from '../catalog.model';
 import { CatalogService } from '../catalog.service';
 import { FlashService } from '../../../shared/flash/flash.service';
-import { Invoice, InvoicePayload } from '../invoice.model';
+import { Invoice, InvoiceDraft, InvoicePayload } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 import { InvoiceNew } from './invoice-new';
 
@@ -15,12 +15,28 @@ const PRODUCTS: CatalogProduct[] = [
   { id: 3, code: 'PRD-0003', name: 'Cadeira Gamer', unit: 'UN', price: 150.5 }
 ];
 
+const DRAFT: InvoiceDraft = {
+  type: 'OUT',
+  items: [
+    {
+      inventoryId: 3,
+      code: 'PRD-0003',
+      name: 'Cadeira Gamer',
+      unit: 'UN',
+      quantity: 2,
+      unitPrice: 150.5
+    }
+  ],
+  unresolved: []
+};
+
 describe('InvoiceNew', () => {
   let fixture: ComponentFixture<InvoiceNew>;
   let service: {
     create: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    draft: ReturnType<typeof vi.fn>;
   };
   let catalogService: { products: ReturnType<typeof signal<CatalogProduct[]>>; list: ReturnType<typeof vi.fn> };
   let flash: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
@@ -63,6 +79,38 @@ describe('InvoiceNew', () => {
       throwError(() => new HttpErrorResponse({ status, error: body }))
     );
 
+
+  const promptField = () =>
+    element().querySelector<HTMLTextAreaElement>('.prompt__field')!;
+
+  const promptButton = () =>
+    element().querySelector<HTMLButtonElement>('.prompt__actions .btn')!;
+
+  const promptFailure = () => text(element().querySelector('.prompt .form__failure'));
+
+  const issues = () =>
+    Array.from(element().querySelectorAll('.prompt__issue')).map(text);
+
+  const rows = () => element().querySelectorAll('.items__table tbody tr').length;
+
+  const describePrompt = async (value: string) => {
+    const field = promptField();
+    field.value = value;
+    field.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+  };
+
+  const generate = async (value: string) => {
+    await describePrompt(value);
+    promptButton().click();
+    await fixture.whenStable();
+  };
+
+  const rejectDraftWith = (body: unknown, status: number) =>
+    service.draft.mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status, error: body }))
+    );
+
   const addItem = async () => {
     element().querySelector<HTMLButtonElement>('.items__header button')!.click();
     await fixture.whenStable();
@@ -89,7 +137,8 @@ describe('InvoiceNew', () => {
     service = {
       create: vi.fn((data: InvoicePayload) => of({ ...data, id: 6, total: 0 })),
       get: vi.fn(),
-      update: vi.fn()
+      update: vi.fn(),
+      draft: vi.fn(() => of(DRAFT))
     };
 
     catalogService = {
@@ -335,6 +384,169 @@ describe('InvoiceNew', () => {
       await submit();
 
       expect(failure()).toBe('');
+    });
+  });
+
+  describe('drafting with AI', () => {
+    it('sends the typed prompt to the service', async () => {
+      await generate('vender 2 cadeiras gamer');
+
+      expect(service.draft).toHaveBeenCalledWith('vender 2 cadeiras gamer');
+    });
+
+    it('trims the prompt before sending it', async () => {
+      await generate('   vender 2 cadeiras gamer   ');
+
+      expect(service.draft).toHaveBeenCalledWith('vender 2 cadeiras gamer');
+    });
+
+    it('never asks for a draft of an empty prompt', async () => {
+      await describePrompt('   ');
+      promptButton().click();
+      await fixture.whenStable();
+
+      expect(service.draft).not.toHaveBeenCalled();
+    });
+
+    it('fills the item rows with what came back', async () => {
+      expect(rows()).toBe(0);
+
+      await generate('vender 2 cadeiras gamer');
+
+      expect(rows()).toBe(1);
+      expect(field<HTMLInputElement>('item-0-quantity').value).toBe('2');
+    });
+
+    it('saves the drafted items through the usual path', async () => {
+      await fillValidForm();
+      await generate('vender 2 cadeiras gamer');
+      await submit();
+
+      expect(service.create).toHaveBeenCalledWith({
+        series: 1,
+        number: 6,
+        type: 'OUT',
+        items: DRAFT.items
+      });
+    });
+
+    it('keeps the series and number already typed', async () => {
+      await fillValidForm();
+      await generate('vender 2 cadeiras gamer');
+
+      expect(field<HTMLInputElement>('series').value).toBe('1');
+      expect(field<HTMLInputElement>('number').value).toBe('6');
+    });
+
+    it('switches the type when the draft describes an entry', async () => {
+      service.draft.mockReturnValue(of({ ...DRAFT, type: 'IN' as const }));
+
+      await fillValidForm();
+      await generate('recebi 2 cadeiras gamer do fornecedor');
+      await submit();
+
+      expect(service.create).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'IN' })
+      );
+    });
+
+    it('lists what it could not resolve', async () => {
+      service.draft.mockReturnValue(
+        of({
+          ...DRAFT,
+          unresolved: [
+            { text: 'monitor LG', quantity: 2, reason: 'NOT_FOUND' as const, candidates: [] }
+          ]
+        })
+      );
+
+      await generate('vender 2 monitores LG');
+
+      expect(issues()).toEqual([
+        '"monitor LG": não encontrei esse produto no catálogo.'
+      ]);
+    });
+
+    it('names the candidates when more than one product matches', async () => {
+      service.draft.mockReturnValue(
+        of({
+          ...DRAFT,
+          unresolved: [
+            {
+              text: 'cadeira',
+              quantity: 1,
+              reason: 'AMBIGUOUS' as const,
+              candidates: [
+                { inventoryId: 3, code: 'PRD-0003', name: 'Cadeira Gamer' },
+                { inventoryId: 4, code: 'PRD-0004', name: 'Cadeira Comum' }
+              ]
+            }
+          ]
+        })
+      );
+
+      await generate('vender uma cadeira');
+
+      expect(issues()).toEqual([
+        '"cadeira": mais de um produto combina — Cadeira Gamer, Cadeira Comum. Escolha na lista de itens.'
+      ]);
+    });
+
+    it('shows the server reason when the feature is not configured', async () => {
+      rejectDraftWith(
+        { message: 'O preenchimento por IA não está configurado neste ambiente.' },
+        503
+      );
+
+      await generate('vender 2 cadeiras gamer');
+
+      expect(promptFailure()).toBe(
+        'O preenchimento por IA não está configurado neste ambiente.'
+      );
+    });
+
+    it('shows a general warning when the extraction fails', async () => {
+      rejectDraftWith({ message: 'qualquer coisa' }, 502);
+
+      await generate('vender 2 cadeiras gamer');
+
+      expect(promptFailure()).toBe(
+        'Não foi possível interpretar o pedido. Tente novamente.'
+      );
+    });
+
+    it('keeps the form usable after a failed draft', async () => {
+      rejectDraftWith(null, 502);
+
+      await generate('vender 2 cadeiras gamer');
+      await fillValidForm();
+      await submit();
+
+      expect(service.create).toHaveBeenCalledTimes(1);
+      expect(navigate).toHaveBeenCalledWith(['/billing/invoices']);
+    });
+
+    it('drops the warning of the previous attempt', async () => {
+      rejectDraftWith(null, 502);
+      await generate('vender 2 cadeiras gamer');
+      expect(promptFailure()).not.toBe('');
+
+      service.draft.mockReturnValue(new Subject<InvoiceDraft>());
+      promptButton().click();
+      await fixture.whenStable();
+
+      expect(promptFailure()).toBe('');
+    });
+
+    it('blocks a second draft while the first is still running', async () => {
+      service.draft.mockReturnValue(new Subject<InvoiceDraft>());
+
+      await generate('vender 2 cadeiras gamer');
+      promptButton().click();
+      await fixture.whenStable();
+
+      expect(service.draft).toHaveBeenCalledTimes(1);
+      expect(text(promptButton())).toBe('Montando…');
     });
   });
 });

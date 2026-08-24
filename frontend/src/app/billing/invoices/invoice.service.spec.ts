@@ -5,7 +5,7 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { Invoice, InvoicePayload } from './invoice.model';
+import { Invoice, InvoiceDraft, InvoicePayload } from './invoice.model';
 import { InvoiceService } from './invoice.service';
 
 describe('InvoiceService', () => {
@@ -411,6 +411,35 @@ describe('InvoiceService', () => {
 
       expect(service.invoices()[1].status).toBe('CLOSING');
       expect(service.invoices()).toHaveLength(2);
+    });
+  });
+
+  describe('draft', () => {
+    const draft: InvoiceDraft = {
+      type: 'OUT',
+      items: withItem.items,
+      unresolved: []
+    };
+
+    it('posts the prompt to the draft endpoint', () => {
+      service.draft('vender 2 cadeiras').subscribe();
+
+      const request = http.expectOne('/api/billing/invoices/draft');
+
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({ prompt: 'vender 2 cadeiras' });
+      request.flush(draft);
+    });
+
+    it('returns the draft without touching the listing', () => {
+      load();
+
+      let received: InvoiceDraft | undefined;
+      service.draft('vender 2 cadeiras').subscribe((value) => (received = value));
+      http.expectOne('/api/billing/invoices/draft').flush(draft);
+
+      expect(received).toEqual(draft);
+      expect(service.invoices()).toEqual(invoices);
     });
   });
 });

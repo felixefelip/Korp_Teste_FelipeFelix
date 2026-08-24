@@ -1,0 +1,40 @@
+<section class="prompt">
+  <div class="prompt__header">
+    <h2 class="prompt__title">Montar com IA</h2>
+    <p class="prompt__hint">
+      Descreva o pedido e os itens são preenchidos abaixo para você revisar.
+    </p>
+  </div>
+
+  <textarea
+    class="field prompt__field"
+    rows="3"
+    placeholder="Ex.: vender 3 notebooks Dell e 2 monitores LG"
+    [(ngModel)]="prompt"
+    [disabled]="generating()"
+    (keydown.control.enter)="submit()"
+  ></textarea>
+
+  <div class="prompt__actions">
+    <button
+      type="button"
+      class="btn btn--primary"
+      [disabled]="generating() || !prompt().trim()"
+      (click)="submit()"
+    >
+      {{ generating() ? 'Montando…' : 'Montar itens' }}
+    </button>
+  </div>
+
+  @if (failure(); as text) {
+    <p class="form__failure" role="alert">{{ text }}</p>
+  }
+
+  @if (unresolved().length) {
+    <ul class="prompt__issues" role="status">
+      @for (item of unresolved(); track $index) {
+        <li class="prompt__issue">{{ message(item) }}</li>
+      }
+    </ul>
+  }
+</section>

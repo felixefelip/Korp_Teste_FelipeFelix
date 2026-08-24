@@ -10,6 +10,7 @@ import {
   INVOICE_TYPES,
   INVOICE_TYPE_LABELS,
   Invoice,
+  InvoiceDraft,
   InvoicePayload,
   InvoiceType
 } from '../invoice.model';
@@ -26,6 +27,7 @@ export class InvoiceForm {
   private readonly fb = inject(FormBuilder);
 
   readonly value = input<Invoice | null>(null);
+  readonly draft = input<InvoiceDraft | null>(null);
   readonly products = input<CatalogProduct[]>([]);
   readonly productsFailed = input(false);
   readonly loading = input(false);
@@ -91,6 +93,20 @@ export class InvoiceForm {
 
       this.form.setControl('items', newItemArray(invoice.items ?? []));
       this.form.patchValue({ series: invoice.series, number: invoice.number, type: invoice.type });
+    });
+
+    effect(() => {
+      const draft = this.draft();
+
+      if (!draft) {
+        return;
+      }
+
+      this.form.setControl('items', newItemArray(draft.items));
+
+      if (this.typeEditable()) {
+        this.form.patchValue({ type: draft.type });
+      }
     });
 
     effect(() => {

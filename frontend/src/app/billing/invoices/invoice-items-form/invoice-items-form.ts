@@ -12,7 +12,7 @@ import { CatalogProduct } from '../catalog.model';
 import { InvoiceShortage } from '../invoice.model';
 import { CustomFormValidation } from '../../../shared/forms/custom-form-validation';
 import { CustomValidators } from '../../../shared/forms/validators';
-import { InvoiceItem } from '../invoice.model';
+import { InvoiceItemPayload } from '../invoice.model';
 
 export type ItemGroup = FormGroup<{
   inventoryId: FormControl<number | null>;
@@ -23,7 +23,7 @@ export type ItemGroup = FormGroup<{
   unitPrice: FormControl<number | null>;
 }>;
 
-export function newItemGroup(item?: InvoiceItem): ItemGroup {
+export function newItemGroup(item?: InvoiceItemPayload): ItemGroup {
   return new FormGroup({
     inventoryId: new FormControl<number | null>(
       item?.inventoryId ?? null,
@@ -44,7 +44,7 @@ export function newItemGroup(item?: InvoiceItem): ItemGroup {
   });
 }
 
-export function newItemArray(items: InvoiceItem[] = []): FormArray<ItemGroup> {
+export function newItemArray(items: InvoiceItemPayload[] = []): FormArray<ItemGroup> {
   return new FormArray(items.map(newItemGroup));
 }
 

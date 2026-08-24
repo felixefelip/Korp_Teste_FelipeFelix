@@ -106,3 +106,40 @@ export function processingStage(invoice: Invoice, now: number): ProcessingStage 
   return 'normal';
 }
 
+
+export type DraftIssue = 'NOT_FOUND' | 'AMBIGUOUS' | 'INVALID_QUANTITY';
+
+export interface DraftCandidate {
+  inventoryId: number;
+  code: string;
+  name: string;
+}
+
+export interface UnresolvedDraftItem {
+  text: string;
+  quantity: number;
+  reason: DraftIssue;
+  candidates: DraftCandidate[];
+}
+
+export interface InvoiceDraft {
+  type: InvoiceType;
+  items: InvoiceItemPayload[];
+  unresolved: UnresolvedDraftItem[];
+}
+
+export function unresolvedDraftMessage(item: UnresolvedDraftItem): string {
+  const subject = item.text ? `"${item.text}"` : 'Um dos itens';
+
+  if (item.reason === 'INVALID_QUANTITY') {
+    return `${subject}: não consegui identificar a quantidade.`;
+  }
+
+  if (item.reason === 'AMBIGUOUS') {
+    const names = item.candidates.map((candidate) => candidate.name).join(', ');
+
+    return `${subject}: mais de um produto combina — ${names}. Escolha na lista de itens.`;
+  }
+
+  return `${subject}: não encontrei esse produto no catálogo.`;
+}

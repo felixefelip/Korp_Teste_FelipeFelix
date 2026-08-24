@@ -672,6 +672,107 @@ o lock acontece, a escrita acontece, a reentrega não duplica.
 
 ---
 
+# Parte 4 — Preenchimento por IA
+
+O usuário descreve o pedido em português — "vender 3 notebooks Dell e 2
+monitores LG" — e os itens da nota chegam preenchidos no formulário.
+
+## A IA preenche o rascunho, ela não grava a nota
+
+A nota é o artefato caro do sistema: tem numeração única, vira movimento de
+estoque e vira DANFE. Dar ao modelo um caminho de escrita próprio criaria um
+segundo jeito de gravar nota, fora de tudo que as Partes 1 a 3 protegem.
+
+O recurso termina antes da gravação:
+
+```mermaid
+sequenceDiagram
+    actor U as Usuário
+    participant F as Frontend
+    participant B as Billing
+    participant C as Claude API
+
+    U->>F: "vender 3 notebooks Dell e 2 monitores LG"
+    F->>B: POST /invoices/draft
+    B->>B: carrega o catálogo (réplica local)
+    B->>C: extração (structured output)
+    C-->>B: { type: "OUT", items: [{ text, code, quantity }] }
+    B->>B: ResolveInvoiceDraft — casa contra o catálogo
+    B-->>F: rascunho + pendências (nada persistido)
+    F-->>U: formulário preenchido
+    U->>F: revisa e salva
+    F->>B: POST /invoices (caminho de sempre)
+```
+
+`POST /invoices/draft` **não escreve no banco**. `POST /invoices` continua sendo
+o único caminho de criação, com a mesma validação e a mesma unicidade de série e
+número.
+
+`series` e `number` não saem no rascunho — não é decisão de modelo de linguagem.
+O que o usuário já digitou permanece.
+
+## As duas etapas
+
+A extração e o casamento são separados de propósito, porque exigem coisas
+diferentes.
+
+**Extração (o modelo).** Uma requisição ao `claude-sonnet-5`, com
+`output_config.format` em schema JSON e `effort: "low"` — extrair produto e
+quantidade de uma frase é tarefa fácil, e quem confere o resultado é o Go.
+
+O catálogo — só código e nome, **nunca preço** — vai no system prompt, então o
+modelo pode devolver o `code` que ele acha que casa. Escolher entre "notebooks
+Dell" e um catálogo é o que ele faz bem.
+
+**Casamento (o Go).** Função pura, sem rede e sem banco:
+
+```go
+func ResolveInvoiceDraft(
+    extraction InvoiceDraftExtraction,
+    catalog []Product,
+) InvoiceDraft
+```
+
+Precedência, a primeira que bater vence:
+
+1. `code` devolvido pelo modelo, **conferido contra o catálogo**
+2. código escrito no próprio texto
+3. nome exato, ignorando acentos, caixa e pontuação
+4. todos os termos do nome do produto aparecem no texto
+5. todos os termos do texto aparecem no nome do produto
+6. nenhuma → `NOT_FOUND`; mais de uma em 4 ou 5 → `AMBIGUOUS`, com os candidatos
+
+Os níveis 4 e 5 casam por prefixo de termo, o que resolve plural: "notebooks
+dell" acha "Notebook Dell". O nível 5 existe para o pedido vago: "notebook",
+com dois notebooks no catálogo, vira `AMBIGUOUS` com os dois, não `NOT_FOUND`.
+
+Três regras fecham o resto:
+
+- **`unitPrice` e `unit` vêm sempre do catálogo**, nunca do modelo. Código que o
+  modelo inventar não existe no catálogo, então não resolve — vira pendência.
+- Só produto `active` entra, pela mesma razão da Parte 2: exclusão desativa.
+- Quantidade ausente ou zero vira `INVALID_QUANTITY` em vez de ser silenciada.
+
+É a mesma forma de `ResolveInvoiceStock`: a camada de fora coleta os fatos, a
+função pura decide. E o mesmo ganho — a precedência de casamento é testada sem
+banco e sem chamar a API.
+
+## O que o usuário vê
+
+Os itens resolvidos entram nas linhas da nota. As pendências aparecem como aviso
+abaixo do campo de prompt, uma linha por item, nomeando os candidatos quando há
+ambiguidade. É aviso, não impedimento: o usuário completa a linha na mão e salva
+normalmente.
+
+## Indisponibilidade
+
+Sem `ANTHROPIC_API_KEY` configurada, o billing sobe igual e o extrator não é
+construído: `POST /invoices/draft` responde **503** e o resto da tela funciona.
+Falha na chamada responde **502**. Nos dois casos o formulário continua
+utilizável — o preenchimento por IA é atalho, não pré-requisito.
+
+---
+
 # Cenários de indisponibilidade
 
 Todos reproduzíveis no ambiente de desenvolvimento.
@@ -757,6 +858,9 @@ processamento e, passados os limiares, a tela a reporta como não concluída.
 
 # Decisões deliberadas de não fazer
 
+- **Refinar o rascunho por diálogo.** "tira o monitor", "muda para 5" exigiria
+  manter histórico de conversa. Um prompt, um rascunho, revisado na tela.
+- **IA na edição de nota existente.** Mesmo motivo.
 - **Reserva de estoque na inclusão do item.** O campo
   `stock_movement.confirmed` permitiria reservar na edição e confirmar no
   fechamento, eliminando a recusa por saldo. O custo é expiração de reserva,

@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 
+	"billing/internal/infra/ai"
 	"billing/internal/infra/db"
 	"billing/internal/infra/web/invoice"
 	"billing/internal/infra/web/product"
@@ -29,6 +30,9 @@ func Register(server *gin.Engine, connection *gorm.DB) {
 	productUsecase := usecase.NewProductUsecase(productRepository)
 	productController := product.NewController(productUsecase)
 
+	draftUsecase := usecase.NewInvoiceDraftUsecase(productRepository, ai.NewInvoiceDraftExtractor())
+	draftController := invoice.NewDraftController(draftUsecase)
+
 	server.GET("/ping", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"message": "pong"})
 	})
@@ -38,6 +42,7 @@ func Register(server *gin.Engine, connection *gorm.DB) {
 	server.GET("/invoices", invoiceController.GetInvoices)
 	server.GET("/invoices/:id", invoiceController.GetInvoiceByID)
 	server.POST("/invoices", invoiceController.CreateInvoice)
+	server.POST("/invoices/draft", draftController.DraftInvoice)
 	server.PUT("/invoices/:id", invoiceController.UpdateInvoice)
 	server.POST("/invoices/:id/close", invoiceController.CloseInvoice)
 	server.POST("/invoices/:id/reopen", invoiceController.ReopenInvoice)

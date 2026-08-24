@@ -6,12 +6,20 @@
     </div>
   </header>
 
+  <app-invoice-prompt
+    [generating]="drafting()"
+    [failure]="draftFailure()"
+    [unresolved]="draft()?.unresolved ?? []"
+    (generate)="generate($event)"
+  />
+
   <app-invoice-form
     submitLabel="Salvar nota fiscal"
     [products]="products()"
     [productsFailed]="productsFailed()"
     [saving]="saving()"
     [failure]="failure()"
+    [draft]="draft()"
     (save)="create($event)"
   />
 </section>
