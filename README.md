@@ -8,8 +8,13 @@ Dois microsserviços em Go, um frontend Angular e RabbitMQ entre eles:
 
 Cada serviço tem seu próprio Postgres e nenhum acessa o banco do outro. O
 fechamento de uma nota baixa o estoque por evento, numa saga coreografada com
-compensação. O desenho e as decisões estão em
-[docs/arquitetura.md](docs/arquitetura.md).
+compensação.
+
+- [docs/arquitetura.md](docs/arquitetura.md) — o desenho da integração e as
+  decisões por trás dele.
+- [docs/detalhamento-tecnico.md](docs/detalhamento-tecnico.md) — o detalhamento
+  técnico pedido no desafio: ciclos de vida do Angular, RxJS, bibliotecas,
+  dependências no Go e tratamento de erros.
 
 ## Checklist do desafio
 

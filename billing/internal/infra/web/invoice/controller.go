@@ -29,7 +29,7 @@ func NewController(usecase usecase.InvoiceUsecase) Controller {
 func (i *Controller) GetInvoices(ctx *gin.Context) {
 	invoices, err := i.invoiceUsecase.GetInvoices()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao buscar as notas fiscais"})
+		apierr.Internal(ctx, "erro ao buscar as notas fiscais", err)
 		return
 	}
 
@@ -50,7 +50,7 @@ func (i *Controller) GetInvoiceByID(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao buscar a nota fiscal"})
+		apierr.Internal(ctx, "erro ao buscar a nota fiscal", err)
 		return
 	}
 
@@ -74,9 +74,7 @@ func (i *Controller) GetNextDocument(ctx *gin.Context) {
 
 	document, err := i.invoiceUsecase.NextDocument(series)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"message": "erro ao sugerir o numero da nota fiscal",
-		})
+		apierr.Internal(ctx, "erro ao sugerir o numero da nota fiscal", err)
 		return
 	}
 
@@ -129,7 +127,7 @@ func (i *Controller) UpdateInvoice(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao atualizar a nota fiscal"})
+		apierr.Internal(ctx, "erro ao atualizar a nota fiscal", err)
 		return
 	}
 
@@ -157,7 +155,7 @@ func (i *Controller) CreateInvoice(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao criar a nota fiscal"})
+		apierr.Internal(ctx, "erro ao criar a nota fiscal", err)
 		return
 	}
 
@@ -191,7 +189,7 @@ func (i *Controller) DeleteInvoice(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao excluir a nota fiscal"})
+		apierr.Internal(ctx, "erro ao excluir a nota fiscal", err)
 		return
 	}
 
@@ -226,7 +224,7 @@ func (i *Controller) CloseInvoice(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao fechar a nota fiscal"})
+		apierr.Internal(ctx, "erro ao fechar a nota fiscal", err)
 		return
 	}
 
@@ -261,13 +259,13 @@ func (i *Controller) PrintInvoice(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao buscar a nota fiscal"})
+		apierr.Internal(ctx, "erro ao buscar a nota fiscal", err)
 		return
 	}
 
 	document, err := pdf.Danfe(invoice)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao gerar a DANFE"})
+		apierr.Internal(ctx, "erro ao gerar a DANFE", err)
 		return
 	}
 
@@ -307,7 +305,7 @@ func (i *Controller) ReopenInvoice(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao reabrir a nota fiscal"})
+		apierr.Internal(ctx, "erro ao reabrir a nota fiscal", err)
 		return
 	}
 
@@ -335,7 +333,7 @@ func (i *Controller) RetryInvoice(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao reenviar a nota fiscal"})
+		apierr.Internal(ctx, "erro ao reenviar a nota fiscal", err)
 		return
 	}
 

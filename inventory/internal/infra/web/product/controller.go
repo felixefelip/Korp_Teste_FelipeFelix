@@ -25,7 +25,7 @@ func NewController(usecase usecase.ProductUsecase) Controller {
 func (p *Controller) GetProducts(ctx *gin.Context) {
 	products, err := p.productUsecase.GetProducts()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, err)
+		apierr.Internal(ctx, "erro ao buscar os produtos", err)
 		return
 	}
 
@@ -46,7 +46,7 @@ func (p *Controller) GetProductByID(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao buscar o produto"})
+		apierr.Internal(ctx, "erro ao buscar o produto", err)
 		return
 	}
 
@@ -78,7 +78,7 @@ func (p *Controller) UpdateProduct(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao atualizar o produto"})
+		apierr.Internal(ctx, "erro ao atualizar o produto", err)
 		return
 	}
 
@@ -99,7 +99,7 @@ func (p *Controller) CreateProduct(ctx *gin.Context) {
 
 	insertedProduct, err := p.productUsecase.CreateProduct(request.toModel())
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao criar o produto"})
+		apierr.Internal(ctx, "erro ao criar o produto", err)
 		return
 	}
 
@@ -119,7 +119,7 @@ func (p *Controller) DeleteProduct(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao excluir o produto"})
+		apierr.Internal(ctx, "erro ao excluir o produto", err)
 		return
 	}
 

@@ -3,6 +3,7 @@ package product
 import (
 	"net/http"
 
+	"billing/internal/infra/web/apierr"
 	"billing/internal/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -21,7 +22,7 @@ func NewController(usecase usecase.ProductUsecase) Controller {
 func (p *Controller) GetProducts(ctx *gin.Context) {
 	products, err := p.productUsecase.GetProducts()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao buscar os produtos"})
+		apierr.Internal(ctx, "erro ao buscar os produtos", err)
 		return
 	}
 

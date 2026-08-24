@@ -36,7 +36,7 @@ func (m *Controller) GetMovements(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao buscar as movimentacoes"})
+		apierr.Internal(ctx, "erro ao buscar as movimentacoes", err)
 		return
 	}
 
@@ -61,7 +61,7 @@ func (m *Controller) GetMovementByID(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao buscar a movimentacao"})
+		apierr.Internal(ctx, "erro ao buscar a movimentacao", err)
 		return
 	}
 
@@ -91,7 +91,7 @@ func (m *Controller) CreateMovement(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao criar a movimentacao"})
+		apierr.Internal(ctx, "erro ao criar a movimentacao", err)
 		return
 	}
 
@@ -116,7 +116,7 @@ func (m *Controller) UpdateMovement(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao buscar a movimentacao"})
+		apierr.Internal(ctx, "erro ao buscar a movimentacao", err)
 		return
 	}
 
@@ -144,7 +144,7 @@ func (m *Controller) UpdateMovement(ctx *gin.Context) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "erro ao atualizar a movimentacao"})
+		apierr.Internal(ctx, "erro ao atualizar a movimentacao", err)
 		return
 	}
 

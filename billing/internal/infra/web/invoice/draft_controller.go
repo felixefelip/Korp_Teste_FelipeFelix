@@ -2,7 +2,6 @@ package invoice
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"billing/internal/infra/web/apierr"
@@ -43,7 +42,7 @@ func (d *DraftController) DraftInvoice(ctx *gin.Context) {
 			return
 		}
 
-		fmt.Printf("invoice draft failed: %v\n", err)
+		apierr.Log(ctx, err)
 
 		ctx.JSON(http.StatusBadGateway, gin.H{
 			"message": "Não foi possível interpretar o pedido agora. Tente novamente.",
