@@ -23,6 +23,7 @@
           max="999"
           placeholder="1"
           [class.field--error]="fieldError('series')"
+          (change)="announceSeries()"
         />
         @if (fieldError('series'); as message) {
           <p class="field-error">{{ message }}</p>

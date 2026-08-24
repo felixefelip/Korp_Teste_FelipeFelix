@@ -5,7 +5,12 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { Invoice, InvoiceDraft, InvoicePayload } from './invoice.model';
+import {
+  Invoice,
+  InvoiceDocument,
+  InvoiceDraft,
+  InvoicePayload
+} from './invoice.model';
 import { InvoiceService } from './invoice.service';
 
 describe('InvoiceService', () => {
@@ -440,6 +445,42 @@ describe('InvoiceService', () => {
 
       expect(received).toEqual(draft);
       expect(service.invoices()).toEqual(invoices);
+    });
+  });
+
+  describe('nextDocument', () => {
+    const document: InvoiceDocument = { series: 1, number: 7 };
+
+    it('asks for the suggestion of the last series in use', () => {
+      let received: InvoiceDocument | undefined;
+      service.nextDocument().subscribe((value) => (received = value));
+
+      const request = http.expectOne('/api/billing/invoices/next-document');
+
+      expect(request.request.method).toBe('GET');
+      request.flush(document);
+
+      expect(received).toEqual(document);
+    });
+
+    it('asks for the suggestion of a given series', () => {
+      service.nextDocument(4).subscribe();
+
+      http.expectOne('/api/billing/invoices/next-document?series=4').flush({
+        series: 4,
+        number: 1
+      });
+    });
+
+    it('accepts a series with no number left', () => {
+      let received: InvoiceDocument | undefined;
+      service.nextDocument(1).subscribe((value) => (received = value));
+
+      http
+        .expectOne('/api/billing/invoices/next-document?series=1')
+        .flush({ series: 1, number: null });
+
+      expect(received?.number).toBeNull();
     });
   });
 });

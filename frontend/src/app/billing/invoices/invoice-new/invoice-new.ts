@@ -7,7 +7,7 @@ import { FlashService } from '../../../shared/flash/flash.service';
 import { ApiFailure, readApiFailure } from '../../../shared/forms/http-errors';
 import { InvoiceForm, SAVE_FAILURE } from '../invoice-form/invoice-form';
 import { DRAFT_FAILURE, InvoicePrompt } from '../invoice-prompt/invoice-prompt';
-import { InvoiceDraft, InvoicePayload } from '../invoice.model';
+import { InvoiceDocument, InvoiceDraft, InvoicePayload } from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 
 const PRODUCTS_FAILURE = 'Não foi possível carregar os produtos. Tente novamente.';
@@ -29,12 +29,21 @@ export class InvoiceNew {
   protected readonly saving = signal(false);
   protected readonly failure = signal<ApiFailure | null>(null);
 
+  protected readonly suggestion = signal<InvoiceDocument | null>(null);
   protected readonly draft = signal<InvoiceDraft | null>(null);
   protected readonly drafting = signal(false);
   protected readonly draftFailure = signal<string | null>(null);
 
   constructor() {
     this.loadProducts();
+    this.suggestDocument();
+  }
+
+  protected suggestDocument(series?: number): void {
+    this.invoiceService.nextDocument(series).subscribe({
+      next: (document) => this.suggestion.set(document),
+      error: () => this.suggestion.set(null)
+    });
   }
 
   protected create(invoice: InvoicePayload): void {

@@ -20,6 +20,8 @@
     [saving]="saving()"
     [failure]="failure()"
     [draft]="draft()"
+    [suggestion]="suggestion()"
+    (seriesChange)="suggestDocument($event)"
     (save)="create($event)"
   />
 </section>

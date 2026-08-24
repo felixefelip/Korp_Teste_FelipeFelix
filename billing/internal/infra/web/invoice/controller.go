@@ -57,6 +57,32 @@ func (i *Controller) GetInvoiceByID(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, newResponse(invoice))
 }
 
+func (i *Controller) GetNextDocument(ctx *gin.Context) {
+	series := 0
+
+	if raw := ctx.Query("series"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed <= 0 {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"message": "a série precisa ser um numero inteiro positivo",
+			})
+			return
+		}
+
+		series = parsed
+	}
+
+	document, err := i.invoiceUsecase.NextDocument(series)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"message": "erro ao sugerir o numero da nota fiscal",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, newDocumentResponse(document))
+}
+
 func (i *Controller) UpdateInvoice(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {

@@ -13,12 +13,15 @@ import (
 )
 
 type fakeRepository struct {
-	newID    int
-	invoice  model.Invoice
-	invoices []model.Invoice
-	err      error
+	newID      int
+	lastSeries int
+	lastNumber int
+	invoice    model.Invoice
+	invoices   []model.Invoice
+	err        error
 
 	receivedID        int
+	receivedSeries    int
 	receivedInvoice   model.Invoice
 	closedID          int
 	recordedEvent     model.OutboxEvent
@@ -43,6 +46,17 @@ func (f *fakeRepository) GetInvoiceByID(id int) (model.Invoice, error) {
 	f.calls++
 	f.receivedID = id
 	return f.invoice, f.err
+}
+
+func (f *fakeRepository) LastSeries() (int, error) {
+	f.calls++
+	return f.lastSeries, f.err
+}
+
+func (f *fakeRepository) LastNumber(series int) (int, error) {
+	f.calls++
+	f.receivedSeries = series
+	return f.lastNumber, f.err
 }
 
 func (f *fakeRepository) CreateInvoice(invoice model.Invoice) (int, error) {

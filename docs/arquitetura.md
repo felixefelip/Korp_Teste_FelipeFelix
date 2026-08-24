@@ -608,6 +608,20 @@ A listagem de produtos ordena por `code`, pelo mesmo motivo: sem `ORDER BY` o
 Postgres devolve a ordem física do heap, e um `UPDATE` joga a linha editada
 para o fim — o registro que o usuário acabou de salvar sumia do lugar.
 
+**A numeração é sugerida, não imposta.** `GET /invoices/next-document` devolve a
+próxima série e número — `MAX(number) + 1` **dentro da série**, porque a
+unicidade é de `(series, number)` e cada série tem sua sequência. Sem série na
+query, usa a maior em uso; com o banco vazio, sugere `1/1`.
+
+A tela de criação abre preenchida e o campo continua editável. A sugestão não
+reserva nada: duas telas abertas ao mesmo tempo recebem o mesmo número, e quem
+salvar depois recebe o 409 que o índice único já garantia. Reservar exigiria
+sequência transacional e deixaria buracos na numeração a cada formulário
+abandonado — troca ruim para um documento fiscal.
+
+Série esgotada (`number` em 999999) devolve `number: null`, e o campo fica vazio
+em vez de sugerir um valor que a validação recusaria.
+
 ```sql
 -- invoice.status: OPEN | CLOSING | CLOSED | REOPENING
 ALTER TABLE invoice ADD COLUMN failure_reason VARCHAR(30);

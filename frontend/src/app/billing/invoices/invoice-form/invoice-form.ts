@@ -10,6 +10,7 @@ import {
   INVOICE_TYPES,
   INVOICE_TYPE_LABELS,
   Invoice,
+  InvoiceDocument,
   InvoiceDraft,
   InvoicePayload,
   InvoiceType
@@ -28,6 +29,7 @@ export class InvoiceForm {
 
   readonly value = input<Invoice | null>(null);
   readonly draft = input<InvoiceDraft | null>(null);
+  readonly suggestion = input<InvoiceDocument | null>(null);
   readonly products = input<CatalogProduct[]>([]);
   readonly productsFailed = input(false);
   readonly loading = input(false);
@@ -37,6 +39,7 @@ export class InvoiceForm {
   readonly submitLabel = input('Salvar nota fiscal');
 
   readonly save = output<InvoicePayload>();
+  readonly seriesChange = output<number>();
 
   protected readonly types = INVOICE_TYPES;
   protected readonly typeLabels = INVOICE_TYPE_LABELS;
@@ -96,6 +99,24 @@ export class InvoiceForm {
     });
 
     effect(() => {
+      const suggestion = this.suggestion();
+
+      if (!suggestion) {
+        return;
+      }
+
+      const { series, number } = this.form.controls;
+
+      if (series.pristine) {
+        series.setValue(suggestion.series);
+      }
+
+      if (number.pristine) {
+        number.setValue(suggestion.number);
+      }
+    });
+
+    effect(() => {
       const draft = this.draft();
 
       if (!draft) {
@@ -124,6 +145,14 @@ export class InvoiceForm {
 
       this.banner.set(applied ? null : failure.message);
     });
+  }
+
+  protected announceSeries(): void {
+    const series = this.form.controls.series.value;
+
+    if (series && series > 0) {
+      this.seriesChange.emit(series);
+    }
   }
 
   protected get items() {

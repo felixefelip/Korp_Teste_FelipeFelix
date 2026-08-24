@@ -3,6 +3,8 @@ package model
 type InvoiceRepository interface {
 	GetInvoices() ([]Invoice, error)
 	GetInvoiceByID(id int) (Invoice, error)
+	LastSeries() (int, error)
+	LastNumber(series int) (int, error)
 	CreateInvoice(invoice Invoice) (int, error)
 	UpdateInvoice(invoice Invoice) error
 	CloseInvoice(id int, event OutboxEvent) error

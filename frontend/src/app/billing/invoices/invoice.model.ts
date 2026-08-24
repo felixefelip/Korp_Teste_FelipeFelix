@@ -107,6 +107,11 @@ export function processingStage(invoice: Invoice, now: number): ProcessingStage 
 }
 
 
+export interface InvoiceDocument {
+  series: number;
+  number: number | null;
+}
+
 export type DraftIssue = 'NOT_FOUND' | 'AMBIGUOUS' | 'INVALID_QUANTITY';
 
 export interface DraftCandidate {

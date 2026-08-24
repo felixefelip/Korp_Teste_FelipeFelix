@@ -40,6 +40,7 @@ func Register(server *gin.Engine, connection *gorm.DB) {
 	server.GET("/products", productController.GetProducts)
 
 	server.GET("/invoices", invoiceController.GetInvoices)
+	server.GET("/invoices/next-document", invoiceController.GetNextDocument)
 	server.GET("/invoices/:id", invoiceController.GetInvoiceByID)
 	server.POST("/invoices", invoiceController.CreateInvoice)
 	server.POST("/invoices/draft", draftController.DraftInvoice)

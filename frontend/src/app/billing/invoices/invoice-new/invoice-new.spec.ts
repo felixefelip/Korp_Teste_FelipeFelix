@@ -7,13 +7,20 @@ import { Observable, Subject, of, tap, throwError } from 'rxjs';
 import { CatalogProduct } from '../catalog.model';
 import { CatalogService } from '../catalog.service';
 import { FlashService } from '../../../shared/flash/flash.service';
-import { Invoice, InvoiceDraft, InvoicePayload } from '../invoice.model';
+import {
+  Invoice,
+  InvoiceDocument,
+  InvoiceDraft,
+  InvoicePayload
+} from '../invoice.model';
 import { InvoiceService } from '../invoice.service';
 import { InvoiceNew } from './invoice-new';
 
 const PRODUCTS: CatalogProduct[] = [
   { id: 3, code: 'PRD-0003', name: 'Cadeira Gamer', unit: 'UN', price: 150.5 }
 ];
+
+const DOCUMENT: InvoiceDocument = { series: 1, number: 7 };
 
 const DRAFT: InvoiceDraft = {
   type: 'OUT',
@@ -37,6 +44,7 @@ describe('InvoiceNew', () => {
     get: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     draft: ReturnType<typeof vi.fn>;
+    nextDocument: ReturnType<typeof vi.fn>;
   };
   let catalogService: { products: ReturnType<typeof signal<CatalogProduct[]>>; list: ReturnType<typeof vi.fn> };
   let flash: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
@@ -130,7 +138,8 @@ describe('InvoiceNew', () => {
   };
 
   const mount = async (
-    loadProducts: () => Observable<CatalogProduct[]> = () => of(PRODUCTS)
+    loadProducts: () => Observable<CatalogProduct[]> = () => of(PRODUCTS),
+    loadDocument: () => Observable<InvoiceDocument> = () => of(DOCUMENT)
   ) => {
     TestBed.resetTestingModule();
 
@@ -138,7 +147,8 @@ describe('InvoiceNew', () => {
       create: vi.fn((data: InvoicePayload) => of({ ...data, id: 6, total: 0 })),
       get: vi.fn(),
       update: vi.fn(),
-      draft: vi.fn(() => of(DRAFT))
+      draft: vi.fn(() => of(DRAFT)),
+      nextDocument: vi.fn(() => loadDocument())
     };
 
     catalogService = {
@@ -208,6 +218,7 @@ describe('InvoiceNew', () => {
     });
 
     it('never creates from an invalid form', async () => {
+      await fill('number', '');
       await submit();
 
       expect(service.create).not.toHaveBeenCalled();
@@ -547,6 +558,91 @@ describe('InvoiceNew', () => {
 
       expect(service.draft).toHaveBeenCalledTimes(1);
       expect(text(promptButton())).toBe('Montando…');
+    });
+  });
+
+  describe('next document', () => {
+    const changeSeries = async (value: string) => {
+      await fill('series', value);
+      await fixture.whenStable();
+    };
+
+    it('asks the API for the next document when the screen opens', () => {
+      expect(service.nextDocument).toHaveBeenCalledTimes(1);
+      expect(service.nextDocument).toHaveBeenCalledWith(undefined);
+    });
+
+    it('opens with the series and number already filled', () => {
+      expect(field<HTMLInputElement>('series').value).toBe('1');
+      expect(field<HTMLInputElement>('number').value).toBe('7');
+    });
+
+    it('saves the suggestion without the user typing anything', async () => {
+      await submit();
+
+      expect(service.create).toHaveBeenCalledWith({
+        series: 1,
+        number: 7,
+        type: 'OUT',
+        items: []
+      });
+    });
+
+    it('asks again for the number when the series changes', async () => {
+      service.nextDocument.mockReturnValue(of({ series: 4, number: 1 }));
+
+      await changeSeries('4');
+
+      expect(service.nextDocument).toHaveBeenLastCalledWith(4);
+      expect(field<HTMLInputElement>('number').value).toBe('1');
+    });
+
+    it('keeps the series the user typed', async () => {
+      service.nextDocument.mockReturnValue(of({ series: 4, number: 1 }));
+
+      await changeSeries('4');
+
+      expect(field<HTMLInputElement>('series').value).toBe('4');
+    });
+
+    it('never overwrites a number the user typed', async () => {
+      await fill('number', '99');
+
+      service.nextDocument.mockReturnValue(of({ series: 4, number: 1 }));
+      await changeSeries('4');
+
+      expect(field<HTMLInputElement>('number').value).toBe('99');
+    });
+
+    it('asks nothing while the series is empty', async () => {
+      await changeSeries('');
+
+      expect(service.nextDocument).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves the fields empty when the suggestion fails', async () => {
+      await mount(undefined, () => throwError(() => new HttpErrorResponse({ status: 500 })));
+
+      expect(field<HTMLInputElement>('series').value).toBe('');
+      expect(field<HTMLInputElement>('number').value).toBe('');
+    });
+
+    it('leaves the number empty when the series is exhausted', async () => {
+      service.nextDocument.mockReturnValue(of({ series: 1, number: null }));
+
+      await changeSeries('1');
+
+      expect(field<HTMLInputElement>('number').value).toBe('');
+    });
+
+    it('still lets the user save after a failed suggestion', async () => {
+      await mount(undefined, () => throwError(() => new HttpErrorResponse({ status: 500 })));
+
+      await fillValidForm();
+      await submit();
+
+      expect(service.create).toHaveBeenCalledTimes(1);
+      expect(navigate).toHaveBeenCalledWith(['/billing/invoices']);
     });
   });
 });

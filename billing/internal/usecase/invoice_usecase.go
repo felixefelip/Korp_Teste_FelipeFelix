@@ -22,6 +22,22 @@ func (iu *InvoiceUsecase) GetInvoiceByID(id int) (model.Invoice, error) {
 	return iu.repository.GetInvoiceByID(id)
 }
 
+func (iu *InvoiceUsecase) NextDocument(requestedSeries int) (model.InvoiceDocument, error) {
+	lastSeries, err := iu.repository.LastSeries()
+	if err != nil {
+		return model.InvoiceDocument{}, err
+	}
+
+	series := model.ResolveInvoiceSeries(requestedSeries, lastSeries)
+
+	lastNumber, err := iu.repository.LastNumber(series)
+	if err != nil {
+		return model.InvoiceDocument{}, err
+	}
+
+	return model.NextInvoiceDocument(series, lastNumber), nil
+}
+
 func (iu *InvoiceUsecase) UpdateInvoice(invoice model.Invoice) (model.Invoice, error) {
 	stored, err := iu.repository.GetInvoiceByID(invoice.ID)
 	if err != nil {

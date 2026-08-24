@@ -63,6 +63,27 @@ func (ir *InvoiceRepository) GetInvoiceByID(id int) (model.Invoice, error) {
 	return single[0], nil
 }
 
+func (ir *InvoiceRepository) LastSeries() (int, error) {
+	var series int
+
+	err := ir.connection.Model(&model.Invoice{}).
+		Select("COALESCE(MAX(series), 0)").
+		Scan(&series).Error
+
+	return series, err
+}
+
+func (ir *InvoiceRepository) LastNumber(series int) (int, error) {
+	var number int
+
+	err := ir.connection.Model(&model.Invoice{}).
+		Select("COALESCE(MAX(number), 0)").
+		Where("series = ?", series).
+		Scan(&number).Error
+
+	return number, err
+}
+
 type lastRequest struct {
 	AggregateID int
 	CreatedAt   time.Time

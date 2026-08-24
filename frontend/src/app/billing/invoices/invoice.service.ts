@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 
-import { Invoice, InvoiceDraft, InvoicePayload } from './invoice.model';
+import { Invoice, InvoiceDocument, InvoiceDraft, InvoicePayload } from './invoice.model';
 
 const RESOURCE = '/api/billing/invoices';
 
@@ -48,6 +48,12 @@ export class InvoiceService {
           this._invoices.update((invoices) => invoices.filter((invoice) => invoice.id !== id))
         )
       );
+  }
+
+  nextDocument(series?: number): Observable<InvoiceDocument> {
+    const query = series ? `?series=${series}` : '';
+
+    return this.http.get<InvoiceDocument>(`${RESOURCE}/next-document${query}`);
   }
 
   draft(prompt: string): Observable<InvoiceDraft> {
