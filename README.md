@@ -15,7 +15,7 @@ compensação. O desenho e as decisões estão em
 
 ```bash
 cp .env.example .env      # opcional, só para o preenchimento por IA
-make up
+docker compose up -d
 ```
 
 `make up` sobe os bancos, o RabbitMQ e o frontend. Os dois serviços Go sobem
