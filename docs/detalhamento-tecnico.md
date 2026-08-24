@@ -1,8 +1,70 @@
 # Detalhamento técnico
 
-Este documento responde às perguntas de detalhamento do desafio. O desenho da
-integração entre os dois serviços — saga, outbox, filas, idempotência — está em
-[arquitetura.md](arquitetura.md).
+Este documento tem o checklist do desafio e as respostas às perguntas de
+detalhamento. O desenho da integração entre os dois serviços — saga, outbox,
+filas, idempotência — está em [arquitetura.md](arquitetura.md).
+
+## Checklist do desafio
+
+### Funcionalidades
+
+- [x] **Cadastro de produtos** — código, descrição e saldo, em *Estoque › Produtos*.
+      O saldo é informado como **estoque inicial** no cadastro; a partir daí ele é
+      resultado das movimentações e não volta a ser campo editável, para que o
+      razão e o saldo nunca discordem.
+- [x] **Cadastro de notas fiscais** — numeração sequencial sugerida pelo sistema
+      (série + número, `MAX(number) + 1` dentro da série), status inicial
+      **Aberta** e inclusão de vários produtos com suas quantidades.
+- [x] **Impressão de notas fiscais** — ação **Imprimir** no menu da nota:
+  - [x] só aparece para notas **Abertas** — a nota fechada oferece *Ver DANFE* e
+        *Reabrir*, e a API recusa um segundo fechamento com `409`;
+  - [x] durante o processamento a nota exibe o status **Processando**;
+  - [x] ao concluir, o status vira **Fechada**;
+  - [x] o saldo dos produtos é baixado conforme as quantidades da nota.
+
+### Requisitos obrigatórios
+
+- [x] **Arquitetura de microsserviços** — `inventory` (produtos e saldos) e
+      `billing` (notas fiscais), cada um com seu Postgres, conversando por
+      RabbitMQ.
+- [x] **Tratamento de falhas** — o sistema se recupera sozinho de inventory,
+      RabbitMQ ou banco fora do ar, e o que não se resolve sozinho vira aviso na
+      tela com a ação **Tentar novamente**. Os cenários estão em
+      [Cenários de indisponibilidade](arquitetura.md#cenários-de-indisponibilidade),
+      todos reproduzíveis com um `docker compose stop`.
+- [x] **Conexão real com banco de dados** — dois Postgres, um por serviço.
+
+### Requisitos opcionais
+
+- [x] **Tratamento de concorrência** — o fechamento trava os produtos com
+      `SELECT ... ORDER BY id FOR UPDATE` e valida a **soma por produto** dentro
+      da mesma transação que grava os movimentos. Duas notas disputando o último
+      saldo são serializadas pelo lock: uma fecha, a outra volta para *Aberta*
+      com o motivo.
+  - [`ApplyInvoice`](../inventory/internal/infra/db/stock_movement_repository.go#L78-L110)
+    — a transação que trava, decide e grava
+  - [`lockProducts`](../inventory/internal/infra/db/stock_movement_repository.go#L201-L224)
+    — `FOR UPDATE` com `ORDER BY id`, para duas notas com produtos em comum
+    pegarem os locks na mesma sequência
+  - [`QuantityRequiredByProduct`](../inventory/internal/model/invoice_stock.go#L28-L36)
+    — agrega por produto antes de comparar, senão dois itens do mesmo produto
+    passam separadamente contra o mesmo saldo
+- [x] **Uso de inteligência artificial** — o usuário descreve o pedido em
+      português e os itens chegam preenchidos no formulário. Detalhes em
+      [Preenchimento por IA](../README.md#preenchimento-por-ia).
+- [x] **Idempotência** — mensagem repetida não duplica efeito: no inventory a
+      verificação é por existência dos movimentos da nota, no billing é por
+      estado (`UPDATE ... WHERE status = 'CLOSING'`).
+  - [`alreadyApplied`](../inventory/internal/infra/db/stock_movement_repository.go#L226-L235)
+    — a nota já baixada é reconhecida sob o mesmo lock
+  - [`ResolveInvoiceStock`](../inventory/internal/model/invoice_stock_decision.go#L26-L44)
+    — a checagem de replay vem **antes** da de saldo: na reentrega o estoque já
+    foi baixado, e comparar de novo recusaria uma nota que deu certo
+  - [`StockMovement.BillingInvoiceItemID`](../inventory/internal/model/stock_movement.go#L26)
+    — índice único, a garantia no banco
+  - [`moveFrom`](../billing/internal/infra/db/invoice_repository.go#L239-L270)
+    — a transição só se aplica a partir do estado esperado; `RowsAffected == 0`
+    significa "alguém já moveu", que é confirmado e ignorado
 
 ## Ciclos de vida do Angular
 
