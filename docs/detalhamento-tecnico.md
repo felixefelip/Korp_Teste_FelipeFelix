@@ -205,6 +205,128 @@ milissegundos.
 Não há container de injeção de dependência nem geração de código: a montagem é
 explícita, no `router.go` e no `main.go`.
 
+## Outbox pattern
+
+**Os dois serviços usam outbox transacional.** O motivo e o desenho — por que não
+publicar direto do handler, o formato da tabela, o que acontece com o broker fora
+do ar — estão em [Outbox transacional](arquitetura.md#outbox-transacional). Aqui
+está como o padrão aparece no código.
+
+### Onde cada peça mora
+
+| Peça | Arquivo | Papel |
+|---|---|---|
+| `OutboxEvent` e `OutboxRepository` | `internal/model/outbox.go` | a entidade e a interface do repositório |
+| construção do evento | `internal/model/invoice_event.go`, `product_event.go` | funções puras que devolvem um `OutboxEvent` pronto, com `eventId` e payload já serializado |
+| persistência | `internal/infra/db/outbox_repository.go` | `ClaimEvents`, `MarkPublished`, `MarkFailed` |
+| publicação | `internal/infra/messaging/relay.go` | a goroutine que drena a tabela |
+| montagem | `internal/infra/messaging/register.go:37` | `NewRelay(outboxRepository, BillingExchange).Start()` |
+
+A divisão é a mesma nos dois serviços e segue a regra do resto do backend: o
+núcleo declara, a infra implementa. O relay depende de `model.OutboxRepository`
+(`relay.go:30`), não de GORM — nada em `internal/model/outbox.go` sabe que existe
+Postgres ou RabbitMQ.
+
+### A escrita: o evento entra no mesmo `tx` do dado de negócio
+
+É a única parte que sustenta a garantia, e por isso **nenhum evento é gravado
+fora de uma `Transaction`**: as oito gravações de evento em código de produção —
+três no billing, cinco no inventory — estão todas dentro de uma.
+
+```go
+func (ir *InvoiceRepository) CloseInvoice(id int, event model.OutboxEvent) error {
+	return ir.connection.Transaction(func(tx *gorm.DB) error {
+		if err := startTransition(tx, id, model.InvoiceStatusClosing); err != nil {
+			return err
+		}
+
+		return tx.Create(&event).Error
+	})
+}
+```
+
+Ou a nota entra em `CLOSING` e o evento fica gravado, ou nada acontece.
+
+Quem monta o evento é sempre uma função do `model`; o que muda é de onde ela é
+chamada, e a razão é diferente em cada caso:
+
+- **billing** — o usecase chama `model.NewInvoiceCloseRequested(invoice)` e passa
+  o evento pronto ao repositório (`invoice_usecase.go:77`), que só grava.
+- **inventory, fluxo de nota** — o evento é *resultado da decisão de negócio*:
+  `ResolveInvoiceStock` devolve um `InvoiceStockDecision{Movements, Event}`, e o
+  repositório grava os movimentos e o evento na mesma transação
+  (`stock_movement_repository.go:99-103`). Aplicar o estoque e anunciar que ele
+  foi aplicado deixam de poder divergir.
+- **inventory, catálogo** — a função roda dentro do próprio `tx`
+  (`product_repository.go:41`), porque `NewProductCreated` precisa do ID que o
+  insert acabou de gerar.
+
+### O relay
+
+Os parâmetros ficam num bloco de constantes no topo do arquivo, sem configuração
+externa:
+
+```go
+const (
+	relayInterval  = time.Second
+	relayBatch     = 50
+	relayLease     = 30 * time.Second
+	publishTimeout = 5 * time.Second
+
+	backoffBase = 2 * time.Second
+	backoffCap  = time.Minute
+)
+```
+
+O `SKIP LOCKED` que permite várias réplicas sem lock distribuído é uma cláusula
+do GORM, não SQL escrito à mão:
+
+```go
+tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"})
+```
+
+`ClaimEvents` abre a transação só para selecionar e arrendar; a publicação
+acontece depois, fora dela. O `MarkPublished` só roda depois do ack do broker,
+com `PublishWithDeferredConfirmWithContext` e `mandatory = true`.
+
+São **três falhas distintas tratadas como o mesmo desfecho** — "não publicou":
+erro de rede, `nack` do broker (`errBrokerRefused`) e mensagem devolvida por falta
+de binding (`errUnroutable`, lida do canal de returns logo depois do confirm — sem
+isso, uma routing key sem fila ligada seria contada como sucesso). Qualquer uma
+cai no `fail()`, que grava a causa em `last_error` e adia com
+`backoff(event.Attempts)`, dobrando de 2s até o teto de 1 minuto.
+
+Uma decisão do `drain`: a primeira falha encerra o lote e derruba a conexão, em
+vez de insistir com os 49 eventos restantes contra um broker que acabou de
+recusar. Os outros seguem arrendados e voltam no tique seguinte, na mesma ordem
+de `id`.
+
+### O código é duplicado entre os serviços, de propósito
+
+`relay.go` e `outbox_repository.go` são cópias: um `diff` entre os dois serviços
+acusa o path do import e mais uma linha — `CorrelationId: event.CausationID`
+(`inventory/internal/infra/messaging/relay.go:121`). O campo `CausationID` existe
+só no outbox do inventory, para amarrar cada resultado ao pedido que o originou.
+
+Extrair isso para um pacote comum criaria acoplamento de build entre dois serviços
+que se falam por evento justamente para não estarem acoplados — a mesma razão de
+não haver `go.work` nem módulo na raiz.
+
+### O que está testado
+
+`outbox_repository_test.go`, seis casos em cada serviço, contra Postgres real:
+`ClaimEvents` devolve o pendente na ordem de `id`, arrenda o que entrega (uma
+segunda chamada não vê o mesmo evento), respeita o limite; `MarkPublished` tira o
+evento da fila; `MarkFailed` incrementa `attempts`, grava a causa e segura o
+evento até o backoff vencer; id inexistente devolve erro em vez de sucesso
+silencioso.
+
+O relay em si não tem teste unitário — o que ele adiciona sobre o repositório é
+I/O com o broker. Esse caminho é verificado de ponta a ponta no cenário
+[B. RabbitMQ fora do ar](arquitetura.md#b-rabbitmq-fora-do-ar): a API responde
+`202`, o evento fica na tabela com `published_at IS NULL` e o fluxo se completa
+sozinho quando o broker volta.
+
 ## Tratamento de erros e exceções no backend
 
 A regra que organiza tudo: **erro de negócio é valor tipado do `model`; erro de
