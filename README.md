@@ -53,12 +53,30 @@ compensação.
       da mesma transação que grava os movimentos. Duas notas disputando o último
       saldo são serializadas pelo lock: uma fecha, a outra volta para *Aberta*
       com o motivo.
+  - [`ApplyInvoice`](inventory/internal/infra/db/stock_movement_repository.go#L78-L110)
+    — a transação que trava, decide e grava
+  - [`lockProducts`](inventory/internal/infra/db/stock_movement_repository.go#L201-L224)
+    — `FOR UPDATE` com `ORDER BY id`, para duas notas com produtos em comum
+    pegarem os locks na mesma sequência
+  - [`QuantityRequiredByProduct`](inventory/internal/model/invoice_stock.go#L28-L36)
+    — agrega por produto antes de comparar, senão dois itens do mesmo produto
+    passam separadamente contra o mesmo saldo
 - [x] **Uso de inteligência artificial** — o usuário descreve o pedido em
       português e os itens chegam preenchidos no formulário. Detalhes em
       [Preenchimento por IA](#preenchimento-por-ia).
 - [x] **Idempotência** — mensagem repetida não duplica efeito: no inventory a
       verificação é por existência dos movimentos da nota, no billing é por
       estado (`UPDATE ... WHERE status = 'CLOSING'`).
+  - [`alreadyApplied`](inventory/internal/infra/db/stock_movement_repository.go#L226-L235)
+    — a nota já baixada é reconhecida sob o mesmo lock
+  - [`ResolveInvoiceStock`](inventory/internal/model/invoice_stock_decision.go#L26-L44)
+    — a checagem de replay vem **antes** da de saldo: na reentrega o estoque já
+    foi baixado, e comparar de novo recusaria uma nota que deu certo
+  - [`StockMovement.BillingInvoiceItemID`](inventory/internal/model/stock_movement.go#L26)
+    — índice único, a garantia no banco
+  - [`moveFrom`](billing/internal/infra/db/invoice_repository.go#L239-L270)
+    — a transição só se aplica a partir do estado esperado; `RowsAffected == 0`
+    significa "alguém já moveu", que é confirmado e ignorado
 
 ## Como rodar
 
