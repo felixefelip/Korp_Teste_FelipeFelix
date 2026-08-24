@@ -12,9 +12,11 @@ compensação.
 
 - [docs/arquitetura.md](docs/arquitetura.md) — o desenho da integração e as
   decisões por trás dele.
-- [docs/detalhamento-tecnico.md](docs/detalhamento-tecnico.md) — o checklist do
-  desafio e o detalhamento técnico pedido: ciclos de vida do Angular, RxJS,
-  bibliotecas, dependências no Go, outbox e tratamento de erros.
+
+## Detalhamento técnico
+
+O checklist do desafio e as respostas às perguntas de detalhamento estão em
+[docs/detalhamento-tecnico.md](docs/detalhamento-tecnico.md).
 
 ## Como rodar
 
