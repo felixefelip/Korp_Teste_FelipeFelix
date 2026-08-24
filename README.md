@@ -1,4 +1,4 @@
-# Korp — notas fiscais e estoque
+# Projeto técnico: Sistema de emissão de Notas Fiscais
 
 Dois microsserviços em Go, um frontend Angular e RabbitMQ entre eles:
 
