@@ -89,6 +89,50 @@ services:
       interval: 5s
       retries: 12
 
+  finance:
+    build: ./finance
+    image: korp/finance:dev
+    init: true
+    ports:
+      - "8002:8002"
+      - "5173:5173"
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      APP_URL: http://localhost:8002
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DB_CONNECTION: pgsql
+      DB_HOST: finance_db
+      DB_PORT: 5432
+      DB_DATABASE: finance_development
+      DB_USERNAME: postgres
+      DB_PASSWORD: 1234
+    volumes:
+      - ./finance:/var/www/html
+      - /var/www/html/vendor
+      - /var/www/html/node_modules
+    depends_on:
+      finance_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    command: sleep infinity
+
+  finance_db:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_USER: postgres
+      POSTGRES_DB: finance_development
+    ports:
+      - "5435:5432"
+    volumes:
+      - finance_pgdata:/var/lib/postgresql
+      - ./finance/docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: pg_isready -h 127.0.0.1 -U postgres
+      interval: 5s
+      retries: 12
+
   frontend:
     build:
       context: ./frontend
@@ -110,4 +154,5 @@ volumes:
   rabbitmqdata: {}
   pgdata: {}
   billing_pgdata: {}
+  finance_pgdata: {}
   gomodcache: {}

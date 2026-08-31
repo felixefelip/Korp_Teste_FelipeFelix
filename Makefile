@@ -16,5 +16,17 @@ billing-run:
 billing-test:
 	docker compose exec -e GO_ENV=test billing go test -count=1 -p 1 ./...
 
+finance-setup:
+	docker compose exec finance sh -c "cp -n .env.example .env; php artisan key:generate && npm run build"
+
+finance-run:
+	docker compose exec finance sh -c "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8002"
+
+finance-vite:
+	docker compose exec finance npm run dev -- --host 0.0.0.0
+
+finance-test:
+	docker compose exec -e DB_DATABASE=finance_test finance php artisan test
+
 front-test:
 	docker compose exec frontend npm test -- --watch=false

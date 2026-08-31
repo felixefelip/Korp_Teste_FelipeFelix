@@ -1,9 +1,11 @@
 # Projeto técnico: Sistema de emissão de Notas Fiscais
 
-Dois microsserviços em Go, um frontend Angular e RabbitMQ entre eles:
+Dois microsserviços em Go, um em Laravel, um frontend Angular e RabbitMQ entre
+eles:
 
 - **inventory** (`:8000`) — catálogo de produtos e razão de movimentações de estoque.
 - **billing** (`:8001`) — notas fiscais, seus itens e a DANFE.
+- **finance** (`:8002`) — Laravel + Livewire, ainda no esqueleto.
 - **frontend** (`:4200`) — Angular, com proxy para as duas APIs.
 
 Cada serviço tem seu próprio Postgres e nenhum acessa o banco do outro. O
@@ -25,13 +27,25 @@ cp .env.example .env      # opcional, só para o preenchimento por IA
 docker compose up -d
 ```
 
-Esse comando sobe os bancos, o RabbitMQ e o frontend. Os dois serviços Go sobem
+Esse comando sobe os bancos, o RabbitMQ e o frontend. Os demais serviços sobem
 como container ocioso — o processo é iniciado à mão, cada um no seu terminal:
 
 ```bash
 make inventory-run
 make billing-run
+make finance-run
 ```
+
+O `finance` guarda a `APP_KEY` no próprio `.env`, que não vai para o
+repositório. Em clone novo, antes do primeiro `make finance-run`:
+
+```bash
+make finance-setup
+```
+
+Isso cria o `.env` a partir do exemplo, gera a chave e compila os assets. Para
+hot reload do Vite durante o desenvolvimento, `make finance-vite` num terminal
+à parte.
 
 A aplicação fica em http://localhost:4200 e o painel do RabbitMQ em
 http://localhost:15672 (`guest` / `guest`).
@@ -44,11 +58,13 @@ de migração separado.
 ```bash
 make inventory-test
 make billing-test
+make finance-test
 make front-test
 ```
 
-Os testes de Go rodam contra um Postgres de verdade, no banco de teste do
-próprio serviço — nada é mockado na camada de repositório.
+Nenhum serviço mocka a camada de persistência: os testes rodam contra um
+Postgres de verdade, no banco de teste do próprio serviço (`go_api_test` nos
+serviços Go, `finance_test` no finance).
 
 ## Preenchimento por IA
 
@@ -72,6 +88,9 @@ Sem a chave o billing sobe igual e só esse botão fica indisponível.
 | frontend | 4200 |
 | inventory | 8000 |
 | billing | 8001 |
+| finance | 8002 |
 | inventory_db | 5433 |
 | billing_db | 5434 |
+| finance_db | 5435 |
+| finance vite | 5173 |
 | rabbitmq | 5672 / 15672 |
