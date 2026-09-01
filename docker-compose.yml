@@ -93,11 +93,14 @@ services:
     build: ./finance
     image: korp/finance:dev
     init: true
+    user: "${UID:-1000}:${GID:-1000}"
     ports:
       - "8002:8002"
       - "5173:5173"
     environment:
       APP_ENV: ${APP_ENV:-local}
+      COMPOSER_HOME: /tmp/composer
+      NPM_CONFIG_CACHE: /tmp/npm
       APP_URL: http://localhost:8002
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       DB_CONNECTION: pgsql

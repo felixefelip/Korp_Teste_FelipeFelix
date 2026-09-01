@@ -22,6 +22,12 @@ finance-setup:
 finance-run:
 	docker compose exec finance sh -c "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8002"
 
+finance-relay:
+	docker compose exec finance php artisan finance:relay
+
+finance-consume:
+	docker compose exec finance php artisan finance:consume
+
 finance-vite:
 	docker compose exec finance npm run dev -- --host 0.0.0.0
 

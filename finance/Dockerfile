@@ -2,8 +2,10 @@ FROM php:8.4-cli
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git unzip libpq-dev libicu-dev libzip-dev \
-    && docker-php-ext-install pdo_pgsql intl zip bcmath pcntl \
+    && docker-php-ext-install pdo_pgsql intl zip bcmath pcntl sockets \
     && rm -rf /var/lib/apt/lists/*
+
+RUN printf 'memory_limit=512M\n' > /usr/local/etc/php/conf.d/finance.ini
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY --from=node:24-slim /usr/local/bin/node /usr/local/bin/node
@@ -20,6 +22,8 @@ RUN npm ci
 
 COPY . .
 RUN composer dump-autoload --no-interaction
+
+RUN chown -R 1000:1000 /var/www/html
 
 EXPOSE 8002 5173
 

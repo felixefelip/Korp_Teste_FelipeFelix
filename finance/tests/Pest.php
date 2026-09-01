@@ -1,6 +1,10 @@
 <?php
 
+use App\Messaging\Connection;
+use App\Messaging\Topology;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PhpAmqpLib\Message\AMQPMessage;
+use PhpAmqpLib\Wire\AMQPTable;
 use Tests\TestCase;
 
 /*
@@ -44,7 +48,63 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+function broker(): Connection
 {
-    // ..
+    static $connection = null;
+
+    if (! $connection instanceof Connection || ! $connection->isOpen()) {
+        $connection = Connection::open();
+    }
+
+    return $connection;
+}
+
+function purgeQueue(string ...$queues): void
+{
+    foreach ($queues as $queue) {
+        broker()->channel()->queue_purge($queue);
+    }
+}
+
+function popMessage(string $queue, float $timeout = 5.0): ?AMQPMessage
+{
+    $deadline = microtime(true) + $timeout;
+
+    do {
+        $message = broker()->channel()->basic_get($queue);
+
+        if ($message instanceof AMQPMessage) {
+            $message->ack();
+
+            return $message;
+        }
+
+        usleep(50_000);
+    } while (microtime(true) < $deadline);
+
+    return null;
+}
+
+/**
+ * @return array{exchange: string, queue: string}
+ */
+function declareScratchTopology(string $routingKey): array
+{
+    $name = 'finance.test-'.bin2hex(random_bytes(6));
+    $channel = broker()->channel();
+
+    $channel->exchange_declare($name, 'topic', false, true, false);
+    $channel->queue_declare($name, false, true, false, false, false, new AMQPTable([
+        'x-queue-type' => 'quorum',
+        'x-dead-letter-exchange' => Topology::DEAD_LETTER_EXCHANGE,
+    ]));
+    $channel->queue_bind($name, $name, $routingKey);
+
+    return ['exchange' => $name, 'queue' => $name];
+}
+
+function deleteScratchTopology(string $name): void
+{
+    broker()->channel()->queue_delete($name);
+    broker()->channel()->exchange_delete($name);
 }

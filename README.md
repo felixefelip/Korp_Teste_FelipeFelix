@@ -47,6 +47,14 @@ Isso cria o `.env` a partir do exemplo, gera a chave e compila os assets. Para
 hot reload do Vite durante o desenvolvimento, `make finance-vite` num terminal
 à parte.
 
+A mensageria do finance roda em dois processos próprios, cada um no seu
+terminal — o relay publica o outbox, o consumidor lê a fila:
+
+```bash
+make finance-relay
+make finance-consume
+```
+
 A aplicação fica em http://localhost:4200 e o painel do RabbitMQ em
 http://localhost:15672 (`guest` / `guest`).
 
