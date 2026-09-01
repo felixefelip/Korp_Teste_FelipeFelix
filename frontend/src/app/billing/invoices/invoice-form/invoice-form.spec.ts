@@ -35,7 +35,8 @@ const EXISTING_ITEM: InvoiceItemPayload = {
   name: 'Cadeira Gamer',
   unit: 'UN',
   quantity: 2,
-  unitPrice: 150.5
+  unitPrice: 150.5,
+  icmsRate: 0
 };
 
 const EXISTING: Invoice = {
@@ -44,7 +45,9 @@ const EXISTING: Invoice = {
   type: 'OUT',
   status: 'CLOSED',
   total: 301,
-  items: [{ ...EXISTING_ITEM, id: 1, productId: 11, total: 301 }]
+  icmsBase: 301,
+  icmsValue: 0,
+  items: [{ ...EXISTING_ITEM, id: 1, productId: 11, total: 301, icmsBase: 301, icmsValue: 0 }]
 };
 
 describe('InvoiceForm', () => {
@@ -308,6 +311,19 @@ describe('InvoiceForm', () => {
 
       expect(saved).toEqual([
         { series: 1, number: 6, type: 'OUT', items: [EXISTING_ITEM] }
+      ]);
+    });
+
+    it('hands over the icms rate that was typed on the row', async () => {
+      await fillValidForm();
+      await addValidItem();
+      await fill('item-0-icmsRate', '18');
+      await submit();
+
+      expect(saved).toEqual([
+        expect.objectContaining({
+          items: [expect.objectContaining({ icmsRate: 18 })]
+        })
       ]);
     });
 

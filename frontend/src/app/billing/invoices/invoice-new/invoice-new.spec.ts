@@ -31,7 +31,8 @@ const DRAFT: InvoiceDraft = {
       name: 'Cadeira Gamer',
       unit: 'UN',
       quantity: 2,
-      unitPrice: 150.5
+      unitPrice: 150.5,
+      icmsRate: 0
     }
   ],
   unresolved: []
@@ -269,7 +270,8 @@ describe('InvoiceNew', () => {
             name: 'Cadeira Gamer',
             unit: 'UN',
             quantity: 2,
-            unitPrice: 150.5
+            unitPrice: 150.5,
+            icmsRate: 0
           }
         ]
       });

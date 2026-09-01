@@ -13,6 +13,7 @@ type itemRequest struct {
 	Unit        string   `json:"unit"        binding:"required,max=10"`
 	Quantity    *int     `json:"quantity"    binding:"required,gt=0"`
 	UnitPrice   *float64 `json:"unitPrice"   binding:"required,gte=0"`
+	ICMSRate    *float64 `json:"icmsRate"    binding:"omitempty,gte=0,lte=100"`
 }
 
 func (r itemRequest) toModel() model.InvoiceItem {
@@ -20,7 +21,7 @@ func (r itemRequest) toModel() model.InvoiceItem {
 	name := strings.TrimSpace(r.Name)
 	unit := strings.ToUpper(strings.TrimSpace(r.Unit))
 
-	return model.InvoiceItem{
+	item := model.InvoiceItem{
 		ProductCode: code,
 		ProductName: name,
 		Unit:        unit,
@@ -34,6 +35,16 @@ func (r itemRequest) toModel() model.InvoiceItem {
 			Price:       *r.UnitPrice,
 		},
 	}
+
+	return item.WithICMS(informedRate(r.ICMSRate))
+}
+
+func informedRate(rate *float64) float64 {
+	if rate == nil {
+		return 0
+	}
+
+	return *rate
 }
 
 func toItemModels(items []itemRequest) []model.InvoiceItem {

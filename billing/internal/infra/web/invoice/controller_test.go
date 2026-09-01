@@ -28,6 +28,9 @@ type invoiceItemResponse struct {
 	Quantity    int     `json:"quantity"`
 	UnitPrice   float64 `json:"unitPrice"`
 	Total       float64 `json:"total"`
+	ICMSRate    float64 `json:"icmsRate"`
+	ICMSBase    float64 `json:"icmsBase"`
+	ICMSValue   float64 `json:"icmsValue"`
 }
 
 type invoiceResponse struct {
@@ -39,6 +42,8 @@ type invoiceResponse struct {
 	Status          string                `json:"status"`
 	Items           []invoiceItemResponse `json:"items"`
 	Total           float64               `json:"total"`
+	ICMSBase        float64               `json:"icmsBase"`
+	ICMSValue       float64               `json:"icmsValue"`
 	ProcessingSince *time.Time            `json:"processingSince"`
 }
 
@@ -524,6 +529,109 @@ func TestCreateInvoiceReturns201WithTheItems(t *testing.T) {
 	assert.Equal(t, 2, created.Items[0].Quantity)
 	assert.Equal(t, 30.99, created.Items[0].UnitPrice)
 	assert.Equal(t, "Caneca", created.Items[1].Name)
+}
+
+const invoiceWithTaxedItems = `{
+    "series":1,"number":1,
+    "type": "OUT",
+    "items": [
+        {"inventoryId": 11, "code": "PRD-0001", "name": "Camiseta", "unit": "UN", "quantity": 2, "unitPrice": 30.99, "icmsRate": 18},
+        {"inventoryId": 12, "code": "PRD-0002", "name": "Caneca", "unit": "UN", "quantity": 1, "unitPrice": 19.9, "icmsRate": 12}
+    ]
+}`
+
+func TestCreateInvoiceComputesTheICMSOfEachItem(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices", invoiceWithTaxedItems)
+
+	require.Equal(t, http.StatusCreated, response.Code)
+
+	created := decodeInvoice(t, response.Body.Bytes())
+
+	require.Len(t, created.Items, 2)
+	assert.Equal(t, 18.0, created.Items[0].ICMSRate)
+	assert.Equal(t, 61.98, created.Items[0].ICMSBase)
+	assert.Equal(t, 11.16, created.Items[0].ICMSValue)
+	assert.Equal(t, 2.39, created.Items[1].ICMSValue)
+}
+
+func TestCreateInvoiceSumsTheICMSOfTheItemsIntoTheInvoice(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices", invoiceWithTaxedItems)
+	require.Equal(t, http.StatusCreated, response.Code)
+
+	created := decodeInvoice(t, response.Body.Bytes())
+
+	assert.Equal(t, 81.88, created.ICMSBase)
+	assert.Equal(t, 13.55, created.ICMSValue)
+	assert.Equal(t, 81.88, created.Total, "the icms is inside the price, not added to the total")
+}
+
+func TestCreateInvoiceChargesNoICMSWhenNoRateIsInformed(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices", invoiceWithItems)
+	require.Equal(t, http.StatusCreated, response.Code)
+
+	created := decodeInvoice(t, response.Body.Bytes())
+
+	assert.Zero(t, created.Items[0].ICMSRate)
+	assert.Zero(t, created.Items[0].ICMSValue)
+	assert.Equal(t, 61.98, created.Items[0].ICMSBase)
+	assert.Zero(t, created.ICMSValue)
+}
+
+func TestCreateInvoiceIgnoresAnICMSValueSentByTheClient(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices", itemBody(
+		`{"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":2,"unitPrice":30.99,"icmsRate":18,"icmsValue":999,"icmsBase":999}`))
+	require.Equal(t, http.StatusCreated, response.Code)
+
+	item := decodeInvoice(t, response.Body.Bytes()).Items[0]
+
+	assert.Equal(t, 11.16, item.ICMSValue, "the value is ours to compute, not the client's to inform")
+	assert.Equal(t, 61.98, item.ICMSBase)
+}
+
+func TestCreateInvoiceKeepsTheICMSAfterReloading(t *testing.T) {
+	server := newServer(t)
+
+	created := decodeInvoice(t, webtest.Post(t, server, "/invoices", invoiceWithTaxedItems).Body.Bytes())
+
+	response := webtest.Get(t, server, fmt.Sprintf("/invoices/%d", created.ID))
+	require.Equal(t, http.StatusOK, response.Code)
+
+	reloaded := decodeInvoice(t, response.Body.Bytes())
+
+	require.Len(t, reloaded.Items, 2)
+	assert.Equal(t, 18.0, reloaded.Items[0].ICMSRate)
+	assert.Equal(t, 11.16, reloaded.Items[0].ICMSValue)
+	assert.Equal(t, 13.55, reloaded.ICMSValue)
+}
+
+func TestCreateInvoiceWithARateAboveOneHundredReturns400(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices",
+		itemBody(`{"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":1,"unitPrice":10,"icmsRate":101}`))
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	assert.Equal(t, "O valor não pode ser maior que 100.",
+		decodeErrors(t, response.Body.Bytes())["items[0].icmsRate"])
+}
+
+func TestCreateInvoiceWithANegativeRateReturns400(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices",
+		itemBody(`{"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":1,"unitPrice":10,"icmsRate":-1}`))
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	assert.Equal(t, "O valor não pode ser negativo.",
+		decodeErrors(t, response.Body.Bytes())["items[0].icmsRate"])
 }
 
 func TestCreateInvoiceCarriesBothIDsOfTheProduct(t *testing.T) {

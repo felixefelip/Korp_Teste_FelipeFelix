@@ -11,6 +11,9 @@ export interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  icmsRate: number;
+  icmsBase: number;
+  icmsValue: number;
 }
 
 export interface InvoiceShortage {
@@ -30,6 +33,8 @@ export interface Invoice {
   status: InvoiceStatus;
   items: InvoiceItem[];
   total: number;
+  icmsBase: number;
+  icmsValue: number;
   failureReason?: string;
   shortages?: InvoiceShortage[];
   processingSince?: string;
@@ -42,6 +47,7 @@ export interface InvoiceItemPayload {
   unit: string;
   quantity: number;
   unitPrice: number;
+  icmsRate: number;
 }
 
 export interface InvoicePayload {

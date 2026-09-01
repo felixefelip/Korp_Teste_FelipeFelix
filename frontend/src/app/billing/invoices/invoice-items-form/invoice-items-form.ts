@@ -21,6 +21,7 @@ export type ItemGroup = FormGroup<{
   unit: FormControl<string>;
   quantity: FormControl<number | null>;
   unitPrice: FormControl<number | null>;
+  icmsRate: FormControl<number | null>;
 }>;
 
 export function newItemGroup(item?: InvoiceItemPayload): ItemGroup {
@@ -40,6 +41,11 @@ export function newItemGroup(item?: InvoiceItemPayload): ItemGroup {
     unitPrice: new FormControl<number | null>(item?.unitPrice ?? null, [
       Validators.required,
       Validators.min(0)
+    ]),
+    icmsRate: new FormControl<number | null>(item?.icmsRate ?? 0, [
+      Validators.required,
+      Validators.min(0),
+      Validators.max(100)
     ])
   });
 }
@@ -102,9 +108,22 @@ export class InvoiceItemsForm {
     return (quantity ?? 0) * (unitPrice ?? 0);
   }
 
+  protected rowICMS(row: ItemGroup): number {
+    const rate = row.getRawValue().icmsRate ?? 0;
+
+    return Math.round(this.rowTotal(row) * rate) / 100;
+  }
+
   protected total(): number {
     return this.items().controls.reduce(
       (total, row) => total + this.rowTotal(row),
+      0
+    );
+  }
+
+  protected totalICMS(): number {
+    return this.items().controls.reduce(
+      (total, row) => total + this.rowICMS(row),
       0
     );
   }

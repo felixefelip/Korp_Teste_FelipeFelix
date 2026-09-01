@@ -14,6 +14,9 @@ type itemResponse struct {
 	Quantity    int     `json:"quantity"`
 	UnitPrice   float64 `json:"unitPrice"`
 	Total       float64 `json:"total"`
+	ICMSRate    float64 `json:"icmsRate"`
+	ICMSBase    float64 `json:"icmsBase"`
+	ICMSValue   float64 `json:"icmsValue"`
 }
 
 func newItemResponse(item model.InvoiceItem) itemResponse {
@@ -26,6 +29,9 @@ func newItemResponse(item model.InvoiceItem) itemResponse {
 		Unit:        item.Unit,
 		Quantity:    item.Quantity,
 		UnitPrice:   item.UnitPrice,
-		Total:       round(item.Total()),
+		Total:       model.RoundMoney(item.Total()),
+		ICMSRate:    item.ICMSRate,
+		ICMSBase:    item.ICMSBase,
+		ICMSValue:   item.ICMSValue,
 	}
 }

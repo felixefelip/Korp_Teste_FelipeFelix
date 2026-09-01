@@ -67,3 +67,23 @@ func (i Invoice) Total() float64 {
 
 	return total
 }
+
+func (i Invoice) ICMSBase() float64 {
+	base := 0.0
+
+	for _, item := range i.Items {
+		base += item.ICMSBase
+	}
+
+	return base
+}
+
+func (i Invoice) ICMSValue() float64 {
+	value := 0.0
+
+	for _, item := range i.Items {
+		value += item.ICMSValue
+	}
+
+	return value
+}

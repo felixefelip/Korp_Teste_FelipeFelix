@@ -11,6 +11,7 @@ type draftItemResponse struct {
 	Unit        string  `json:"unit"`
 	Quantity    int     `json:"quantity"`
 	UnitPrice   float64 `json:"unitPrice"`
+	ICMSRate    float64 `json:"icmsRate"`
 }
 
 type candidateResponse struct {
@@ -47,6 +48,7 @@ func newDraftResponse(draft model.InvoiceDraft) draftResponse {
 			Unit:        item.Unit,
 			Quantity:    item.Quantity,
 			UnitPrice:   item.UnitPrice,
+			ICMSRate:    item.ICMSRate,
 		})
 	}
 

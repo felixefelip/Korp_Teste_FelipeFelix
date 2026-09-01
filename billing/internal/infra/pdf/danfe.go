@@ -25,16 +25,14 @@ var itemColumns = []struct {
 	width float64
 	align string
 }{
-	{"CÓDIGO", 25, "L"},
-	{"DESCRIÇÃO", 79, "L"},
-	{"UN", 14, "C"},
-	{"QTD", 18, "R"},
-	{"VL. UNIT.", 27, "R"},
-	{"VL. TOTAL", 27, "R"},
-}
-
-func totalWidth() float64 {
-	return itemColumns[len(itemColumns)-1].width
+	{"CÓDIGO", 22, "L"},
+	{"DESCRIÇÃO", 62, "L"},
+	{"UN", 10, "C"},
+	{"QTD", 14, "R"},
+	{"VL. UNIT.", 24, "R"},
+	{"VL. TOTAL", 24, "R"},
+	{"% ICMS", 14, "R"},
+	{"VL. ICMS", 20, "R"},
 }
 
 func Danfe(invoice model.Invoice) ([]byte, error) {
@@ -53,7 +51,7 @@ func render(invoice model.Invoice) *document {
 	document.header()
 	document.identification(invoice)
 	document.items(invoice.Items)
-	document.total(invoice.Total())
+	document.totals(invoice)
 
 	return document
 }
@@ -154,6 +152,8 @@ func (d *document) items(items []model.InvoiceItem) {
 			strconv.Itoa(item.Quantity),
 			money(item.UnitPrice),
 			money(item.Total()),
+			percent(item.ICMSRate),
+			money(item.ICMSValue),
 		}
 
 		for index, column := range itemColumns {
@@ -176,14 +176,33 @@ func (d *document) itemsHeader() {
 	d.pdf.SetFont("Helvetica", "", 8)
 }
 
-func (d *document) total(total float64) {
-	if d.pdf.GetY()+8 > bottomLimit {
+func (d *document) totals(invoice model.Invoice) {
+	if d.pdf.GetY()+13 > bottomLimit {
 		d.pdf.AddPage()
 	}
 
-	d.pdf.SetFont("Helvetica", "B", 9)
-	d.cell(contentWidth-totalWidth(), 8, "VALOR TOTAL DA NOTA", "1", "R", false)
-	d.cell(totalWidth(), 8, money(total), "1", "R", false)
+	widths := []float64{70, 60, 60}
+	labels := []string{"BASE DE CÁLCULO DO ICMS", "VALOR DO ICMS", "VALOR TOTAL DA NOTA"}
+	values := []string{
+		money(invoice.ICMSBase()),
+		money(invoice.ICMSValue()),
+		money(invoice.Total()),
+	}
+
+	d.pdf.Ln(3)
+	d.pdf.SetFont("Helvetica", "", 6)
+
+	for index, label := range labels {
+		d.cell(widths[index], 4, label, "LTR", "L", false)
+	}
+
+	d.pdf.Ln(-1)
+	d.pdf.SetFont("Helvetica", "B", 10)
+
+	for index, value := range values {
+		d.cell(widths[index], 6, value, "LBR", "R", false)
+	}
+
 	d.pdf.Ln(-1)
 }
 
@@ -214,6 +233,10 @@ func operationLabel(invoice model.Invoice) string {
 	}
 
 	return "ENTRADA"
+}
+
+func percent(value float64) string {
+	return money(value) + "%"
 }
 
 func money(value float64) string {

@@ -22,7 +22,8 @@ const EXISTING_ITEM: InvoiceItemPayload = {
   name: 'Cadeira Gamer',
   unit: 'UN',
   quantity: 2,
-  unitPrice: 150.5
+  unitPrice: 150.5,
+  icmsRate: 18
 };
 
 const EXISTING: Invoice = {
@@ -31,7 +32,9 @@ const EXISTING: Invoice = {
   type: 'OUT',
   status: 'OPEN',
   total: 301,
-  items: [{ ...EXISTING_ITEM, id: 1, productId: 11, total: 301 }]
+  icmsBase: 301,
+  icmsValue: 54.18,
+  items: [{ ...EXISTING_ITEM, id: 1, productId: 11, total: 301, icmsBase: 301, icmsValue: 54.18 }]
 };
 
 describe('InvoiceEdit', () => {
@@ -310,7 +313,8 @@ describe('InvoiceEdit', () => {
             name: 'Mesa de Escritório',
             unit: 'CX',
             quantity: 3,
-            unitPrice: 899
+            unitPrice: 899,
+            icmsRate: 0
           }
         ]
       });

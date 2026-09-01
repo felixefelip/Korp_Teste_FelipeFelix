@@ -10,8 +10,19 @@ type InvoiceItem struct {
 	Unit        string  `gorm:"type:varchar(10);not null"`
 	Quantity    int     `gorm:"not null"`
 	UnitPrice   float64 `gorm:"not null"`
+	ICMSRate    float64 `gorm:"not null;default:0"`
+	ICMSBase    float64 `gorm:"not null;default:0"`
+	ICMSValue   float64 `gorm:"not null;default:0"`
 }
 
 func (i InvoiceItem) Total() float64 {
 	return float64(i.Quantity) * i.UnitPrice
+}
+
+func (i InvoiceItem) WithICMS(rate float64) InvoiceItem {
+	i.ICMSRate = rate
+	i.ICMSBase = RoundMoney(i.Total())
+	i.ICMSValue = RoundMoney(i.ICMSBase * rate / 100)
+
+	return i
 }

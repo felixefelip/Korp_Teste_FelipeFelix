@@ -83,10 +83,19 @@
   text-align: right;
 }
 
-.items__row-total {
+.field--rate {
+  max-width: 5rem;
+}
+
+.items__row-total,
+.items__row-icms {
   padding-top: 1.125rem;
   white-space: nowrap;
   color: var(--text-900);
+}
+
+.items__row-icms {
+  color: var(--text-500);
 }
 
 .items__remove {
@@ -109,6 +118,10 @@
   background: var(--surface-alt);
   font-weight: 600;
   color: var(--text-900);
+}
+
+.items__total-icms {
+  color: var(--text-700);
 }
 
 .items__total-label {

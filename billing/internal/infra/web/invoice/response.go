@@ -1,7 +1,6 @@
 package invoice
 
 import (
-	"math"
 	"time"
 
 	"billing/internal/model"
@@ -16,6 +15,8 @@ type response struct {
 	Status          string         `json:"status"`
 	Items           []itemResponse `json:"items"`
 	Total           float64        `json:"total"`
+	ICMSBase        float64        `json:"icmsBase"`
+	ICMSValue       float64        `json:"icmsValue"`
 
 	FailureReason string             `json:"failureReason,omitempty"`
 	Shortages     []shortageResponse `json:"shortages,omitempty"`
@@ -66,7 +67,9 @@ func newResponse(invoice model.Invoice) response {
 		Type:            invoice.Type,
 		Status:          invoice.Status,
 		Items:           items,
-		Total:           round(invoice.Total()),
+		Total:           model.RoundMoney(invoice.Total()),
+		ICMSBase:        model.RoundMoney(invoice.ICMSBase()),
+		ICMSValue:       model.RoundMoney(invoice.ICMSValue()),
 
 		FailureReason: invoice.FailureReason,
 		Shortages:     newShortageResponses(invoice.Shortages),
@@ -83,8 +86,4 @@ func newResponses(invoices []model.Invoice) []response {
 	}
 
 	return responses
-}
-
-func round(value float64) float64 {
-	return math.Round(value*100) / 100
 }

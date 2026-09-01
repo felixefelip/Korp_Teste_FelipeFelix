@@ -38,7 +38,10 @@ const EXISTING_ITEM: InvoiceItem = {
   unit: 'UN',
   quantity: 2,
   unitPrice: 150.5,
-  total: 301
+  total: 301,
+  icmsRate: 18,
+  icmsBase: 301,
+  icmsValue: 54.18
 };
 
 describe('InvoiceItemsForm', () => {
@@ -93,6 +96,11 @@ describe('InvoiceItemsForm', () => {
     Array.from(element().querySelectorAll('.items__row-total')).map(text);
 
   const total = () => text(element().querySelector('.items__total'));
+
+  const rowICMS = () =>
+    Array.from(element().querySelectorAll('.items__row-icms')).map(text);
+
+  const totalICMS = () => text(element().querySelector('.items__total-icms'));
 
   const unitOf = (row: number) => text(rows()[row].querySelector('.items__unit'));
 
@@ -266,6 +274,65 @@ describe('InvoiceItemsForm', () => {
 
       expect(rowTotals()).toEqual(['R$ 0,00']);
       expect(total()).toBe('R$ 0,00');
+    });
+  });
+
+  describe('icms', () => {
+    it('starts a row untaxed', async () => {
+      await addItem();
+
+      expect(field<HTMLInputElement>('item-0-icmsRate').value).toBe('0');
+      expect(rowICMS()).toEqual(['R$ 0,00']);
+      expect(totalICMS()).toBe('R$ 0,00');
+    });
+
+    it('applies the typed rate over the total of the row', async () => {
+      await addValidItem(0, 0, '2');
+      await fill('item-0-icmsRate', '18');
+
+      expect(rowTotals()).toEqual(['R$ 301,00']);
+      expect(rowICMS()).toEqual(['R$ 54,18']);
+    });
+
+    it('sums the icms of every row without touching the total of the invoice', async () => {
+      await addValidItem(0, 0, '2');
+      await fill('item-0-icmsRate', '18');
+      await addValidItem(1, 1, '3');
+      await fill('item-1-icmsRate', '12');
+
+      expect(totalICMS()).toBe('R$ 377,82');
+      expect(total()).toBe('R$ 2.998,00');
+    });
+
+    it('taxes each row by its own rate', async () => {
+      await addValidItem(0, 0, '2');
+      await fill('item-0-icmsRate', '18');
+      await addValidItem(1, 1, '3');
+
+      expect(rowICMS()).toEqual(['R$ 54,18', 'R$ 0,00']);
+    });
+
+    it('shows the rate a row came with', async () => {
+      await mount(newItemArray([EXISTING_ITEM]));
+
+      expect(field<HTMLInputElement>('item-0-icmsRate').value).toBe('18');
+      expect(rowICMS()).toEqual(['R$ 54,18']);
+    });
+
+    it('rejects a rate above one hundred percent', async () => {
+      await addValidItem();
+      await fill('item-0-icmsRate', '101');
+      await setInput('submitted', true);
+
+      expect(errorOf('item-0-icmsRate')).toBe('O valor máximo é 100.');
+    });
+
+    it('rejects a negative rate', async () => {
+      await addValidItem();
+      await fill('item-0-icmsRate', '-1');
+      await setInput('submitted', true);
+
+      expect(errorOf('item-0-icmsRate')).toBe('O valor não pode ser negativo.');
     });
   });
 

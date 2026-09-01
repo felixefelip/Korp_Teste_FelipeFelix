@@ -29,14 +29,15 @@ describe('InvoiceService', () => {
         name: 'Cadeira',
         unit: 'UN',
         quantity: 2,
-        unitPrice: 150.5
+        unitPrice: 150.5,
+        icmsRate: 18
       }
     ]
   };
 
   const invoices: Invoice[] = [
-    { id: 1, series: 1, number: 1, formattedNumber: '001/000001', type: 'OUT', status: 'OPEN', items: [], total: 0 },
-    { id: 2, series: 1, number: 2, formattedNumber: '001/000002', type: 'OUT', status: 'CLOSED', items: [], total: 0 }
+    { id: 1, series: 1, number: 1, formattedNumber: '001/000001', type: 'OUT', status: 'OPEN', items: [], total: 0, icmsBase: 0, icmsValue: 0 },
+    { id: 2, series: 1, number: 2, formattedNumber: '001/000002', type: 'OUT', status: 'CLOSED', items: [], total: 0, icmsBase: 0, icmsValue: 0 }
   ];
 
   const load = (list: Invoice[] = invoices) => {

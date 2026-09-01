@@ -104,3 +104,19 @@ func TestOperationLabelFollowsTheInvoiceType(t *testing.T) {
 	assert.Equal(t, "SAÍDA", operationLabel(model.Invoice{Type: model.InvoiceTypeOut}))
 	assert.Equal(t, "ENTRADA", operationLabel(model.Invoice{Type: model.InvoiceTypeIn}))
 }
+
+func TestDanfeItemColumnsFillTheContentWidth(t *testing.T) {
+	width := 0.0
+
+	for _, column := range itemColumns {
+		width += column.width
+	}
+
+	assert.Equal(t, contentWidth, width, "the row has to fill the page, no more and no less")
+}
+
+func TestPercentFormatsTheRateOfTheItem(t *testing.T) {
+	assert.Equal(t, "18,00%", percent(18))
+	assert.Equal(t, "0,00%", percent(0))
+	assert.Equal(t, "7,50%", percent(7.5))
+}
