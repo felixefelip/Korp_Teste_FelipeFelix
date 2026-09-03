@@ -25,15 +25,19 @@ var itemColumns = []struct {
 	width float64
 	align string
 }{
-	{"CÓDIGO", 22, "L"},
-	{"DESCRIÇÃO", 62, "L"},
-	{"UN", 10, "C"},
-	{"QTD", 14, "R"},
-	{"VL. UNIT.", 24, "R"},
-	{"VL. TOTAL", 24, "R"},
-	{"% ICMS", 14, "R"},
-	{"VL. ICMS", 20, "R"},
+	{"CÓDIGO", 20, "L"},
+	{"DESCRIÇÃO", 55, "L"},
+	{"UN", 8, "C"},
+	{"QTD", 11, "R"},
+	{"VL. UNIT.", 19, "R"},
+	{"VL. TOTAL", 19, "R"},
+	{"% ICMS", 12, "R"},
+	{"VL. ICMS", 17, "R"},
+	{"% IPI", 12, "R"},
+	{"VL. IPI", 17, "R"},
 }
+
+var totalsWidths = []float64{70, 60, 60}
 
 func Danfe(invoice model.Invoice) ([]byte, error) {
 	var buffer bytes.Buffer
@@ -154,6 +158,8 @@ func (d *document) items(items []model.InvoiceItem) {
 			money(item.Total()),
 			percent(item.ICMSRate),
 			money(item.ICMSValue),
+			percent(item.IPIRate),
+			money(item.IPIValue),
 		}
 
 		for index, column := range itemColumns {
@@ -177,30 +183,43 @@ func (d *document) itemsHeader() {
 }
 
 func (d *document) totals(invoice model.Invoice) {
-	if d.pdf.GetY()+13 > bottomLimit {
+	if d.pdf.GetY()+23 > bottomLimit {
 		d.pdf.AddPage()
 	}
 
-	widths := []float64{70, 60, 60}
-	labels := []string{"BASE DE CÁLCULO DO ICMS", "VALOR DO ICMS", "VALOR TOTAL DA NOTA"}
-	values := []string{
-		money(invoice.ICMSBase()),
-		money(invoice.ICMSValue()),
-		money(invoice.Total()),
-	}
-
 	d.pdf.Ln(3)
+
+	d.totalsRow(
+		[]string{"BASE DE CÁLCULO DO ICMS", "VALOR DO ICMS", "VALOR TOTAL DOS PRODUTOS"},
+		[]string{
+			money(invoice.ICMSBase()),
+			money(invoice.ICMSValue()),
+			money(invoice.ProductsTotal()),
+		},
+	)
+
+	d.totalsRow(
+		[]string{"BASE DE CÁLCULO DO IPI", "VALOR DO IPI", "VALOR TOTAL DA NOTA"},
+		[]string{
+			money(invoice.IPIBase()),
+			money(invoice.IPIValue()),
+			money(invoice.Total()),
+		},
+	)
+}
+
+func (d *document) totalsRow(labels, values []string) {
 	d.pdf.SetFont("Helvetica", "", 6)
 
 	for index, label := range labels {
-		d.cell(widths[index], 4, label, "LTR", "L", false)
+		d.cell(totalsWidths[index], 4, label, "LTR", "L", false)
 	}
 
 	d.pdf.Ln(-1)
 	d.pdf.SetFont("Helvetica", "B", 10)
 
 	for index, value := range values {
-		d.cell(widths[index], 6, value, "LBR", "R", false)
+		d.cell(totalsWidths[index], 6, value, "LBR", "R", false)
 	}
 
 	d.pdf.Ln(-1)

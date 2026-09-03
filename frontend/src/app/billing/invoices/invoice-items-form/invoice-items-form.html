@@ -39,8 +39,6 @@
             <th scope="col">Unidade</th>
             <th scope="col" class="items__num">Quantidade</th>
             <th scope="col" class="items__num">Preço unitário</th>
-            <th scope="col" class="items__num">% ICMS</th>
-            <th scope="col" class="items__num">ICMS</th>
             <th scope="col" class="items__num">Total</th>
             <th scope="col" class="items__actions">Ações</th>
           </tr>
@@ -65,6 +63,8 @@
                   }
                 </select>
                 @if (rowError(row, 'inventoryId'); as message) {
+                  <p class="field-error">{{ message }}</p>
+                } @else if (hiddenError(row); as message) {
                   <p class="field-error">{{ message }}</p>
                 }
               </td>
@@ -108,51 +108,40 @@
                 }
               </td>
 
-              <td class="items__num">
-                <input
-                  type="number"
-                  class="field field--num field--rate"
-                  [id]="'item-' + $index + '-icmsRate'"
-                  [attr.aria-label]="'Alíquota de ICMS do item ' + ($index + 1)"
-                  formControlName="icmsRate"
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  placeholder="0,00"
-                  [class.field--error]="rowError(row, 'icmsRate')"
-                />
-                @if (rowError(row, 'icmsRate'); as message) {
-                  <p class="field-error">{{ message }}</p>
-                }
-              </td>
-
-              <td class="items__num items__row-icms">
-                {{ rowICMS(row) | currency: 'BRL' : 'symbol' : '1.2-2' }}
-              </td>
-
               <td class="items__num items__row-total">
                 {{ rowTotal(row) | currency: 'BRL' : 'symbol' : '1.2-2' }}
               </td>
 
               <td class="items__actions">
-                <button
-                  type="button"
-                  class="items__remove"
-                  [attr.aria-label]="'Remover item ' + ($index + 1)"
-                  (click)="removeItem($index)"
-                >
-                  Remover
-                </button>
+                <app-menu-button [items]="rowActions(row)" />
               </td>
             </tr>
           }
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="5" class="items__total-label">Total da nota</td>
+            <td colspan="4" class="items__total-label">Total dos produtos</td>
+            <td class="items__num items__products-total">
+              {{ productsTotal() | currency: 'BRL' : 'symbol' : '1.2-2' }}
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td colspan="4" class="items__total-label">ICMS</td>
             <td class="items__num items__total-icms">
               {{ totalICMS() | currency: 'BRL' : 'symbol' : '1.2-2' }}
             </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td colspan="4" class="items__total-label">IPI</td>
+            <td class="items__num items__total-ipi">
+              {{ totalIPI() | currency: 'BRL' : 'symbol' : '1.2-2' }}
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td colspan="4" class="items__total-label">Total da nota</td>
             <td class="items__num items__total">
               {{ total() | currency: 'BRL' : 'symbol' : '1.2-2' }}
             </td>
@@ -163,3 +152,12 @@
     </div>
   }
 </section>
+
+@if (editingForm(); as editing) {
+  <app-invoice-item-dialog
+    [form]="editing"
+    [products]="products()"
+    (saved)="saveEdit()"
+    (cancelled)="closeEdit()"
+  />
+}

@@ -83,34 +83,10 @@
   text-align: right;
 }
 
-.field--rate {
-  max-width: 5rem;
-}
-
-.items__row-total,
-.items__row-icms {
+.items__row-total {
   padding-top: 1.125rem;
   white-space: nowrap;
   color: var(--text-900);
-}
-
-.items__row-icms {
-  color: var(--text-500);
-}
-
-.items__remove {
-  padding: 0.375rem 0.5rem;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--danger-500);
-  font-family: inherit;
-  font-size: 0.8125rem;
-  cursor: pointer;
-}
-
-.items__remove:hover {
-  background: color-mix(in srgb, var(--danger-500) 10%, transparent);
 }
 
 .items__table tfoot td {
@@ -120,8 +96,15 @@
   color: var(--text-900);
 }
 
-.items__total-icms {
+.items__total-icms,
+.items__total-ipi,
+.items__products-total {
   color: var(--text-700);
+}
+
+.items__table tfoot tr:not(:last-child) td {
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
 }
 
 .items__total-label {

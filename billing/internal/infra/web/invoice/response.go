@@ -14,9 +14,12 @@ type response struct {
 	Type            string         `json:"type"`
 	Status          string         `json:"status"`
 	Items           []itemResponse `json:"items"`
+	ProductsTotal   float64        `json:"productsTotal"`
 	Total           float64        `json:"total"`
 	ICMSBase        float64        `json:"icmsBase"`
 	ICMSValue       float64        `json:"icmsValue"`
+	IPIBase         float64        `json:"ipiBase"`
+	IPIValue        float64        `json:"ipiValue"`
 
 	FailureReason string             `json:"failureReason,omitempty"`
 	Shortages     []shortageResponse `json:"shortages,omitempty"`
@@ -67,9 +70,12 @@ func newResponse(invoice model.Invoice) response {
 		Type:            invoice.Type,
 		Status:          invoice.Status,
 		Items:           items,
+		ProductsTotal:   model.RoundMoney(invoice.ProductsTotal()),
 		Total:           model.RoundMoney(invoice.Total()),
 		ICMSBase:        model.RoundMoney(invoice.ICMSBase()),
 		ICMSValue:       model.RoundMoney(invoice.ICMSValue()),
+		IPIBase:         model.RoundMoney(invoice.IPIBase()),
+		IPIValue:        model.RoundMoney(invoice.IPIValue()),
 
 		FailureReason: invoice.FailureReason,
 		Shortages:     newShortageResponses(invoice.Shortages),

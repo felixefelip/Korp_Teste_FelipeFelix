@@ -36,7 +36,8 @@ const EXISTING_ITEM: InvoiceItemPayload = {
   unit: 'UN',
   quantity: 2,
   unitPrice: 150.5,
-  icmsRate: 0
+  icmsRate: 0,
+  ipiRate: 0
 };
 
 const EXISTING: Invoice = {
@@ -44,10 +45,24 @@ const EXISTING: Invoice = {
   series: 1, number: 7, formattedNumber: '001/000007',
   type: 'OUT',
   status: 'CLOSED',
+  productsTotal: 301,
   total: 301,
   icmsBase: 301,
   icmsValue: 0,
-  items: [{ ...EXISTING_ITEM, id: 1, productId: 11, total: 301, icmsBase: 301, icmsValue: 0 }]
+  ipiBase: 301,
+  ipiValue: 0,
+  items: [
+    {
+      ...EXISTING_ITEM,
+      id: 1,
+      productId: 11,
+      total: 301,
+      icmsBase: 301,
+      icmsValue: 0,
+      ipiBase: 301,
+      ipiValue: 0
+    }
+  ]
 };
 
 describe('InvoiceForm', () => {
@@ -102,8 +117,33 @@ describe('InvoiceForm', () => {
     await fixture.whenStable();
   };
 
+  const rowMenuItem = (row: number, label: string) =>
+    Array.from(
+      rows()[row].querySelectorAll<HTMLButtonElement>('.menu-button__item')
+    ).find((item) => text(item) === label)!;
+
   const removeItem = async (row: number) => {
-    element().querySelectorAll<HTMLButtonElement>('.items__remove')[row].click();
+    rows()[row].querySelector<HTMLButtonElement>('.menu-button__toggle')!.click();
+    await fixture.whenStable();
+
+    rowMenuItem(row, 'Remover').click();
+    await fixture.whenStable();
+  };
+
+  const editItem = async (row: number) => {
+    rows()[row].querySelector<HTMLButtonElement>('.menu-button__action')!.click();
+    await fixture.whenStable();
+  };
+
+  const dialog = () => element().querySelector('.item-dialog');
+
+  const saveDialog = async () => {
+    element().querySelector<HTMLButtonElement>('.item-dialog__actions .btn--primary')!.click();
+    await fixture.whenStable();
+  };
+
+  const cancelDialog = async () => {
+    element().querySelector<HTMLButtonElement>('.item-dialog__actions .btn--ghost')!.click();
     await fixture.whenStable();
   };
 
@@ -314,15 +354,18 @@ describe('InvoiceForm', () => {
       ]);
     });
 
-    it('hands over the icms rate that was typed on the row', async () => {
+    it('hands over the rates that were set in the dialog of the item', async () => {
       await fillValidForm();
       await addValidItem();
-      await fill('item-0-icmsRate', '18');
+      await editItem(0);
+      await fill('dialog-icmsRate', '18');
+      await fill('dialog-ipiRate', '10');
+      await saveDialog();
       await submit();
 
       expect(saved).toEqual([
         expect.objectContaining({
-          items: [expect.objectContaining({ icmsRate: 18 })]
+          items: [expect.objectContaining({ icmsRate: 18, ipiRate: 10 })]
         })
       ]);
     });

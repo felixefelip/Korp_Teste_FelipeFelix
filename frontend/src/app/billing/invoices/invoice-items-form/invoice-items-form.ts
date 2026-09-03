@@ -1,62 +1,30 @@
 import { CurrencyPipe } from '@angular/common';
-import { Component, input } from '@angular/core';
-import {
-  FormArray,
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  Validators
-} from '@angular/forms';
+import { Component, input, signal } from '@angular/core';
+import { FormArray, ReactiveFormsModule } from '@angular/forms';
 
 import { CatalogProduct } from '../catalog.model';
 import { InvoiceShortage } from '../invoice.model';
 import { CustomFormValidation } from '../../../shared/forms/custom-form-validation';
-import { CustomValidators } from '../../../shared/forms/validators';
-import { InvoiceItemPayload } from '../invoice.model';
+import { MenuButton, MenuItem } from '../../../shared/menu-button/menu-button';
+import { InvoiceItemDialog } from '../invoice-item-dialog/invoice-item-dialog';
+import {
+  ItemGroup,
+  fillGroupFromProduct,
+  itemICMS,
+  itemIPI,
+  itemPayloadOf,
+  itemTotal,
+  newItemGroup
+} from './item-group';
 
-export type ItemGroup = FormGroup<{
-  inventoryId: FormControl<number | null>;
-  code: FormControl<string>;
-  name: FormControl<string>;
-  unit: FormControl<string>;
-  quantity: FormControl<number | null>;
-  unitPrice: FormControl<number | null>;
-  icmsRate: FormControl<number | null>;
-}>;
+export type { ItemGroup } from './item-group';
+export { newItemGroup, newItemArray } from './item-group';
 
-export function newItemGroup(item?: InvoiceItemPayload): ItemGroup {
-  return new FormGroup({
-    inventoryId: new FormControl<number | null>(
-      item?.inventoryId ?? null,
-      Validators.required
-    ),
-    code: new FormControl(item?.code ?? '', { nonNullable: true }),
-    name: new FormControl(item?.name ?? '', { nonNullable: true }),
-    unit: new FormControl(item?.unit ?? '', { nonNullable: true }),
-    quantity: new FormControl<number | null>(item?.quantity ?? 1, [
-      Validators.required,
-      Validators.min(1),
-      CustomValidators.integer
-    ]),
-    unitPrice: new FormControl<number | null>(item?.unitPrice ?? null, [
-      Validators.required,
-      Validators.min(0)
-    ]),
-    icmsRate: new FormControl<number | null>(item?.icmsRate ?? 0, [
-      Validators.required,
-      Validators.min(0),
-      Validators.max(100)
-    ])
-  });
-}
-
-export function newItemArray(items: InvoiceItemPayload[] = []): FormArray<ItemGroup> {
-  return new FormArray(items.map(newItemGroup));
-}
+const HIDDEN_FIELDS = ['icmsRate', 'ipiRate'];
 
 @Component({
   selector: 'app-invoice-items-form',
-  imports: [CurrencyPipe, ReactiveFormsModule],
+  imports: [CurrencyPipe, InvoiceItemDialog, MenuButton, ReactiveFormsModule],
   templateUrl: './invoice-items-form.html',
   styleUrl: './invoice-items-form.scss'
 })
@@ -66,6 +34,28 @@ export class InvoiceItemsForm {
   readonly productsFailed = input(false);
   readonly submitted = input(false);
   readonly shortages = input<InvoiceShortage[]>([]);
+
+  private readonly actionsByRow = new WeakMap<ItemGroup, MenuItem[]>();
+  private readonly editingRow = signal<ItemGroup | null>(null);
+
+  protected readonly editingForm = signal<ItemGroup | null>(null);
+
+  protected rowActions(row: ItemGroup): MenuItem[] {
+    const cached = this.actionsByRow.get(row);
+
+    if (cached) {
+      return cached;
+    }
+
+    const actions: MenuItem[] = [
+      { label: 'Editar', action: () => this.editItem(row) },
+      { label: 'Remover', action: () => this.removeItem(row) }
+    ];
+
+    this.actionsByRow.set(row, actions);
+
+    return actions;
+  }
 
   protected rowShortage(row: ItemGroup): InvoiceShortage | null {
     const inventoryId = row.controls.inventoryId.value;
@@ -77,54 +67,75 @@ export class InvoiceItemsForm {
     return CustomFormValidation.fieldErrorFor(row, this.submitted)(field);
   }
 
+  protected hiddenError(row: ItemGroup): string | null {
+    for (const field of HIDDEN_FIELDS) {
+      if (this.rowError(row, field)) {
+        return 'Impostos inválidos. Abra Editar para corrigir.';
+      }
+    }
+
+    return null;
+  }
+
   protected addItem(): void {
     this.items().push(newItemGroup());
   }
 
-  protected removeItem(index: number): void {
-    this.items().removeAt(index);
+  protected removeItem(row: ItemGroup): void {
+    const index = this.items().controls.indexOf(row);
+
+    if (index >= 0) {
+      this.items().removeAt(index);
+    }
+  }
+
+  protected editItem(row: ItemGroup): void {
+    this.editingRow.set(row);
+    this.editingForm.set(newItemGroup(itemPayloadOf(row)));
+  }
+
+  protected saveEdit(): void {
+    const row = this.editingRow();
+    const edited = this.editingForm();
+
+    if (row && edited) {
+      row.patchValue(edited.getRawValue());
+      row.markAsDirty();
+    }
+
+    this.closeEdit();
+  }
+
+  protected closeEdit(): void {
+    this.editingRow.set(null);
+    this.editingForm.set(null);
   }
 
   protected fillFromProduct(row: ItemGroup): void {
-    const product = this.products().find(
-      (candidate) => candidate.id === row.controls.inventoryId.value
-    );
-
-    if (!product) {
-      return;
-    }
-
-    row.patchValue({
-      code: product.code,
-      name: product.name,
-      unit: product.unit,
-      unitPrice: product.price
-    });
+    fillGroupFromProduct(row, this.products());
   }
 
   protected rowTotal(row: ItemGroup): number {
-    const { quantity, unitPrice } = row.getRawValue();
-
-    return (quantity ?? 0) * (unitPrice ?? 0);
+    return itemTotal(row);
   }
 
-  protected rowICMS(row: ItemGroup): number {
-    const rate = row.getRawValue().icmsRate ?? 0;
-
-    return Math.round(this.rowTotal(row) * rate) / 100;
-  }
-
-  protected total(): number {
-    return this.items().controls.reduce(
-      (total, row) => total + this.rowTotal(row),
-      0
-    );
+  protected productsTotal(): number {
+    return this.sum(itemTotal);
   }
 
   protected totalICMS(): number {
-    return this.items().controls.reduce(
-      (total, row) => total + this.rowICMS(row),
-      0
-    );
+    return this.sum(itemICMS);
+  }
+
+  protected totalIPI(): number {
+    return this.sum(itemIPI);
+  }
+
+  protected total(): number {
+    return this.productsTotal() + this.totalIPI();
+  }
+
+  private sum(of: (row: ItemGroup) => number): number {
+    return this.items().controls.reduce((total, row) => total + of(row), 0);
   }
 }

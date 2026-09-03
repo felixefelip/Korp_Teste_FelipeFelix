@@ -190,7 +190,8 @@ export class InvoiceForm {
         unit: item.unit,
         quantity: item.quantity!,
         unitPrice: item.unitPrice!,
-        icmsRate: item.icmsRate!
+        icmsRate: item.icmsRate!,
+        ipiRate: item.ipiRate!
       }))
     });
   }

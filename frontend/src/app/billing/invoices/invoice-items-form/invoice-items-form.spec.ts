@@ -41,7 +41,10 @@ const EXISTING_ITEM: InvoiceItem = {
   total: 301,
   icmsRate: 18,
   icmsBase: 301,
-  icmsValue: 54.18
+  icmsValue: 54.18,
+  ipiRate: 10,
+  ipiBase: 301,
+  ipiValue: 30.1
 };
 
 describe('InvoiceItemsForm', () => {
@@ -77,8 +80,33 @@ describe('InvoiceItemsForm', () => {
     await fixture.whenStable();
   };
 
+  const rowMenuItem = (row: number, label: string) =>
+    Array.from(
+      rows()[row].querySelectorAll<HTMLButtonElement>('.menu-button__item')
+    ).find((item) => text(item) === label)!;
+
   const removeItem = async (row: number) => {
-    element().querySelectorAll<HTMLButtonElement>('.items__remove')[row].click();
+    rows()[row].querySelector<HTMLButtonElement>('.menu-button__toggle')!.click();
+    await fixture.whenStable();
+
+    rowMenuItem(row, 'Remover').click();
+    await fixture.whenStable();
+  };
+
+  const editItem = async (row: number) => {
+    rows()[row].querySelector<HTMLButtonElement>('.menu-button__action')!.click();
+    await fixture.whenStable();
+  };
+
+  const dialog = () => element().querySelector('.item-dialog');
+
+  const saveDialog = async () => {
+    element().querySelector<HTMLButtonElement>('.item-dialog__actions .btn--primary')!.click();
+    await fixture.whenStable();
+  };
+
+  const cancelDialog = async () => {
+    element().querySelector<HTMLButtonElement>('.item-dialog__actions .btn--ghost')!.click();
     await fixture.whenStable();
   };
 
@@ -97,10 +125,11 @@ describe('InvoiceItemsForm', () => {
 
   const total = () => text(element().querySelector('.items__total'));
 
-  const rowICMS = () =>
-    Array.from(element().querySelectorAll('.items__row-icms')).map(text);
+  const productsTotal = () => text(element().querySelector('.items__products-total'));
 
   const totalICMS = () => text(element().querySelector('.items__total-icms'));
+
+  const totalIPI = () => text(element().querySelector('.items__total-ipi'));
 
   const unitOf = (row: number) => text(rows()[row].querySelector('.items__unit'));
 
@@ -277,64 +306,163 @@ describe('InvoiceItemsForm', () => {
     });
   });
 
-  describe('icms', () => {
-    it('starts a row untaxed', async () => {
-      await addItem();
+  describe('the taxes of the item', () => {
+    it('are not asked for on the row itself', async () => {
+      await addValidItem();
 
-      expect(field<HTMLInputElement>('item-0-icmsRate').value).toBe('0');
-      expect(rowICMS()).toEqual(['R$ 0,00']);
+      expect(element().querySelector('#item-0-icmsRate')).toBeNull();
+      expect(element().querySelector('#item-0-ipiRate')).toBeNull();
+    });
+
+    it('start a row untaxed', async () => {
+      await addValidItem(0, 0, '2');
+
+      expect(totalICMS()).toBe('R$ 0,00');
+      expect(totalIPI()).toBe('R$ 0,00');
+      expect(total()).toBe('R$ 301,00');
+    });
+
+    it('reach the row through the dialog', async () => {
+      await addValidItem(0, 0, '2');
+      await editItem(0);
+      await fill('dialog-icmsRate', '18');
+      await fill('dialog-ipiRate', '10');
+      await saveDialog();
+
+      expect(items.at(0).getRawValue()).toMatchObject({ icmsRate: 18, ipiRate: 10 });
+      expect(totalICMS()).toBe('R$ 54,18');
+      expect(totalIPI()).toBe('R$ 30,10');
+    });
+
+    it('put the ipi in the note total and leave the icms out of it', async () => {
+      await addValidItem(0, 0, '2');
+      await editItem(0);
+      await fill('dialog-icmsRate', '18');
+      await fill('dialog-ipiRate', '10');
+      await saveDialog();
+
+      expect(productsTotal()).toBe('R$ 301,00');
+      expect(total()).toBe('R$ 331,10');
+    });
+
+    it('are summed over every row', async () => {
+      await addValidItem(0, 0, '2');
+      await editItem(0);
+      await fill('dialog-ipiRate', '10');
+      await saveDialog();
+
+      await addValidItem(1, 1, '3');
+      await editItem(1);
+      await fill('dialog-ipiRate', '5');
+      await saveDialog();
+
+      expect(totalIPI()).toBe('R$ 164,95');
+      expect(total()).toBe('R$ 3.162,95');
+    });
+
+    it('are announced on the row when the server refuses them', async () => {
+      await addValidItem();
+      await setInput('submitted', true);
+      items.at(0).controls.icmsRate.setErrors({ server: 'Alíquota não permitida.' });
+      await fixture.whenStable();
+
+      expect(errorOf('item-0-product')).toBe('Impostos inválidos. Abra Editar para corrigir.');
+    });
+  });
+
+  describe('the dialog of the item', () => {
+    it('stays closed until Editar is chosen', async () => {
+      await addValidItem();
+
+      expect(dialog()).toBeNull();
+    });
+
+    it('opens filled with what the row carries', async () => {
+      await mount(newItemArray([EXISTING_ITEM]));
+      await editItem(0);
+
+      expect(field<HTMLSelectElement>('dialog-product').selectedIndex).toBe(1);
+      expect(field<HTMLInputElement>('dialog-quantity').value).toBe('2');
+      expect(field<HTMLInputElement>('dialog-unitPrice').value).toBe('150.5');
+      expect(field<HTMLInputElement>('dialog-icmsRate').value).toBe('18');
+      expect(field<HTMLInputElement>('dialog-ipiRate').value).toBe('10');
+    });
+
+    it('shows what the item is worth as the rates are typed', async () => {
+      await addValidItem(0, 0, '2');
+      await editItem(0);
+      await fill('dialog-icmsRate', '18');
+      await fill('dialog-ipiRate', '10');
+
+      expect(text(element().querySelector('.item-dialog__products-total'))).toBe('R$ 301,00');
+      expect(text(element().querySelector('.item-dialog__icms'))).toBe('R$ 54,18');
+      expect(text(element().querySelector('.item-dialog__ipi'))).toBe('R$ 30,10');
+    });
+
+    it('closes and commits what was edited', async () => {
+      await addValidItem(0, 0, '2');
+      await editItem(0);
+      await fill('dialog-quantity', '5');
+      await saveDialog();
+
+      expect(dialog()).toBeNull();
+      expect(items.at(0).getRawValue().quantity).toBe(5);
+      expect(field<HTMLInputElement>('item-0-quantity').value).toBe('5');
+    });
+
+    it('throws away what was edited when it is cancelled', async () => {
+      await addValidItem(0, 0, '2');
+      await editItem(0);
+      await fill('dialog-quantity', '5');
+      await fill('dialog-icmsRate', '18');
+      await cancelDialog();
+
+      expect(dialog()).toBeNull();
+      expect(items.at(0).getRawValue()).toMatchObject({ quantity: 2, icmsRate: 0 });
       expect(totalICMS()).toBe('R$ 0,00');
     });
 
-    it('applies the typed rate over the total of the row', async () => {
-      await addValidItem(0, 0, '2');
-      await fill('item-0-icmsRate', '18');
-
-      expect(rowTotals()).toEqual(['R$ 301,00']);
-      expect(rowICMS()).toEqual(['R$ 54,18']);
-    });
-
-    it('sums the icms of every row without touching the total of the invoice', async () => {
-      await addValidItem(0, 0, '2');
-      await fill('item-0-icmsRate', '18');
-      await addValidItem(1, 1, '3');
-      await fill('item-1-icmsRate', '12');
-
-      expect(totalICMS()).toBe('R$ 377,82');
-      expect(total()).toBe('R$ 2.998,00');
-    });
-
-    it('taxes each row by its own rate', async () => {
-      await addValidItem(0, 0, '2');
-      await fill('item-0-icmsRate', '18');
-      await addValidItem(1, 1, '3');
-
-      expect(rowICMS()).toEqual(['R$ 54,18', 'R$ 0,00']);
-    });
-
-    it('shows the rate a row came with', async () => {
-      await mount(newItemArray([EXISTING_ITEM]));
-
-      expect(field<HTMLInputElement>('item-0-icmsRate').value).toBe('18');
-      expect(rowICMS()).toEqual(['R$ 54,18']);
-    });
-
-    it('rejects a rate above one hundred percent', async () => {
+    it('refuses to commit a rate above one hundred percent', async () => {
       await addValidItem();
-      await fill('item-0-icmsRate', '101');
-      await setInput('submitted', true);
+      await editItem(0);
+      await fill('dialog-icmsRate', '101');
+      await saveDialog();
 
-      expect(errorOf('item-0-icmsRate')).toBe('O valor máximo é 100.');
+      expect(dialog()).not.toBeNull();
+      expect(errorOf('dialog-icmsRate')).toBe('O valor máximo é 100.');
+      expect(items.at(0).getRawValue().icmsRate).toBe(0);
     });
 
-    it('rejects a negative rate', async () => {
+    it('refuses to commit a negative ipi rate', async () => {
       await addValidItem();
-      await fill('item-0-icmsRate', '-1');
-      await setInput('submitted', true);
+      await editItem(0);
+      await fill('dialog-ipiRate', '-1');
+      await saveDialog();
 
-      expect(errorOf('item-0-icmsRate')).toBe('O valor não pode ser negativo.');
+      expect(dialog()).not.toBeNull();
+      expect(errorOf('dialog-ipiRate')).toBe('O valor não pode ser negativo.');
+    });
+
+    it('lets the product be chosen from inside it', async () => {
+      await addItem();
+      await editItem(0);
+
+      const select = field<HTMLSelectElement>('dialog-product');
+      select.selectedIndex = 2;
+      select.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+      await saveDialog();
+
+      expect(items.at(0).getRawValue()).toMatchObject({
+        inventoryId: 5,
+        code: 'PRD-0005',
+        unit: 'CX',
+        unitPrice: 899
+      });
+      expect(unitOf(0)).toBe('CX');
     });
   });
+
 
   describe('removing a row', () => {
     it('drops it from the array it was given', async () => {
@@ -382,7 +510,8 @@ describe('InvoiceItemsForm', () => {
       expect(field<HTMLInputElement>('item-0-quantity').value).toBe('2');
       expect(field<HTMLInputElement>('item-0-unitPrice').value).toBe('150.5');
       expect(unitOf(0)).toBe('UN');
-      expect(total()).toBe('R$ 301,00');
+      expect(productsTotal()).toBe('R$ 301,00');
+      expect(total()).toBe('R$ 331,10');
     });
 
     it('shows no error over a row nobody touched', () => {

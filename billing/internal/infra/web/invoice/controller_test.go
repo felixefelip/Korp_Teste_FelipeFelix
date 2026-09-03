@@ -31,6 +31,9 @@ type invoiceItemResponse struct {
 	ICMSRate    float64 `json:"icmsRate"`
 	ICMSBase    float64 `json:"icmsBase"`
 	ICMSValue   float64 `json:"icmsValue"`
+	IPIRate     float64 `json:"ipiRate"`
+	IPIBase     float64 `json:"ipiBase"`
+	IPIValue    float64 `json:"ipiValue"`
 }
 
 type invoiceResponse struct {
@@ -41,9 +44,12 @@ type invoiceResponse struct {
 	Type            string                `json:"type"`
 	Status          string                `json:"status"`
 	Items           []invoiceItemResponse `json:"items"`
+	ProductsTotal   float64               `json:"productsTotal"`
 	Total           float64               `json:"total"`
 	ICMSBase        float64               `json:"icmsBase"`
 	ICMSValue       float64               `json:"icmsValue"`
+	IPIBase         float64               `json:"ipiBase"`
+	IPIValue        float64               `json:"ipiValue"`
 	ProcessingSince *time.Time            `json:"processingSince"`
 }
 
@@ -632,6 +638,105 @@ func TestCreateInvoiceWithANegativeRateReturns400(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, response.Code)
 	assert.Equal(t, "O valor não pode ser negativo.",
 		decodeErrors(t, response.Body.Bytes())["items[0].icmsRate"])
+}
+
+const invoiceWithBothTaxes = `{
+    "series":1,"number":1,
+    "type": "OUT",
+    "items": [
+        {"inventoryId": 11, "code": "PRD-0001", "name": "Camiseta", "unit": "UN", "quantity": 2, "unitPrice": 30.99, "icmsRate": 18, "ipiRate": 10},
+        {"inventoryId": 12, "code": "PRD-0002", "name": "Caneca", "unit": "UN", "quantity": 1, "unitPrice": 19.9, "icmsRate": 12, "ipiRate": 5}
+    ]
+}`
+
+func TestCreateInvoiceComputesTheIPIOfEachItem(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices", invoiceWithBothTaxes)
+
+	require.Equal(t, http.StatusCreated, response.Code)
+
+	created := decodeInvoice(t, response.Body.Bytes())
+
+	require.Len(t, created.Items, 2)
+	assert.Equal(t, 10.0, created.Items[0].IPIRate)
+	assert.Equal(t, 61.98, created.Items[0].IPIBase)
+	assert.Equal(t, 6.2, created.Items[0].IPIValue)
+	assert.Equal(t, 1.0, created.Items[1].IPIValue)
+}
+
+func TestCreateInvoiceAddsTheIPIToTheTotalOfTheInvoice(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices", invoiceWithBothTaxes)
+	require.Equal(t, http.StatusCreated, response.Code)
+
+	created := decodeInvoice(t, response.Body.Bytes())
+
+	assert.Equal(t, 81.88, created.ProductsTotal)
+	assert.Equal(t, 7.2, created.IPIValue)
+	assert.Equal(t, 89.08, created.Total, "products plus ipi, which is charged on top")
+	assert.Equal(t, 13.55, created.ICMSValue, "the icms stays out of the total")
+}
+
+func TestCreateInvoiceKeepsTheItemTotalFreeOfTheIPI(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices", invoiceWithBothTaxes)
+	require.Equal(t, http.StatusCreated, response.Code)
+
+	item := decodeInvoice(t, response.Body.Bytes()).Items[0]
+
+	assert.Equal(t, 61.98, item.Total, "the line shows the value of the products")
+}
+
+func TestCreateInvoiceWithoutIPIKeepsTheTotalOfTheProducts(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices", invoiceWithTaxedItems)
+	require.Equal(t, http.StatusCreated, response.Code)
+
+	created := decodeInvoice(t, response.Body.Bytes())
+
+	assert.Zero(t, created.IPIValue)
+	assert.Equal(t, created.ProductsTotal, created.Total)
+}
+
+func TestCreateInvoiceKeepsTheIPIAfterReloading(t *testing.T) {
+	server := newServer(t)
+
+	created := decodeInvoice(t, webtest.Post(t, server, "/invoices", invoiceWithBothTaxes).Body.Bytes())
+
+	response := webtest.Get(t, server, fmt.Sprintf("/invoices/%d", created.ID))
+	require.Equal(t, http.StatusOK, response.Code)
+
+	reloaded := decodeInvoice(t, response.Body.Bytes())
+
+	assert.Equal(t, 10.0, reloaded.Items[0].IPIRate)
+	assert.Equal(t, 6.2, reloaded.Items[0].IPIValue)
+	assert.Equal(t, 89.08, reloaded.Total)
+}
+
+func TestCreateInvoiceWithAnIPIRateAboveOneHundredReturns400(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices",
+		itemBody(`{"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":1,"unitPrice":10,"ipiRate":101}`))
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	assert.Equal(t, "O valor não pode ser maior que 100.",
+		decodeErrors(t, response.Body.Bytes())["items[0].ipiRate"])
+}
+
+func TestCreateInvoiceWithANegativeIPIRateReturns400(t *testing.T) {
+	server := newServer(t)
+
+	response := webtest.Post(t, server, "/invoices",
+		itemBody(`{"inventoryId":11,"code":"PRD-0001","name":"Camiseta","unit":"UN","quantity":1,"unitPrice":10,"ipiRate":-1}`))
+
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	assert.Equal(t, "O valor não pode ser negativo.",
+		decodeErrors(t, response.Body.Bytes())["items[0].ipiRate"])
 }
 
 func TestCreateInvoiceCarriesBothIDsOfTheProduct(t *testing.T) {

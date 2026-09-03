@@ -17,6 +17,9 @@ type itemResponse struct {
 	ICMSRate    float64 `json:"icmsRate"`
 	ICMSBase    float64 `json:"icmsBase"`
 	ICMSValue   float64 `json:"icmsValue"`
+	IPIRate     float64 `json:"ipiRate"`
+	IPIBase     float64 `json:"ipiBase"`
+	IPIValue    float64 `json:"ipiValue"`
 }
 
 func newItemResponse(item model.InvoiceItem) itemResponse {
@@ -33,5 +36,8 @@ func newItemResponse(item model.InvoiceItem) itemResponse {
 		ICMSRate:    item.ICMSRate,
 		ICMSBase:    item.ICMSBase,
 		ICMSValue:   item.ICMSValue,
+		IPIRate:     item.IPIRate,
+		IPIBase:     item.IPIBase,
+		IPIValue:    item.IPIValue,
 	}
 }

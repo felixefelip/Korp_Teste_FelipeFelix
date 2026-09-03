@@ -14,9 +14,12 @@ const OPEN: Invoice = {
   type: 'OUT',
   status: 'OPEN',
   items: [],
+  productsTotal: 0,
   total: 0,
   icmsBase: 0,
-  icmsValue: 0
+  icmsValue: 0,
+  ipiBase: 0,
+  ipiValue: 0
 };
 
 const CLOSED: Invoice = { ...OPEN, status: 'CLOSED' };

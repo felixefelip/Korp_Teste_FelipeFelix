@@ -32,7 +32,8 @@ const DRAFT: InvoiceDraft = {
       unit: 'UN',
       quantity: 2,
       unitPrice: 150.5,
-      icmsRate: 0
+      icmsRate: 0,
+      ipiRate: 0
     }
   ],
   unresolved: []
@@ -271,7 +272,8 @@ describe('InvoiceNew', () => {
             unit: 'UN',
             quantity: 2,
             unitPrice: 150.5,
-            icmsRate: 0
+            icmsRate: 0,
+            ipiRate: 0
           }
         ]
       });

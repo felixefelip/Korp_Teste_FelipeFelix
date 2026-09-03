@@ -23,7 +23,8 @@ const EXISTING_ITEM: InvoiceItemPayload = {
   unit: 'UN',
   quantity: 2,
   unitPrice: 150.5,
-  icmsRate: 18
+  icmsRate: 18,
+  ipiRate: 0
 };
 
 const EXISTING: Invoice = {
@@ -31,10 +32,24 @@ const EXISTING: Invoice = {
   series: 1, number: 7, formattedNumber: '001/000007',
   type: 'OUT',
   status: 'OPEN',
+  productsTotal: 301,
   total: 301,
   icmsBase: 301,
   icmsValue: 54.18,
-  items: [{ ...EXISTING_ITEM, id: 1, productId: 11, total: 301, icmsBase: 301, icmsValue: 54.18 }]
+  ipiBase: 301,
+  ipiValue: 0,
+  items: [
+    {
+      ...EXISTING_ITEM,
+      id: 1,
+      productId: 11,
+      total: 301,
+      icmsBase: 301,
+      icmsValue: 54.18,
+      ipiBase: 301,
+      ipiValue: 0
+    }
+  ]
 };
 
 describe('InvoiceEdit', () => {
@@ -314,14 +329,20 @@ describe('InvoiceEdit', () => {
             unit: 'CX',
             quantity: 3,
             unitPrice: 899,
-            icmsRate: 0
+            icmsRate: 0,
+            ipiRate: 0
           }
         ]
       });
     });
 
     it('sends an empty list when every item was removed', async () => {
-      element().querySelector<HTMLButtonElement>('.items__remove')!.click();
+      element().querySelector<HTMLButtonElement>('.menu-button__toggle')!.click();
+      await fixture.whenStable();
+
+      Array.from(element().querySelectorAll<HTMLButtonElement>('.menu-button__item'))
+        .find((item) => (item.textContent ?? '').trim() === 'Remover')!
+        .click();
       await fixture.whenStable();
       await submit();
 

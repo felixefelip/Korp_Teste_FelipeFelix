@@ -1,0 +1,124 @@
+<div class="overlay" (click)="cancel()">
+  <div
+    class="item-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="item-dialog-title"
+    [formGroup]="form()"
+    (click)="$event.stopPropagation()"
+  >
+    <h2 class="item-dialog__title" id="item-dialog-title">Editar item</h2>
+
+    <div class="item-dialog__fields">
+      <div class="field-group item-dialog__wide">
+        <label class="field-label" for="dialog-product">Produto</label>
+        <select
+          class="field"
+          id="dialog-product"
+          formControlName="inventoryId"
+          [class.field--error]="error('inventoryId')"
+          (change)="fillFromProduct()"
+        >
+          <option [ngValue]="null" disabled>Selecione o produto</option>
+          @for (product of products(); track product.id) {
+            <option [ngValue]="product.id">{{ product.code }} · {{ product.name }}</option>
+          }
+        </select>
+        @if (error('inventoryId'); as message) {
+          <p class="field-error">{{ message }}</p>
+        }
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dialog-quantity">Quantidade</label>
+        <input
+          type="number"
+          class="field"
+          id="dialog-quantity"
+          formControlName="quantity"
+          step="1"
+          min="1"
+          [class.field--error]="error('quantity')"
+        />
+        @if (error('quantity'); as message) {
+          <p class="field-error">{{ message }}</p>
+        }
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dialog-unitPrice">Preço unitário</label>
+        <input
+          type="number"
+          class="field"
+          id="dialog-unitPrice"
+          formControlName="unitPrice"
+          step="0.01"
+          min="0"
+          placeholder="0,00"
+          [class.field--error]="error('unitPrice')"
+        />
+        @if (error('unitPrice'); as message) {
+          <p class="field-error">{{ message }}</p>
+        }
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dialog-icmsRate">% ICMS</label>
+        <input
+          type="number"
+          class="field"
+          id="dialog-icmsRate"
+          formControlName="icmsRate"
+          step="0.01"
+          min="0"
+          max="100"
+          placeholder="0,00"
+          [class.field--error]="error('icmsRate')"
+        />
+        @if (error('icmsRate'); as message) {
+          <p class="field-error">{{ message }}</p>
+        }
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dialog-ipiRate">% IPI</label>
+        <input
+          type="number"
+          class="field"
+          id="dialog-ipiRate"
+          formControlName="ipiRate"
+          step="0.01"
+          min="0"
+          max="100"
+          placeholder="0,00"
+          [class.field--error]="error('ipiRate')"
+        />
+        @if (error('ipiRate'); as message) {
+          <p class="field-error">{{ message }}</p>
+        }
+      </div>
+    </div>
+
+    <dl class="item-dialog__summary">
+      <div>
+        <dt>Total dos produtos</dt>
+        <dd class="item-dialog__products-total">
+          {{ total() | currency: 'BRL' : 'symbol' : '1.2-2' }}
+        </dd>
+      </div>
+      <div>
+        <dt>ICMS</dt>
+        <dd class="item-dialog__icms">{{ icms() | currency: 'BRL' : 'symbol' : '1.2-2' }}</dd>
+      </div>
+      <div>
+        <dt>IPI</dt>
+        <dd class="item-dialog__ipi">{{ ipi() | currency: 'BRL' : 'symbol' : '1.2-2' }}</dd>
+      </div>
+    </dl>
+
+    <footer class="item-dialog__actions">
+      <button type="button" class="btn btn--ghost" (click)="cancel()">Cancelar</button>
+      <button type="button" class="btn btn--primary" (click)="save()">Salvar item</button>
+    </footer>
+  </div>
+</div>

@@ -13,6 +13,9 @@ type InvoiceItem struct {
 	ICMSRate    float64 `gorm:"not null;default:0"`
 	ICMSBase    float64 `gorm:"not null;default:0"`
 	ICMSValue   float64 `gorm:"not null;default:0"`
+	IPIRate     float64 `gorm:"not null;default:0"`
+	IPIBase     float64 `gorm:"not null;default:0"`
+	IPIValue    float64 `gorm:"not null;default:0"`
 }
 
 func (i InvoiceItem) Total() float64 {
@@ -23,6 +26,14 @@ func (i InvoiceItem) WithICMS(rate float64) InvoiceItem {
 	i.ICMSRate = rate
 	i.ICMSBase = RoundMoney(i.Total())
 	i.ICMSValue = RoundMoney(i.ICMSBase * rate / 100)
+
+	return i
+}
+
+func (i InvoiceItem) WithIPI(rate float64) InvoiceItem {
+	i.IPIRate = rate
+	i.IPIBase = RoundMoney(i.Total())
+	i.IPIValue = RoundMoney(i.IPIBase * rate / 100)
 
 	return i
 }

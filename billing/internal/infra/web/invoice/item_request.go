@@ -14,6 +14,7 @@ type itemRequest struct {
 	Quantity    *int     `json:"quantity"    binding:"required,gt=0"`
 	UnitPrice   *float64 `json:"unitPrice"   binding:"required,gte=0"`
 	ICMSRate    *float64 `json:"icmsRate"    binding:"omitempty,gte=0,lte=100"`
+	IPIRate     *float64 `json:"ipiRate"     binding:"omitempty,gte=0,lte=100"`
 }
 
 func (r itemRequest) toModel() model.InvoiceItem {
@@ -36,7 +37,7 @@ func (r itemRequest) toModel() model.InvoiceItem {
 		},
 	}
 
-	return item.WithICMS(informedRate(r.ICMSRate))
+	return item.WithICMS(informedRate(r.ICMSRate)).WithIPI(informedRate(r.IPIRate))
 }
 
 func informedRate(rate *float64) float64 {

@@ -14,8 +14,8 @@ import { POLL_INTERVAL, SLOW_POLL_INTERVAL, InvoiceList } from './invoice-list';
 registerLocaleData(localePt, 'pt-BR');
 
 const INVOICES: Invoice[] = [
-  { id: 1, series: 1, number: 1, formattedNumber: '001/000001', type: 'OUT', status: 'OPEN', items: [], total: 4299.9, icmsBase: 4299.9, icmsValue: 773.98 },
-  { id: 2, series: 1, number: 2, formattedNumber: '001/000002', type: 'OUT', status: 'CLOSED', items: [], total: 899, icmsBase: 899, icmsValue: 161.82 },
+  { id: 1, series: 1, number: 1, formattedNumber: '001/000001', type: 'OUT', status: 'OPEN', items: [], productsTotal: 4299.9, total: 4299.9, icmsBase: 4299.9, icmsValue: 773.98, ipiBase: 0, ipiValue: 0 },
+  { id: 2, series: 1, number: 2, formattedNumber: '001/000002', type: 'OUT', status: 'CLOSED', items: [], productsTotal: 899, total: 899, icmsBase: 899, icmsValue: 161.82, ipiBase: 0, ipiValue: 0 },
   {
     id: 3,
     series: 2,
@@ -24,9 +24,12 @@ const INVOICES: Invoice[] = [
     type: 'IN',
     status: 'OPEN',
     items: [],
+    productsTotal: 0,
     total: 0,
     icmsBase: 0,
-    icmsValue: 0
+    icmsValue: 0,
+    ipiBase: 0,
+    ipiValue: 0
   }
 ];
 
