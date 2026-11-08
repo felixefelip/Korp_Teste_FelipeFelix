@@ -90,7 +90,11 @@ services:
       retries: 12
 
   finance:
-    build: ./finance
+    build:
+      context: ./finance
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
     image: korp/finance:dev
     init: true
     ports:
@@ -105,7 +109,7 @@ services:
       - ./finance:/src
       - /src/bin
       - /src/obj
-      - nugetcache:/root/.nuget/packages
+      - finance_nugetcache:/home/dev/.nuget/packages
     depends_on:
       finance_db:
         condition: service_healthy
@@ -152,4 +156,4 @@ volumes:
   billing_pgdata: {}
   gomodcache: {}
   finance_mssqldata: {}
-  nugetcache: {}
+  finance_nugetcache: {}

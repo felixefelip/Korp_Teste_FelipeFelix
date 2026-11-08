@@ -1,6 +1,35 @@
-@Finance_HostAddress = http://localhost:5008
+@Finance_HostAddress = http://localhost:8002
 
-GET {{Finance_HostAddress}}/weatherforecast/
+POST {{Finance_HostAddress}}/receivables
+Content-Type: application/json
+
+{
+  "description": "Venda de 3 notebooks",
+  "customerName": "Acme Ltda",
+  "amount": 12500.00,
+  "dueDate": "2026-12-10"
+}
+
+###
+
+GET {{Finance_HostAddress}}/receivables/1
+Accept: application/json
+
+###
+
+POST {{Finance_HostAddress}}/payables
+Content-Type: application/json
+
+{
+  "description": "Aluguel de dezembro",
+  "supplierName": "Imobiliaria Central",
+  "amount": 4200.00,
+  "dueDate": "2026-12-05"
+}
+
+###
+
+GET {{Finance_HostAddress}}/payables/1
 Accept: application/json
 
 ###

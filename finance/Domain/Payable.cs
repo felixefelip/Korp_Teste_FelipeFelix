@@ -1,0 +1,24 @@
+namespace Finance.Domain;
+
+public class Payable
+{
+    public int Id { get; private set; }
+    public string Description { get; private set; }
+    public string SupplierName { get; private set; }
+    public decimal Amount { get; private set; }
+    public DateOnly DueDate { get; private set; }
+    public EntryStatus Status { get; private set; } = EntryStatus.Open;
+    public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;
+
+    public Payable(string description, string supplierName, decimal amount, DateOnly dueDate)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        ArgumentException.ThrowIfNullOrWhiteSpace(supplierName);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(amount);
+
+        Description = description;
+        SupplierName = supplierName;
+        Amount = amount;
+        DueDate = dueDate;
+    }
+}
