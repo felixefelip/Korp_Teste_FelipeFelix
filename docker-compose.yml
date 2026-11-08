@@ -107,8 +107,7 @@ services:
       ConnectionStrings__Finance: Server=finance_db,1433;Database=finance;User Id=sa;Password=Finance@1234;TrustServerCertificate=True
     volumes:
       - ./finance:/src
-      - /src/bin
-      - /src/obj
+      - /src/artifacts
       - finance_nugetcache:/home/dev/.nuget/packages
     depends_on:
       finance_db:

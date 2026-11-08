@@ -1,0 +1,52 @@
+using Finance.Data;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Finance.Tests.Infrastructure;
+
+public class FinanceApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+{
+    private const string TestDatabase = "finance_test";
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseSetting("ConnectionStrings:Finance", BuildConnectionString());
+    }
+
+    public async Task InitializeAsync()
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+
+        var database = db.Database.GetDbConnection().Database;
+        if (database != TestDatabase)
+        {
+            throw new InvalidOperationException($"Tests must run against {TestDatabase}, not {database}.");
+        }
+
+        await db.Database.MigrateAsync();
+    }
+
+    public async Task ResetDatabaseAsync()
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+
+        await db.Receivables.ExecuteDeleteAsync();
+        await db.Payables.ExecuteDeleteAsync();
+    }
+
+    Task IAsyncLifetime.DisposeAsync() => DisposeAsync().AsTask();
+
+    private static string BuildConnectionString()
+    {
+        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__Finance")
+            ?? throw new InvalidOperationException(
+                "ConnectionStrings__Finance is not set. Run the tests inside the finance container.");
+
+        return new SqlConnectionStringBuilder(connectionString) { InitialCatalog = TestDatabase }.ConnectionString;
+    }
+}
