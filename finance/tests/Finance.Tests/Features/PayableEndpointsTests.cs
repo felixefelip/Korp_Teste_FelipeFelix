@@ -36,6 +36,8 @@ public class PayableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetime
         Assert.Equal("Aluguel de dezembro", payable.Description);
         Assert.Equal("Imobiliaria Central", payable.SupplierName);
         Assert.Equal(4200.50m, payable.Amount);
+        Assert.Equal(0m, payable.PaidAmount);
+        Assert.Equal(4200.50m, payable.RemainingAmount);
         Assert.Equal(new DateOnly(2026, 12, 5), payable.DueDate);
         Assert.Equal(EntryStatus.Open, payable.Status);
     }

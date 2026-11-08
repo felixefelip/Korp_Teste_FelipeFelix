@@ -6,6 +6,8 @@ public class Payable
     public string Description { get; private set; }
     public string SupplierName { get; private set; }
     public decimal Amount { get; private set; }
+    public decimal PaidAmount { get; private set; }
+    public decimal RemainingAmount => Amount - PaidAmount;
     public DateOnly DueDate { get; private set; }
     public EntryStatus Status { get; private set; } = EntryStatus.Open;
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;

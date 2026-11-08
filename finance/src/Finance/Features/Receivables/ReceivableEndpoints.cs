@@ -41,6 +41,8 @@ public static class ReceivableEndpoints
         receivable.Description,
         receivable.CustomerName,
         receivable.Amount,
+        receivable.PaidAmount,
+        receivable.RemainingAmount,
         receivable.DueDate,
         receivable.Status,
         receivable.CreatedAt);

@@ -36,6 +36,8 @@ public class ReceivableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetim
         Assert.Equal("Venda de 3 notebooks", receivable.Description);
         Assert.Equal("Acme Ltda", receivable.CustomerName);
         Assert.Equal(4200.50m, receivable.Amount);
+        Assert.Equal(0m, receivable.PaidAmount);
+        Assert.Equal(4200.50m, receivable.RemainingAmount);
         Assert.Equal(new DateOnly(2026, 12, 5), receivable.DueDate);
         Assert.Equal(EntryStatus.Open, receivable.Status);
     }

@@ -14,6 +14,15 @@ public class ReceivableTests
         Assert.Equal(EntryStatus.Open, receivable.Status);
     }
 
+    [Fact]
+    public void StartsWithNothingPaid()
+    {
+        var receivable = new Receivable("Venda de 3 notebooks", "Acme Ltda", 4200.50m, DueDate);
+
+        Assert.Equal(0m, receivable.PaidAmount);
+        Assert.Equal(4200.50m, receivable.RemainingAmount);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-0.01)]

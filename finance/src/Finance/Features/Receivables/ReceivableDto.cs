@@ -7,6 +7,8 @@ public record ReceivableDto(
     string Description,
     string CustomerName,
     decimal Amount,
+    decimal PaidAmount,
+    decimal RemainingAmount,
     DateOnly DueDate,
     EntryStatus Status,
     DateTimeOffset CreatedAt);

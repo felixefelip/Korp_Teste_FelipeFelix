@@ -41,6 +41,8 @@ public static class PayableEndpoints
         payable.Description,
         payable.SupplierName,
         payable.Amount,
+        payable.PaidAmount,
+        payable.RemainingAmount,
         payable.DueDate,
         payable.Status,
         payable.CreatedAt);

@@ -14,6 +14,15 @@ public class PayableTests
         Assert.Equal(EntryStatus.Open, payable.Status);
     }
 
+    [Fact]
+    public void StartsWithNothingPaid()
+    {
+        var payable = new Payable("Aluguel de dezembro", "Imobiliaria Central", 4200.50m, DueDate);
+
+        Assert.Equal(0m, payable.PaidAmount);
+        Assert.Equal(4200.50m, payable.RemainingAmount);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-0.01)]
