@@ -4,12 +4,13 @@ namespace Finance.Tests.Domain;
 
 public class PayableTests
 {
+    private const int BankAccountId = 1;
     private static readonly DateOnly DueDate = new(2026, 12, 5);
 
     [Fact]
     public void StartsOpen()
     {
-        var payable = new Payable("Aluguel de dezembro", "Imobiliaria Central", 4200m, DueDate);
+        var payable = new Payable(BankAccountId, "Aluguel de dezembro", "Imobiliaria Central", 4200m, DueDate);
 
         Assert.Equal(EntryStatus.Open, payable.Status);
     }
@@ -17,7 +18,7 @@ public class PayableTests
     [Fact]
     public void StartsWithNothingPaid()
     {
-        var payable = new Payable("Aluguel de dezembro", "Imobiliaria Central", 4200.50m, DueDate);
+        var payable = new Payable(BankAccountId, "Aluguel de dezembro", "Imobiliaria Central", 4200.50m, DueDate);
 
         Assert.Equal(0m, payable.PaidAmount);
         Assert.Equal(4200.50m, payable.RemainingAmount);
@@ -29,7 +30,7 @@ public class PayableTests
     public void RejectsNonPositiveAmount(decimal amount)
     {
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => new Payable("Aluguel de dezembro", "Imobiliaria Central", amount, DueDate));
+            () => new Payable(BankAccountId, "Aluguel de dezembro", "Imobiliaria Central", amount, DueDate));
     }
 
     [Theory]
@@ -38,7 +39,7 @@ public class PayableTests
     public void RejectsBlankDescription(string description)
     {
         Assert.ThrowsAny<ArgumentException>(
-            () => new Payable(description, "Imobiliaria Central", 4200m, DueDate));
+            () => new Payable(BankAccountId, description, "Imobiliaria Central", 4200m, DueDate));
     }
 
     [Theory]
@@ -47,6 +48,15 @@ public class PayableTests
     public void RejectsBlankSupplierName(string supplierName)
     {
         Assert.ThrowsAny<ArgumentException>(
-            () => new Payable("Aluguel de dezembro", supplierName, 4200m, DueDate));
+            () => new Payable(BankAccountId, "Aluguel de dezembro", supplierName, 4200m, DueDate));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void RejectsInvalidBankAccountId(int bankAccountId)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new Payable(bankAccountId, "Aluguel de dezembro", "Imobiliaria Central", 4200m, DueDate));
     }
 }

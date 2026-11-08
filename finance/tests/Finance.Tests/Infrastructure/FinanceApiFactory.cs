@@ -1,4 +1,5 @@
 using Finance.Data;
+using Finance.Domain;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.SqlClient;
@@ -37,6 +38,19 @@ public class FinanceApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         await db.Receivables.ExecuteDeleteAsync();
         await db.Payables.ExecuteDeleteAsync();
+        await db.BankAccounts.ExecuteDeleteAsync();
+    }
+
+    public async Task<int> CreateBankAccountAsync()
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+
+        var bankAccount = new BankAccount("Itau operacional", "341", "1234", "56789-0", 0m);
+        db.BankAccounts.Add(bankAccount);
+        await db.SaveChangesAsync();
+
+        return bankAccount.Id;
     }
 
     Task IAsyncLifetime.DisposeAsync() => DisposeAsync().AsTask();

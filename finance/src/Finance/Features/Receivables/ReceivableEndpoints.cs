@@ -1,6 +1,7 @@
 using Finance.Data;
 using Finance.Domain;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
 
 namespace Finance.Features.Receivables;
 
@@ -14,11 +15,21 @@ public static class ReceivableEndpoints
         group.MapGet("/{id:int}", GetById);
     }
 
-    private static async Task<Created<ReceivableDto>> Create(
+    private static async Task<Results<Created<ReceivableDto>, ValidationProblem>> Create(
         CreateReceivableDto dto, FinanceDbContext db, CancellationToken cancellationToken)
     {
+        var bankAccountId = dto.BankAccountId!.Value;
+
+        if (!await db.BankAccounts.AnyAsync(b => b.Id == bankAccountId, cancellationToken))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(dto.BankAccountId)] = ["Bank account not found."]
+            });
+        }
+
         var receivable = new Receivable(
-            dto.Description, dto.CustomerName, dto.Amount!.Value, dto.DueDate!.Value);
+            bankAccountId, dto.Description, dto.CustomerName, dto.Amount!.Value, dto.DueDate!.Value);
 
         db.Receivables.Add(receivable);
         await db.SaveChangesAsync(cancellationToken);
@@ -38,6 +49,7 @@ public static class ReceivableEndpoints
 
     private static ReceivableDto ToDto(Receivable receivable) => new(
         receivable.Id,
+        receivable.BankAccountId,
         receivable.Description,
         receivable.CustomerName,
         receivable.Amount,

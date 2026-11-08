@@ -7,6 +7,7 @@ public class FinanceDbContext(DbContextOptions<FinanceDbContext> options) : DbCo
 {
     public DbSet<Receivable> Receivables => Set<Receivable>();
     public DbSet<Payable> Payables => Set<Payable>();
+    public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -4,6 +4,7 @@ namespace Finance.Features.Payables;
 
 public record PayableDto(
     int Id,
+    int BankAccountId,
     string Description,
     string SupplierName,
     decimal Amount,

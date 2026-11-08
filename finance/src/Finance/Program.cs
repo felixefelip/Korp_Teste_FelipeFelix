@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Finance.Data;
+using Finance.Features.BankAccounts;
 using Finance.Features.Payables;
 using Finance.Features.Receivables;
 using Microsoft.EntityFrameworkCore;
@@ -31,5 +32,6 @@ app.UseStatusCodePages();
 
 app.MapReceivables();
 app.MapPayables();
+app.MapBankAccounts();
 
 app.Run();

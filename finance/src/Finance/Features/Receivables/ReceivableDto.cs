@@ -4,6 +4,7 @@ namespace Finance.Features.Receivables;
 
 public record ReceivableDto(
     int Id,
+    int BankAccountId,
     string Description,
     string CustomerName,
     decimal Amount,

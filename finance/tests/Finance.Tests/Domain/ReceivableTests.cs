@@ -4,12 +4,13 @@ namespace Finance.Tests.Domain;
 
 public class ReceivableTests
 {
+    private const int BankAccountId = 1;
     private static readonly DateOnly DueDate = new(2026, 12, 5);
 
     [Fact]
     public void StartsOpen()
     {
-        var receivable = new Receivable("Venda de 3 notebooks", "Acme Ltda", 4200m, DueDate);
+        var receivable = new Receivable(BankAccountId, "Venda de 3 notebooks", "Acme Ltda", 4200m, DueDate);
 
         Assert.Equal(EntryStatus.Open, receivable.Status);
     }
@@ -17,7 +18,7 @@ public class ReceivableTests
     [Fact]
     public void StartsWithNothingPaid()
     {
-        var receivable = new Receivable("Venda de 3 notebooks", "Acme Ltda", 4200.50m, DueDate);
+        var receivable = new Receivable(BankAccountId, "Venda de 3 notebooks", "Acme Ltda", 4200.50m, DueDate);
 
         Assert.Equal(0m, receivable.PaidAmount);
         Assert.Equal(4200.50m, receivable.RemainingAmount);
@@ -29,7 +30,7 @@ public class ReceivableTests
     public void RejectsNonPositiveAmount(decimal amount)
     {
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => new Receivable("Venda de 3 notebooks", "Acme Ltda", amount, DueDate));
+            () => new Receivable(BankAccountId, "Venda de 3 notebooks", "Acme Ltda", amount, DueDate));
     }
 
     [Theory]
@@ -38,7 +39,7 @@ public class ReceivableTests
     public void RejectsBlankDescription(string description)
     {
         Assert.ThrowsAny<ArgumentException>(
-            () => new Receivable(description, "Acme Ltda", 4200m, DueDate));
+            () => new Receivable(BankAccountId, description, "Acme Ltda", 4200m, DueDate));
     }
 
     [Theory]
@@ -47,6 +48,15 @@ public class ReceivableTests
     public void RejectsBlankCustomerName(string customerName)
     {
         Assert.ThrowsAny<ArgumentException>(
-            () => new Receivable("Venda de 3 notebooks", customerName, 4200m, DueDate));
+            () => new Receivable(BankAccountId, "Venda de 3 notebooks", customerName, 4200m, DueDate));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void RejectsInvalidBankAccountId(int bankAccountId)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new Receivable(bankAccountId, "Venda de 3 notebooks", "Acme Ltda", 4200m, DueDate));
     }
 }

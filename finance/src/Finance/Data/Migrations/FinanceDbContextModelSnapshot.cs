@@ -22,6 +22,50 @@ namespace Finance.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Finance.Domain.BankAccount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccountNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("BankCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nchar(3)")
+                        .IsFixedLength();
+
+                    b.Property<string>("Branch")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("OpeningBalance")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BankCode", "Branch", "AccountNumber")
+                        .IsUnique();
+
+                    b.ToTable("BankAccounts", (string)null);
+                });
+
             modelBuilder.Entity("Finance.Domain.Payable", b =>
                 {
                     b.Property<int>("Id")
@@ -34,6 +78,9 @@ namespace Finance.Data.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("BankAccountId")
+                        .HasColumnType("int");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -44,6 +91,10 @@ namespace Finance.Data.Migrations
 
                     b.Property<DateOnly>("DueDate")
                         .HasColumnType("date");
+
+                    b.Property<decimal>("PaidAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -57,9 +108,14 @@ namespace Finance.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BankAccountId");
+
                     b.HasIndex("DueDate");
 
-                    b.ToTable("Payables", (string)null);
+                    b.ToTable("Payables", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Payables_PaidAmount", "[PaidAmount] >= 0 AND [PaidAmount] <= [Amount]");
+                        });
                 });
 
             modelBuilder.Entity("Finance.Domain.Receivable", b =>
@@ -73,6 +129,9 @@ namespace Finance.Data.Migrations
                     b.Property<decimal>("Amount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("BankAccountId")
+                        .HasColumnType("int");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -90,6 +149,10 @@ namespace Finance.Data.Migrations
                     b.Property<DateOnly>("DueDate")
                         .HasColumnType("date");
 
+                    b.Property<decimal>("PaidAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -97,9 +160,32 @@ namespace Finance.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BankAccountId");
+
                     b.HasIndex("DueDate");
 
-                    b.ToTable("Receivables", (string)null);
+                    b.ToTable("Receivables", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Receivables_PaidAmount", "[PaidAmount] >= 0 AND [PaidAmount] <= [Amount]");
+                        });
+                });
+
+            modelBuilder.Entity("Finance.Domain.Payable", b =>
+                {
+                    b.HasOne("Finance.Domain.BankAccount", null)
+                        .WithMany()
+                        .HasForeignKey("BankAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Finance.Domain.Receivable", b =>
+                {
+                    b.HasOne("Finance.Domain.BankAccount", null)
+                        .WithMany()
+                        .HasForeignKey("BankAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

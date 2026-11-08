@@ -16,5 +16,9 @@ public class ReceivableConfiguration : IEntityTypeConfiguration<Receivable>
         builder.Property(r => r.PaidAmount).HasPrecision(18, 2);
         builder.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
         builder.HasIndex(r => r.DueDate);
+        builder.HasOne<BankAccount>()
+            .WithMany()
+            .HasForeignKey(r => r.BankAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

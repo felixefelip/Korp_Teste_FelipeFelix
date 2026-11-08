@@ -4,6 +4,7 @@ POST {{Finance_HostAddress}}/receivables
 Content-Type: application/json
 
 {
+  "bankAccountId": 1,
   "description": "Venda de 3 notebooks",
   "customerName": "Acme Ltda",
   "amount": 12500.00,
@@ -21,6 +22,7 @@ POST {{Finance_HostAddress}}/payables
 Content-Type: application/json
 
 {
+  "bankAccountId": 1,
   "description": "Aluguel de dezembro",
   "supplierName": "Imobiliaria Central",
   "amount": 4200.00,
@@ -30,6 +32,24 @@ Content-Type: application/json
 ###
 
 GET {{Finance_HostAddress}}/payables/1
+Accept: application/json
+
+###
+
+POST {{Finance_HostAddress}}/bank-accounts
+Content-Type: application/json
+
+{
+  "name": "Itau operacional",
+  "bankCode": "341",
+  "branch": "1234",
+  "accountNumber": "56789-0",
+  "openingBalance": 1500.75
+}
+
+###
+
+GET {{Finance_HostAddress}}/bank-accounts/1
 Accept: application/json
 
 ###

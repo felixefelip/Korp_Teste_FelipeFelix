@@ -20,7 +20,13 @@ public class ReceivableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetim
 
     private readonly HttpClient client = factory.CreateClient();
 
-    public Task InitializeAsync() => factory.ResetDatabaseAsync();
+    private int bankAccountId;
+
+    public async Task InitializeAsync()
+    {
+        await factory.ResetDatabaseAsync();
+        bankAccountId = await factory.CreateBankAccountAsync();
+    }
 
     public Task DisposeAsync() => Task.CompletedTask;
 
@@ -35,6 +41,7 @@ public class ReceivableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetim
         Assert.Equal($"/receivables/{receivable.Id}", response.Headers.Location?.OriginalString);
         Assert.Equal("Venda de 3 notebooks", receivable.Description);
         Assert.Equal("Acme Ltda", receivable.CustomerName);
+        Assert.Equal(bankAccountId, receivable.BankAccountId);
         Assert.Equal(4200.50m, receivable.Amount);
         Assert.Equal(0m, receivable.PaidAmount);
         Assert.Equal(4200.50m, receivable.RemainingAmount);
@@ -80,7 +87,7 @@ public class ReceivableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetim
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(Json);
         Assert.NotNull(problem);
-        Assert.Equivalent(new[] { "Amount", "Description", "DueDate", "CustomerName" }, problem.Errors.Keys);
+        Assert.Equivalent(new[] { "Amount", "BankAccountId", "Description", "DueDate", "CustomerName" }, problem.Errors.Keys);
     }
 
     [Theory]
@@ -97,6 +104,17 @@ public class ReceivableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetim
     }
 
     [Fact]
+    public async Task CreateRejectsUnknownBankAccount()
+    {
+        var response = await client.PostAsJsonAsync("/receivables", ValidReceivable() with { BankAccountId = bankAccountId + 1000 });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(Json);
+        Assert.NotNull(problem);
+        Assert.Equal(["BankAccountId"], problem.Errors.Keys);
+    }
+
+    [Fact]
     public async Task CreateRejectsMalformedJson()
     {
         var content = new StringContent("""{ "amount": "abc" }""", Encoding.UTF8, "application/json");
@@ -106,8 +124,8 @@ public class ReceivableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetim
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    private static CreateReceivableDto ValidReceivable() =>
-        new("Venda de 3 notebooks", "Acme Ltda", 4200.50m, new DateOnly(2026, 12, 5));
+    private CreateReceivableDto ValidReceivable() =>
+        new(bankAccountId, "Venda de 3 notebooks", "Acme Ltda", 4200.50m, new DateOnly(2026, 12, 5));
 
     private async Task<ReceivableDto> CreateReceivableAsync()
     {

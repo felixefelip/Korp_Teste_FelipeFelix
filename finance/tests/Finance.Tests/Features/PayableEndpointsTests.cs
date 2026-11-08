@@ -20,7 +20,13 @@ public class PayableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetime
 
     private readonly HttpClient client = factory.CreateClient();
 
-    public Task InitializeAsync() => factory.ResetDatabaseAsync();
+    private int bankAccountId;
+
+    public async Task InitializeAsync()
+    {
+        await factory.ResetDatabaseAsync();
+        bankAccountId = await factory.CreateBankAccountAsync();
+    }
 
     public Task DisposeAsync() => Task.CompletedTask;
 
@@ -35,6 +41,7 @@ public class PayableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetime
         Assert.Equal($"/payables/{payable.Id}", response.Headers.Location?.OriginalString);
         Assert.Equal("Aluguel de dezembro", payable.Description);
         Assert.Equal("Imobiliaria Central", payable.SupplierName);
+        Assert.Equal(bankAccountId, payable.BankAccountId);
         Assert.Equal(4200.50m, payable.Amount);
         Assert.Equal(0m, payable.PaidAmount);
         Assert.Equal(4200.50m, payable.RemainingAmount);
@@ -80,7 +87,7 @@ public class PayableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(Json);
         Assert.NotNull(problem);
-        Assert.Equivalent(new[] { "Amount", "Description", "DueDate", "SupplierName" }, problem.Errors.Keys);
+        Assert.Equivalent(new[] { "Amount", "BankAccountId", "Description", "DueDate", "SupplierName" }, problem.Errors.Keys);
     }
 
     [Theory]
@@ -97,6 +104,17 @@ public class PayableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CreateRejectsUnknownBankAccount()
+    {
+        var response = await client.PostAsJsonAsync("/payables", ValidPayable() with { BankAccountId = bankAccountId + 1000 });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(Json);
+        Assert.NotNull(problem);
+        Assert.Equal(["BankAccountId"], problem.Errors.Keys);
+    }
+
+    [Fact]
     public async Task CreateRejectsMalformedJson()
     {
         var content = new StringContent("""{ "amount": "abc" }""", Encoding.UTF8, "application/json");
@@ -106,8 +124,8 @@ public class PayableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    private static CreatePayableDto ValidPayable() =>
-        new("Aluguel de dezembro", "Imobiliaria Central", 4200.50m, new DateOnly(2026, 12, 5));
+    private CreatePayableDto ValidPayable() =>
+        new(bankAccountId, "Aluguel de dezembro", "Imobiliaria Central", 4200.50m, new DateOnly(2026, 12, 5));
 
     private async Task<PayableDto> CreatePayableAsync()
     {

@@ -16,5 +16,9 @@ public class PayableConfiguration : IEntityTypeConfiguration<Payable>
         builder.Property(p => p.PaidAmount).HasPrecision(18, 2);
         builder.Property(p => p.Status).HasConversion<string>().HasMaxLength(20);
         builder.HasIndex(p => p.DueDate);
+        builder.HasOne<BankAccount>()
+            .WithMany()
+            .HasForeignKey(p => p.BankAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
