@@ -18,3 +18,9 @@ billing-test:
 
 front-test:
 	docker compose exec frontend npm test -- --watch=false
+
+finance-run:
+	docker compose exec finance dotnet watch run --no-launch-profile
+
+finance-test:
+	docker compose exec finance dotnet test
