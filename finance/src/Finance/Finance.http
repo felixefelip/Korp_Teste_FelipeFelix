@@ -53,3 +53,33 @@ GET {{Finance_HostAddress}}/bank-accounts/1
 Accept: application/json
 
 ###
+
+POST {{Finance_HostAddress}}/receivables/1/payments
+Content-Type: application/json
+
+{
+  "amount": 5000.00,
+  "paidOn": "2026-12-10"
+}
+
+###
+
+GET {{Finance_HostAddress}}/receivables/1/payments
+Accept: application/json
+
+###
+
+POST {{Finance_HostAddress}}/payables/1/payments
+Content-Type: application/json
+
+{
+  "amount": 4200.00,
+  "paidOn": "2026-12-05"
+}
+
+###
+
+GET {{Finance_HostAddress}}/payables/1/payments
+Accept: application/json
+
+###

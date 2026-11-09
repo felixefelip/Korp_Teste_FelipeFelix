@@ -20,5 +20,10 @@ public class PayableConfiguration : IEntityTypeConfiguration<Payable>
             .WithMany()
             .HasForeignKey(p => p.BankAccountId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasMany(p => p.Payments)
+            .WithOne()
+            .HasForeignKey(p => p.PayableId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Property<byte[]>("RowVersion").IsRowVersion();
     }
 }

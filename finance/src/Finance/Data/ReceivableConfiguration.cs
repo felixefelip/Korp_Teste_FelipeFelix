@@ -20,5 +20,10 @@ public class ReceivableConfiguration : IEntityTypeConfiguration<Receivable>
             .WithMany()
             .HasForeignKey(r => r.BankAccountId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasMany(r => r.Payments)
+            .WithOne()
+            .HasForeignKey(p => p.ReceivableId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Property<byte[]>("RowVersion").IsRowVersion();
     }
 }
