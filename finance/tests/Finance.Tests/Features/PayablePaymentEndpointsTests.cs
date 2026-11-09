@@ -22,12 +22,14 @@ public class PayablePaymentEndpointsTests(FinanceApiFactory factory) : IAsyncLif
     private readonly HttpClient client = factory.CreateClient();
 
     private int bankAccountId;
+    private int supplierId;
     private int payableId;
 
     public async Task InitializeAsync()
     {
         await factory.ResetDatabaseAsync();
         bankAccountId = await factory.CreateBankAccountAsync();
+        supplierId = await factory.CreateSupplierAsync();
         payableId = await CreatePayableAsync();
     }
 
@@ -153,7 +155,7 @@ public class PayablePaymentEndpointsTests(FinanceApiFactory factory) : IAsyncLif
     private async Task<int> CreatePayableAsync()
     {
         var response = await client.PostAsJsonAsync("/payables",
-            new CreatePayableDto(bankAccountId, "Aluguel de dezembro", "Imobiliaria Central", 1000m, new DateOnly(2026, 12, 10)));
+            new CreatePayableDto(bankAccountId, "Aluguel de dezembro", supplierId, 1000m, new DateOnly(2026, 12, 10)));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<PayableDto>(Json))!.Id;
     }

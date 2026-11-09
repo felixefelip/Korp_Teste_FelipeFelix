@@ -7,7 +7,7 @@ public class Receivable
     public int Id { get; private set; }
     public int BankAccountId { get; private set; }
     public string Description { get; private set; }
-    public string CustomerName { get; private set; }
+    public int CustomerId { get; private set; }
     public decimal Amount { get; private set; }
     public decimal PaidAmount { get; private set; }
     public decimal RemainingAmount => Amount - PaidAmount;
@@ -16,16 +16,16 @@ public class Receivable
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;
     public IReadOnlyCollection<ReceivablePayment> Payments => payments;
 
-    public Receivable(int bankAccountId, string description, string customerName, decimal amount, DateOnly dueDate)
+    public Receivable(int bankAccountId, string description, int customerId, decimal amount, DateOnly dueDate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(bankAccountId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(customerId);
         ArgumentException.ThrowIfNullOrWhiteSpace(description);
-        ArgumentException.ThrowIfNullOrWhiteSpace(customerName);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(amount);
 
         BankAccountId = bankAccountId;
         Description = description;
-        CustomerName = customerName;
+        CustomerId = customerId;
         Amount = amount;
         DueDate = dueDate;
     }

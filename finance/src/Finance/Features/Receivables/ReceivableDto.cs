@@ -6,7 +6,7 @@ public record ReceivableDto(
     int Id,
     int BankAccountId,
     string Description,
-    string CustomerName,
+    int CustomerId,
     decimal Amount,
     decimal PaidAmount,
     decimal RemainingAmount,

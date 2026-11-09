@@ -5,6 +5,6 @@ namespace Finance.Features.Receivables;
 public record CreateReceivableDto(
     [property: Required, Range(1, int.MaxValue)] int? BankAccountId,
     [property: Required, MaxLength(200)] string Description,
-    [property: Required, MaxLength(150)] string CustomerName,
+    [property: Required, Range(1, int.MaxValue)] int? CustomerId,
     [property: Required, Range(0.01, 999_999_999_999.99)] decimal? Amount,
     [property: Required] DateOnly? DueDate);

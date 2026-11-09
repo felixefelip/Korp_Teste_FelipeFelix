@@ -22,17 +22,26 @@ public static class ReceivableEndpoints
         CreateReceivableDto dto, FinanceDbContext db, CancellationToken cancellationToken)
     {
         var bankAccountId = dto.BankAccountId!.Value;
+        var customerId = dto.CustomerId!.Value;
+        var errors = new Dictionary<string, string[]>();
 
         if (!await db.BankAccounts.AnyAsync(b => b.Id == bankAccountId, cancellationToken))
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-            {
-                [nameof(dto.BankAccountId)] = ["Bank account not found."]
-            });
+            errors[nameof(dto.BankAccountId)] = ["Bank account not found."];
+        }
+
+        if (!await db.Customers.AnyAsync(c => c.Id == customerId, cancellationToken))
+        {
+            errors[nameof(dto.CustomerId)] = ["Customer not found."];
+        }
+
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
         }
 
         var receivable = new Receivable(
-            bankAccountId, dto.Description, dto.CustomerName, dto.Amount!.Value, dto.DueDate!.Value);
+            bankAccountId, dto.Description, customerId, dto.Amount!.Value, dto.DueDate!.Value);
 
         db.Receivables.Add(receivable);
         await db.SaveChangesAsync(cancellationToken);
@@ -134,7 +143,7 @@ public static class ReceivableEndpoints
         receivable.Id,
         receivable.BankAccountId,
         receivable.Description,
-        receivable.CustomerName,
+        receivable.CustomerId,
         receivable.Amount,
         receivable.PaidAmount,
         receivable.RemainingAmount,

@@ -13,11 +13,15 @@ public class ConcurrencyTests(FinanceApiFactory factory) : IAsyncLifetime
     private static readonly DateOnly PaidOn = new(2026, 12, 1);
 
     private int bankAccountId;
+    private int customerId;
+    private int supplierId;
 
     public async Task InitializeAsync()
     {
         await factory.ResetDatabaseAsync();
         bankAccountId = await factory.CreateBankAccountAsync();
+        customerId = await factory.CreateCustomerAsync();
+        supplierId = await factory.CreateSupplierAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -25,7 +29,7 @@ public class ConcurrencyTests(FinanceApiFactory factory) : IAsyncLifetime
     [Fact]
     public async Task ConcurrentReceivablePaymentIsRejected()
     {
-        var id = await SaveAsync(db => db.Receivables, new Receivable(bankAccountId, "Venda", "Acme Ltda", 1000m, DueDate));
+        var id = await SaveAsync(db => db.Receivables, new Receivable(bankAccountId, "Venda", customerId, 1000m, DueDate));
 
         await using var first = Scope();
         await using var second = Scope();
@@ -42,7 +46,7 @@ public class ConcurrencyTests(FinanceApiFactory factory) : IAsyncLifetime
     [Fact]
     public async Task ConcurrentPayablePaymentIsRejected()
     {
-        var id = await SaveAsync(db => db.Payables, new Payable(bankAccountId, "Aluguel", "Imobiliaria", 1000m, DueDate));
+        var id = await SaveAsync(db => db.Payables, new Payable(bankAccountId, "Aluguel", supplierId, 1000m, DueDate));
 
         await using var first = Scope();
         await using var second = Scope();

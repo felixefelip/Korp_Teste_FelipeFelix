@@ -22,17 +22,26 @@ public static class PayableEndpoints
         CreatePayableDto dto, FinanceDbContext db, CancellationToken cancellationToken)
     {
         var bankAccountId = dto.BankAccountId!.Value;
+        var supplierId = dto.SupplierId!.Value;
+        var errors = new Dictionary<string, string[]>();
 
         if (!await db.BankAccounts.AnyAsync(b => b.Id == bankAccountId, cancellationToken))
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-            {
-                [nameof(dto.BankAccountId)] = ["Bank account not found."]
-            });
+            errors[nameof(dto.BankAccountId)] = ["Bank account not found."];
+        }
+
+        if (!await db.Suppliers.AnyAsync(c => c.Id == supplierId, cancellationToken))
+        {
+            errors[nameof(dto.SupplierId)] = ["Supplier not found."];
+        }
+
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
         }
 
         var payable = new Payable(
-            bankAccountId, dto.Description, dto.SupplierName, dto.Amount!.Value, dto.DueDate!.Value);
+            bankAccountId, dto.Description, supplierId, dto.Amount!.Value, dto.DueDate!.Value);
 
         db.Payables.Add(payable);
         await db.SaveChangesAsync(cancellationToken);
@@ -134,7 +143,7 @@ public static class PayableEndpoints
         payable.Id,
         payable.BankAccountId,
         payable.Description,
-        payable.SupplierName,
+        payable.SupplierId,
         payable.Amount,
         payable.PaidAmount,
         payable.RemainingAmount,

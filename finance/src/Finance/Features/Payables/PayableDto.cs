@@ -6,7 +6,7 @@ public record PayableDto(
     int Id,
     int BankAccountId,
     string Description,
-    string SupplierName,
+    int SupplierId,
     decimal Amount,
     decimal PaidAmount,
     decimal RemainingAmount,

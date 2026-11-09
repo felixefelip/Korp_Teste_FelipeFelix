@@ -6,7 +6,7 @@ Content-Type: application/json
 {
   "bankAccountId": 1,
   "description": "Venda de 3 notebooks",
-  "customerName": "Acme Ltda",
+  "customerId": 1,
   "amount": 12500.00,
   "dueDate": "2026-12-10"
 }
@@ -24,7 +24,7 @@ Content-Type: application/json
 {
   "bankAccountId": 1,
   "description": "Aluguel de dezembro",
-  "supplierName": "Imobiliaria Central",
+  "supplierId": 1,
   "amount": 4200.00,
   "dueDate": "2026-12-05"
 }
@@ -80,6 +80,36 @@ Content-Type: application/json
 ###
 
 GET {{Finance_HostAddress}}/payables/1/payments
+Accept: application/json
+
+###
+
+POST {{Finance_HostAddress}}/customers
+Content-Type: application/json
+
+{
+  "name": "Acme Ltda",
+  "document": "12345678000195"
+}
+
+###
+
+GET {{Finance_HostAddress}}/customers/1
+Accept: application/json
+
+###
+
+POST {{Finance_HostAddress}}/suppliers
+Content-Type: application/json
+
+{
+  "name": "Imobiliaria Central",
+  "document": "98765432000110"
+}
+
+###
+
+GET {{Finance_HostAddress}}/suppliers/1
 Accept: application/json
 
 ###

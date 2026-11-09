@@ -39,6 +39,8 @@ public class FinanceApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await db.Receivables.ExecuteDeleteAsync();
         await db.Payables.ExecuteDeleteAsync();
         await db.BankAccounts.ExecuteDeleteAsync();
+        await db.Customers.ExecuteDeleteAsync();
+        await db.Suppliers.ExecuteDeleteAsync();
     }
 
     public async Task<int> CreateBankAccountAsync()
@@ -51,6 +53,30 @@ public class FinanceApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await db.SaveChangesAsync();
 
         return bankAccount.Id;
+    }
+
+    public async Task<int> CreateCustomerAsync(string document = "12345678000195")
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+
+        var customer = new Customer("Acme Ltda", document);
+        db.Customers.Add(customer);
+        await db.SaveChangesAsync();
+
+        return customer.Id;
+    }
+
+    public async Task<int> CreateSupplierAsync(string document = "98765432000110")
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+
+        var supplier = new Supplier("Imobiliaria Central", document);
+        db.Suppliers.Add(supplier);
+        await db.SaveChangesAsync();
+
+        return supplier.Id;
     }
 
     Task IAsyncLifetime.DisposeAsync() => DisposeAsync().AsTask();

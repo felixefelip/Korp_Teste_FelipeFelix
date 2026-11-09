@@ -22,12 +22,14 @@ public class ReceivablePaymentEndpointsTests(FinanceApiFactory factory) : IAsync
     private readonly HttpClient client = factory.CreateClient();
 
     private int bankAccountId;
+    private int customerId;
     private int receivableId;
 
     public async Task InitializeAsync()
     {
         await factory.ResetDatabaseAsync();
         bankAccountId = await factory.CreateBankAccountAsync();
+        customerId = await factory.CreateCustomerAsync();
         receivableId = await CreateReceivableAsync();
     }
 
@@ -153,7 +155,7 @@ public class ReceivablePaymentEndpointsTests(FinanceApiFactory factory) : IAsync
     private async Task<int> CreateReceivableAsync()
     {
         var response = await client.PostAsJsonAsync("/receivables",
-            new CreateReceivableDto(bankAccountId, "Venda de 3 notebooks", "Acme Ltda", 1000m, new DateOnly(2026, 12, 10)));
+            new CreateReceivableDto(bankAccountId, "Venda de 3 notebooks", customerId, 1000m, new DateOnly(2026, 12, 10)));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<ReceivableDto>(Json))!.Id;
     }
