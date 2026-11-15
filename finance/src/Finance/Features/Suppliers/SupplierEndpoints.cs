@@ -1,5 +1,6 @@
 using Finance.Data;
 using Finance.Domain;
+using Finance.Features.Spreadsheets;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,7 @@ public static class SupplierEndpoints
 
         group.MapPost("/", Create);
         group.MapGet("/{id:int}", GetById);
+        group.MapPost("/import", Import).DisableAntiforgery();
     }
 
     private static async Task<Results<Created<SupplierDto>, ProblemHttpResult>> Create(
@@ -49,6 +51,52 @@ public static class SupplierEndpoints
         return supplier is null
             ? TypedResults.NotFound()
             : TypedResults.Ok(ToDto(supplier));
+    }
+
+    private static async Task<Results<Ok<SupplierDto[]>, ValidationProblem, ProblemHttpResult>> Import(
+        IFormFile file, FinanceDbContext db, CancellationToken cancellationToken)
+    {
+        var spreadsheet = RegistrationSpreadsheet.Read(file);
+
+        if (spreadsheet.Errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(spreadsheet.Errors);
+        }
+
+        var documents = spreadsheet.Rows.Select(row => row.Document).Distinct().ToArray();
+        var registeredDocuments = new HashSet<string>();
+
+        foreach (var chunk in documents.Chunk(1000))
+        {
+            registeredDocuments.UnionWith(await db.Suppliers
+                .Where(s => chunk.Contains(s.Document))
+                .Select(s => s.Document)
+                .ToListAsync(cancellationToken));
+        }
+
+        var errors = RegistrationSpreadsheet.Validate(spreadsheet.Rows, registeredDocuments);
+
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        var suppliers = spreadsheet.Rows.Select(row => new Supplier(row.Name, row.Document)).ToList();
+        db.Suppliers.AddRange(suppliers);
+
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (IsDuplicate(exception))
+        {
+            return TypedResults.Problem(
+                title: "Supplier already exists.",
+                detail: "A document in the spreadsheet was registered by another request. Try again.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+
+        return TypedResults.Ok(suppliers.Select(ToDto).ToArray());
     }
 
     private static bool IsDuplicate(DbUpdateException exception) =>
