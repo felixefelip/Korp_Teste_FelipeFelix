@@ -2,8 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Finance.Data;
-using Finance.Features.Suppliers;
+using Finance.Domain;
+using Finance.Features.Stakeholders;
 using Finance.Tests.Infrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -12,11 +14,14 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Finance.Tests.Features;
 
 [Collection(ApiCollection.Name)]
-public class SupplierImportTests(FinanceApiFactory factory) : IAsyncLifetime
+public class StakeholderImportTests(FinanceApiFactory factory) : IAsyncLifetime
 {
-    private const string Route = "/suppliers/import";
+    private const string Route = "/stakeholders/import?type=Customer";
 
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
     private static readonly string[] Headers = ["Name", "Document"];
 
     private readonly HttpClient client = factory.CreateClient();
@@ -33,11 +38,11 @@ public class SupplierImportTests(FinanceApiFactory factory) : IAsyncLifetime
             ["Maria Silva", "12345678901"]));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var suppliers = await response.Content.ReadFromJsonAsync<SupplierDto[]>(Json);
-        Assert.NotNull(suppliers);
-        Assert.Equal(["Acme Ltda", "Maria Silva"], suppliers.Select(c => c.Name));
-        Assert.Equal(["12345678000195", "12345678901"], suppliers.Select(c => c.Document));
-        Assert.Equal(suppliers[0], await client.GetFromJsonAsync<SupplierDto>($"/suppliers/{suppliers[0].Id}", Json));
+        var customers = await response.Content.ReadFromJsonAsync<StakeholderDto[]>(Json);
+        Assert.NotNull(customers);
+        Assert.Equal(["Acme Ltda", "Maria Silva"], customers.Select(c => c.Name));
+        Assert.Equal(["12345678000195", "12345678901"], customers.Select(c => c.Document));
+        Assert.Equal(customers[0], await client.GetFromJsonAsync<StakeholderDto>($"/stakeholders/{customers[0].Id}", Json));
     }
 
     [Fact]
@@ -50,11 +55,11 @@ public class SupplierImportTests(FinanceApiFactory factory) : IAsyncLifetime
             ["Beta SA", 1234567000188d]));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var suppliers = await response.Content.ReadFromJsonAsync<SupplierDto[]>(Json);
-        Assert.NotNull(suppliers);
+        var customers = await response.Content.ReadFromJsonAsync<StakeholderDto[]>(Json);
+        Assert.NotNull(customers);
         Assert.Equal(
             ["12345678000195", "12345678901", "01234567890", "01234567000188"],
-            suppliers.Select(c => c.Document));
+            customers.Select(c => c.Document));
     }
 
     [Fact]
@@ -64,8 +69,8 @@ public class SupplierImportTests(FinanceApiFactory factory) : IAsyncLifetime
             ["12345678000195", "Acme Ltda"]));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var suppliers = await response.Content.ReadFromJsonAsync<SupplierDto[]>(Json);
-        Assert.Equal("Acme Ltda", Assert.Single(suppliers!).Name);
+        var customers = await response.Content.ReadFromJsonAsync<StakeholderDto[]>(Json);
+        Assert.Equal("Acme Ltda", Assert.Single(customers!).Name);
     }
 
     [Fact]
@@ -95,7 +100,7 @@ public class SupplierImportTests(FinanceApiFactory factory) : IAsyncLifetime
     [Fact]
     public async Task RejectsDocumentAlreadyRegistered()
     {
-        await factory.CreateSupplierAsync("12345678000195");
+        await factory.CreateCustomerAsync("12345678000195");
 
         var response = await client.PostAsync(Route, Spreadsheet.Upload(Headers,
             ["Acme Ltda", "12345678000195"]));
@@ -109,9 +114,9 @@ public class SupplierImportTests(FinanceApiFactory factory) : IAsyncLifetime
     public async Task ChecksRegisteredDocumentsBeyondTheFirstLookupBatch()
     {
         var rows = Enumerable.Range(1, 1500)
-            .Select(i => new object[] { $"Supplier {i}", i.ToString("00000000000000") })
+            .Select(i => new object[] { $"Customer {i}", i.ToString("00000000000000") })
             .ToArray();
-        await factory.CreateSupplierAsync(1400.ToString("00000000000000"));
+        await factory.CreateCustomerAsync(1400.ToString("00000000000000"));
 
         var response = await client.PostAsync(Route, Spreadsheet.Upload(Headers, rows));
 
@@ -123,7 +128,7 @@ public class SupplierImportTests(FinanceApiFactory factory) : IAsyncLifetime
     public async Task ImportsLargeSpreadsheet()
     {
         var rows = Enumerable.Range(1, 1500)
-            .Select(i => new object[] { $"Supplier {i}", i.ToString("00000000000000") })
+            .Select(i => new object[] { $"Customer {i}", i.ToString("00000000000000") })
             .ToArray();
 
         var response = await client.PostAsync(Route, Spreadsheet.Upload(Headers, rows));
@@ -154,7 +159,7 @@ public class SupplierImportTests(FinanceApiFactory factory) : IAsyncLifetime
     public async Task RejectsFileThatIsNotASpreadsheet()
     {
         var response = await client.PostAsync(Route,
-            Spreadsheet.Upload(Encoding.UTF8.GetBytes("not a spreadsheet"), "suppliers.xlsx"));
+            Spreadsheet.Upload(Encoding.UTF8.GetBytes("not a spreadsheet"), "customers.xlsx"));
 
         var errors = await ErrorsAsync(response);
         Assert.Equal(["File"], errors.Keys);
@@ -165,7 +170,7 @@ public class SupplierImportTests(FinanceApiFactory factory) : IAsyncLifetime
     {
         var content = Spreadsheet.Build(Headers, ["Acme Ltda", "12345678000195"]);
 
-        var response = await client.PostAsync(Route, Spreadsheet.Upload(content, "suppliers.csv"));
+        var response = await client.PostAsync(Route, Spreadsheet.Upload(content, "customers.csv"));
 
         var errors = await ErrorsAsync(response);
         Assert.Equal(["File"], errors.Keys);
@@ -181,6 +186,57 @@ public class SupplierImportTests(FinanceApiFactory factory) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task AssignsTheRequestedType()
+    {
+        var customers = await ImportAsync("Customer", ["Acme Ltda", "12345678000195"]);
+        var suppliers = await ImportAsync("Supplier", ["Imobiliaria Central", "98765432000110"]);
+
+        Assert.Equal(StakeholderType.Customer, Assert.Single(customers).Type);
+        Assert.Equal(StakeholderType.Supplier, Assert.Single(suppliers).Type);
+    }
+
+    [Fact]
+    public async Task AcceptsDocumentRegisteredWithOtherType()
+    {
+        await factory.CreateSupplierAsync("12345678000195");
+
+        var customers = await ImportAsync("Customer", ["Acme Ltda", "12345678000195"]);
+
+        Assert.Equal(StakeholderType.Customer, Assert.Single(customers).Type);
+        Assert.Equal(2, await CountAsync());
+    }
+
+    [Theory]
+    [InlineData("/stakeholders/import")]
+    [InlineData("/stakeholders/import?type=99")]
+    public async Task RejectsMissingOrUndefinedType(string route)
+    {
+        var response = await client.PostAsync(route, Spreadsheet.Upload(Headers, ["Acme Ltda", "12345678000195"]));
+
+        var errors = await ErrorsAsync(response);
+        Assert.Equal(["Type"], errors.Keys);
+        Assert.Equal(0, await CountAsync());
+    }
+
+    [Fact]
+    public async Task RejectsUnknownTypeName()
+    {
+        var response = await client.PostAsync(
+            "/stakeholders/import?type=Partner", Spreadsheet.Upload(Headers, ["Acme Ltda", "12345678000195"]));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(0, await CountAsync());
+    }
+
+    private async Task<StakeholderDto[]> ImportAsync(string type, params object[][] rows)
+    {
+        var response = await client.PostAsync($"/stakeholders/import?type={type}", Spreadsheet.Upload(Headers, rows));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<StakeholderDto[]>(Json))!;
+    }
+
     private static async Task<IDictionary<string, string[]>> ErrorsAsync(HttpResponseMessage response)
     {
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -192,6 +248,6 @@ public class SupplierImportTests(FinanceApiFactory factory) : IAsyncLifetime
     private async Task<int> CountAsync()
     {
         await using var scope = factory.Services.CreateAsyncScope();
-        return await scope.ServiceProvider.GetRequiredService<FinanceDbContext>().Suppliers.CountAsync();
+        return await scope.ServiceProvider.GetRequiredService<FinanceDbContext>().Stakeholders.CountAsync();
     }
 }

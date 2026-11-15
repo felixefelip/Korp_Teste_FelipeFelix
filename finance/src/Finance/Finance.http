@@ -24,7 +24,7 @@ Content-Type: application/json
 {
   "bankAccountId": 1,
   "description": "Aluguel de dezembro",
-  "supplierId": 1,
+  "supplierId": 2,
   "amount": 4200.00,
   "dueDate": "2026-12-05"
 }
@@ -84,32 +84,29 @@ Accept: application/json
 
 ###
 
-POST {{Finance_HostAddress}}/customers
+POST {{Finance_HostAddress}}/stakeholders
 Content-Type: application/json
 
 {
   "name": "Acme Ltda",
-  "document": "12345678000195"
+  "document": "12345678000195",
+  "type": "Customer"
 }
 
 ###
 
-GET {{Finance_HostAddress}}/customers/1
-Accept: application/json
-
-###
-
-POST {{Finance_HostAddress}}/suppliers
+POST {{Finance_HostAddress}}/stakeholders
 Content-Type: application/json
 
 {
   "name": "Imobiliaria Central",
-  "document": "98765432000110"
+  "document": "98765432000110",
+  "type": "Supplier"
 }
 
 ###
 
-GET {{Finance_HostAddress}}/suppliers/1
+GET {{Finance_HostAddress}}/stakeholders/1
 Accept: application/json
 
 ###

@@ -19,7 +19,7 @@ public class ReceivableConfiguration : IEntityTypeConfiguration<Receivable>
             .WithMany()
             .HasForeignKey(r => r.BankAccountId)
             .OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Customer>()
+        builder.HasOne<Stakeholder>()
             .WithMany()
             .HasForeignKey(r => r.CustomerId)
             .OnDelete(DeleteBehavior.Restrict);

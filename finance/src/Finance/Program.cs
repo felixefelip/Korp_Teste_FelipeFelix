@@ -1,10 +1,9 @@
 using System.Text.Json.Serialization;
 using Finance.Data;
 using Finance.Features.BankAccounts;
-using Finance.Features.Customers;
 using Finance.Features.Payables;
 using Finance.Features.Receivables;
-using Finance.Features.Suppliers;
+using Finance.Features.Stakeholders;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -37,7 +36,6 @@ app.MapReceivablePayments();
 app.MapPayables();
 app.MapPayablePayments();
 app.MapBankAccounts();
-app.MapCustomers();
-app.MapSuppliers();
+app.MapStakeholders();
 
 app.Run();

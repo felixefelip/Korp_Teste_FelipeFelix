@@ -19,7 +19,7 @@ public class PayableConfiguration : IEntityTypeConfiguration<Payable>
             .WithMany()
             .HasForeignKey(p => p.BankAccountId)
             .OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Supplier>()
+        builder.HasOne<Stakeholder>()
             .WithMany()
             .HasForeignKey(p => p.SupplierId)
             .OnDelete(DeleteBehavior.Restrict);

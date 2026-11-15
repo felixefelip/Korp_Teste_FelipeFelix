@@ -27,7 +27,7 @@ public static class PayableEndpoints
             errors[nameof(dto.BankAccountId)] = ["Bank account not found."];
         }
 
-        if (!await db.Suppliers.AnyAsync(c => c.Id == supplierId, cancellationToken))
+        if (!await db.Stakeholders.AnyAsync(s => s.Id == supplierId && s.Type == StakeholderType.Supplier, cancellationToken))
         {
             errors[nameof(dto.SupplierId)] = ["Supplier not found."];
         }

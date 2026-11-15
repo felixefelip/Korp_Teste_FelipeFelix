@@ -27,7 +27,7 @@ public static class ReceivableEndpoints
             errors[nameof(dto.BankAccountId)] = ["Bank account not found."];
         }
 
-        if (!await db.Customers.AnyAsync(c => c.Id == customerId, cancellationToken))
+        if (!await db.Stakeholders.AnyAsync(s => s.Id == customerId && s.Type == StakeholderType.Customer, cancellationToken))
         {
             errors[nameof(dto.CustomerId)] = ["Customer not found."];
         }

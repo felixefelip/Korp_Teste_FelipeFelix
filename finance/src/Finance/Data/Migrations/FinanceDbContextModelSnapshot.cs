@@ -96,15 +96,18 @@ namespace Finance.Data.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<string>("SupplierName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                    b.Property<int>("SupplierId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -112,9 +115,42 @@ namespace Finance.Data.Migrations
 
                     b.HasIndex("DueDate");
 
+                    b.HasIndex("SupplierId");
+
                     b.ToTable("Payables", null, t =>
                         {
                             t.HasCheckConstraint("CK_Payables_PaidAmount", "[PaidAmount] >= 0 AND [PaidAmount] <= [Amount]");
+                        });
+                });
+
+            modelBuilder.Entity("Finance.Domain.PayablePayment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateOnly>("PaidOn")
+                        .HasColumnType("date");
+
+                    b.Property<int>("PayableId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PayableId");
+
+                    b.ToTable("PayablePayments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PayablePayments_Amount", "[Amount] > 0");
                         });
                 });
 
@@ -136,10 +172,8 @@ namespace Finance.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("CustomerName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -153,6 +187,11 @@ namespace Finance.Data.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -162,6 +201,8 @@ namespace Finance.Data.Migrations
 
                     b.HasIndex("BankAccountId");
 
+                    b.HasIndex("CustomerId");
+
                     b.HasIndex("DueDate");
 
                     b.ToTable("Receivables", null, t =>
@@ -170,12 +211,93 @@ namespace Finance.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Finance.Domain.ReceivablePayment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateOnly>("PaidOn")
+                        .HasColumnType("date");
+
+                    b.Property<int>("ReceivableId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReceivableId");
+
+                    b.ToTable("ReceivablePayments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ReceivablePayments_Amount", "[Amount] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Finance.Domain.Stakeholder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Document")
+                        .IsRequired()
+                        .HasMaxLength(14)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(14)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Type", "Document")
+                        .IsUnique();
+
+                    b.ToTable("Stakeholders", (string)null);
+                });
+
             modelBuilder.Entity("Finance.Domain.Payable", b =>
                 {
                     b.HasOne("Finance.Domain.BankAccount", null)
                         .WithMany()
                         .HasForeignKey("BankAccountId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Finance.Domain.Stakeholder", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Finance.Domain.PayablePayment", b =>
+                {
+                    b.HasOne("Finance.Domain.Payable", null)
+                        .WithMany("Payments")
+                        .HasForeignKey("PayableId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
@@ -186,6 +308,31 @@ namespace Finance.Data.Migrations
                         .HasForeignKey("BankAccountId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Finance.Domain.Stakeholder", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Finance.Domain.ReceivablePayment", b =>
+                {
+                    b.HasOne("Finance.Domain.Receivable", null)
+                        .WithMany("Payments")
+                        .HasForeignKey("ReceivableId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Finance.Domain.Payable", b =>
+                {
+                    b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("Finance.Domain.Receivable", b =>
+                {
+                    b.Navigation("Payments");
                 });
 #pragma warning restore 612, 618
         }

@@ -128,6 +128,19 @@ public class PayableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CreateRejectsCustomerAsSupplier()
+    {
+        var customerId = await factory.CreateCustomerAsync();
+
+        var response = await client.PostAsJsonAsync("/payables", ValidPayable() with { SupplierId = customerId });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(Json);
+        Assert.NotNull(problem);
+        Assert.Equal(["SupplierId"], problem.Errors.Keys);
+    }
+
+    [Fact]
     public async Task CreateReportsEveryUnknownReference()
     {
         var response = await client.PostAsJsonAsync(

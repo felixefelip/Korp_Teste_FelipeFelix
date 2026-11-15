@@ -39,8 +39,7 @@ public class FinanceApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await db.Receivables.ExecuteDeleteAsync();
         await db.Payables.ExecuteDeleteAsync();
         await db.BankAccounts.ExecuteDeleteAsync();
-        await db.Customers.ExecuteDeleteAsync();
-        await db.Suppliers.ExecuteDeleteAsync();
+        await db.Stakeholders.ExecuteDeleteAsync();
     }
 
     public async Task<int> CreateBankAccountAsync()
@@ -55,28 +54,22 @@ public class FinanceApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         return bankAccount.Id;
     }
 
-    public async Task<int> CreateCustomerAsync(string document = "12345678000195")
+    public Task<int> CreateCustomerAsync(string document = "12345678000195") =>
+        CreateStakeholderAsync("Acme Ltda", document, StakeholderType.Customer);
+
+    public Task<int> CreateSupplierAsync(string document = "98765432000110") =>
+        CreateStakeholderAsync("Imobiliaria Central", document, StakeholderType.Supplier);
+
+    private async Task<int> CreateStakeholderAsync(string name, string document, StakeholderType type)
     {
         await using var scope = Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
 
-        var customer = new Customer("Acme Ltda", document);
-        db.Customers.Add(customer);
+        var stakeholder = new Stakeholder(name, document, type);
+        db.Stakeholders.Add(stakeholder);
         await db.SaveChangesAsync();
 
-        return customer.Id;
-    }
-
-    public async Task<int> CreateSupplierAsync(string document = "98765432000110")
-    {
-        await using var scope = Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
-
-        var supplier = new Supplier("Imobiliaria Central", document);
-        db.Suppliers.Add(supplier);
-        await db.SaveChangesAsync();
-
-        return supplier.Id;
+        return stakeholder.Id;
     }
 
     Task IAsyncLifetime.DisposeAsync() => DisposeAsync().AsTask();

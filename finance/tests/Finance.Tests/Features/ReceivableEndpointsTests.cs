@@ -128,6 +128,19 @@ public class ReceivableEndpointsTests(FinanceApiFactory factory) : IAsyncLifetim
     }
 
     [Fact]
+    public async Task CreateRejectsSupplierAsCustomer()
+    {
+        var supplierId = await factory.CreateSupplierAsync();
+
+        var response = await client.PostAsJsonAsync("/receivables", ValidReceivable() with { CustomerId = supplierId });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(Json);
+        Assert.NotNull(problem);
+        Assert.Equal(["CustomerId"], problem.Errors.Keys);
+    }
+
+    [Fact]
     public async Task CreateReportsEveryUnknownReference()
     {
         var response = await client.PostAsJsonAsync(
