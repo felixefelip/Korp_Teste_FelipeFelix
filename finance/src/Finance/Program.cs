@@ -37,5 +37,6 @@ app.MapPayables();
 app.MapPayablePayments();
 app.MapBankAccounts();
 app.MapStakeholders();
+app.MapStakeholderImport();
 
 app.Run();

@@ -1,16 +1,12 @@
 using Finance.Data;
 using Finance.Domain;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace Finance.Features.BankAccounts;
 
 public static class BankAccountEndpoints
 {
-    private const int UniqueIndexViolation = 2601;
-    private const int UniqueConstraintViolation = 2627;
-
     public static void MapBankAccounts(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/bank-accounts").WithTags("BankAccounts");
@@ -31,7 +27,7 @@ public static class BankAccountEndpoints
         {
             await db.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException exception) when (IsDuplicate(exception))
+        catch (DbUpdateException exception) when (exception.IsUniqueViolation())
         {
             return TypedResults.Problem(
                 title: "Bank account already exists.",
@@ -51,9 +47,6 @@ public static class BankAccountEndpoints
             ? TypedResults.NotFound()
             : TypedResults.Ok(ToDto(bankAccount));
     }
-
-    private static bool IsDuplicate(DbUpdateException exception) =>
-        exception.InnerException is SqlException { Number: UniqueIndexViolation or UniqueConstraintViolation };
 
     private static BankAccountDto ToDto(BankAccount bankAccount) => new(
         bankAccount.Id,
