@@ -33,7 +33,9 @@ app.UseExceptionHandler(new ExceptionHandlerOptions
 app.UseStatusCodePages();
 
 app.MapReceivables();
+app.MapReceivablePayments();
 app.MapPayables();
+app.MapPayablePayments();
 app.MapBankAccounts();
 app.MapCustomers();
 app.MapSuppliers();
